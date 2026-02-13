@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('payment_plan_installments', function (Blueprint $table) {
+        Schema::create('plan_installments', function (Blueprint $table) {
             $table->id();
 
             // ==================== LINKS ====================
@@ -54,14 +54,22 @@ return new class extends Migration
             // ==================== PAYMENT DETAILS ====================
             $table->json('payment_details')->nullable();
             $table->string('payment_reference')->nullable();
-            $table->enum('payment_method', ['mpesa', 'bank', 'cash', 'cheque', 'card', 'other'])->nullable();
+            $table->enum('payment_method', [
+                'kcb_stk_push',
+                'paybill',
+                'bank_deposit',
+                'cash',
+                'helb',
+                'sponsor',
+                'other'
+            ])->nullable();
 
             // ==================== ADMINISTRATIVE ====================
             $table->text('notes')->nullable();
 
             $table->timestamps();
             $table->softDeletes();
-            
+
             // ==================== INDEXES ====================
             $table->index(['payment_plan_id', 'installment_number']);
             $table->index(['due_date', 'status']);

@@ -56,13 +56,15 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            // ========== INDEXES ==========
+            // ========== INDEXES - FIXED ==========
             $table->index('enrollment_id');
             $table->index('fee_category_id');
             $table->index('status');
             $table->index('term_number');
             $table->index('due_date');
-            $table->index(['enrollment_id', 'fee_category_id', 'item_name']);
+
+            // ✅ FIXED: Added short custom name to prevent auto-generated long name
+            $table->index(['enrollment_id', 'fee_category_id', 'item_name'], 'enroll_fee_cat_item_idx');
         });
     }
 
