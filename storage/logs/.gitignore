@@ -1,0 +1,96 @@
+# Laravel specific
+/vendor/
+/node_modules/
+/.env
+/.env.backup
+/.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+/.idea/
+/.vscode/
+/storage/*.key
+/storage/logs/*
+!/storage/logs/.gitkeep
+/storage/framework/cache/*
+!/storage/framework/cache/.gitkeep
+/storage/framework/sessions/*
+!/storage/framework/sessions/.gitkeep
+/storage/framework/testing/*
+!/storage/framework/testing/.gitkeep
+/storage/framework/views/*.php
+!/storage/framework/views/.gitkeep
+
+# Laravel backup files
+*.zip
+*.gz
+*.rar
+*.7z
+database.zip
+backup-*.sql
+
+# IDE files
+.project
+.netbeans
+*.sublime-*
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+storage/logs/*
+!storage/logs/.gitkeep
+
+# Assets
+public/hot
+public/storage
+storage/app/public/*
+!storage/app/public/.gitkeep
+
+# Testing
+.phpunit.result.cache
+phpunit.xml
+.phpunit-watcher.yml
+
+# Composer
+composer.phar
+vendor/
+
+# NPM
+node_modules/
+package-lock.json
+yarn.lock
+
+# Environment
+
+.env.production
+.env.local
+.env.*.local
+
+# Docker
+docker-compose.override.yml
+.docker/development
+.docker/production
+
+# PHPUnit
+.phpunit.result.cache
+
+# Coverage
+coverage/
+.phpunit-coverage/
+
+# Compiled files
+*.phar
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Your specific files
+database.zip
+backup.zip
+*.sql

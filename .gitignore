@@ -1,0 +1,87 @@
+*.log
+.DS_Store
+.env
+.env.backup
+.env.production
+.phpactor.json
+.phpunit.result.cache
+/.fleet
+/.idea
+/.nova
+/.phpunit.cache
+/.vscode
+/.zed
+/auth.json
+/node_modules
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/vendor
+Homestead.json
+Homestead.yaml
+Thumbs.db
+k
+
+# ============================================
+# CRITICAL ADDITIONS FOR YOUR 4.95GB ISSUE
+# ============================================
+
+# Archive files (THIS IS YOUR MAIN ISSUE!)
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# Database backups
+*.sql
+*.sql.gz
+*.sql.zip
+*.dump
+
+# Large media files (optional but recommended)
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.psd
+*.ai
+*.eps
+
+# Composer / NPM lock files (optional - some teams commit these)
+# composer.lock
+# package-lock.json
+
+# IDE files (already there but adding for completeness)
+.vscode/
+.idea/
+*.sublime-*
+
+# OS files
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Application specific
+/public/uploads/*
+/storage/app/public/*
+/storage/logs/*.log
+/bootstrap/cache/*.php
+
+# Testing
+.phpunit.result.cache
+.coverage
+.coverage.*
+.coverage.xml
+*.coverage
+*.coverage.*
+*.xml
+coverage
+
+# Debug
+*.log
+npm-debug.log
+yarn-error.log
