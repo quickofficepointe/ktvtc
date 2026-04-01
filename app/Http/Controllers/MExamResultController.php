@@ -45,217 +45,235 @@ class MExamResultController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'exam_id' => 'required|exists:m_exams,exam_id',
-            'student_id' => 'required|exists:m_students,student_id',
-            'enrollment_id' => 'required|exists:m_enrollments,enrollment_id',
-            'marks_obtained' => 'required|numeric|min:0',
-            'total_marks' => 'required|numeric|min:0',
-            'percentage' => 'required|numeric|min:0|max:100',
-            'grade' => 'nullable|string|max:5',
-            'grade_point' => 'nullable|numeric|min:0|max:4',
-            'remarks' => 'nullable|string|max:500',
-            'status' => 'required|in:pending,graded,absent,cheated,special_case',
-            'attempt_number' => 'required|integer|min:1',
-            'attempt_date' => 'nullable|date',
-            'time_taken_minutes' => 'nullable|integer|min:1',
-            'section_marks' => 'nullable|array',
-            'question_wise_marks' => 'nullable|array',
-            'grading_notes' => 'nullable|string',
-            'is_absent' => 'boolean',
-            'is_retake' => 'boolean',
-            'is_supplementary' => 'boolean',
-            'absent_reason' => 'nullable|string|max:500',
-            'class_rank' => 'nullable|integer|min:1',
-            'total_students' => 'nullable|integer|min:1',
-            'class_average' => 'nullable|numeric|min:0|max:100',
-        ]);
+ public function store(Request $request)
+{
+    $validated = $request->validate([
+        'exam_id' => 'required|exists:m_exams,exam_id',
+        'student_id' => 'required|exists:m_students,student_id',
+        'enrollment_id' => 'required|exists:m_enrollments,enrollment_id',
+        'marks_obtained' => 'required|numeric|min:0',
+        'total_marks' => 'required|numeric|min:0',
+        'percentage' => 'required|numeric|min:0|max:100',
+        'grade' => 'nullable|string|max:5',
+        'grade_point' => 'nullable|numeric|min:0|max:4',
+        'remarks' => 'nullable|string|max:500',
+        'status' => 'required|in:pending,graded,absent,cheated,special_case',
+        'attempt_number' => 'required|integer|min:1',
+        'attempt_date' => 'nullable|date',
+        'time_taken_minutes' => 'nullable|integer|min:1',
+        'section_marks' => 'nullable|array',
+        'question_wise_marks' => 'nullable|array',
+        'grading_notes' => 'nullable|string',
+        'is_absent' => 'sometimes|boolean',  // Changed from 'boolean' to 'sometimes|boolean'
+        'is_retake' => 'sometimes|boolean',  // Changed from 'boolean' to 'sometimes|boolean'
+        'is_supplementary' => 'sometimes|boolean',  // Changed from 'boolean' to 'sometimes|boolean'
+        'absent_reason' => 'nullable|string|max:500',
+        'class_rank' => 'nullable|integer|min:1',
+        'total_students' => 'nullable|integer|min:1',
+        'class_average' => 'nullable|numeric|min:0|max:100',
+    ]);
 
-        // Validate that marks obtained don't exceed total marks
-        if ($validated['marks_obtained'] > $validated['total_marks']) {
-            return redirect()->back()
-                ->with('error', 'Marks obtained cannot exceed total marks.')
-                ->withInput();
-        }
+    // Set default values for checkboxes (they are not sent when unchecked)
+    $validated['is_absent'] = $request->has('is_absent') ? 1 : 0;
+    $validated['is_retake'] = $request->has('is_retake') ? 1 : 0;
+    $validated['is_supplementary'] = $request->has('is_supplementary') ? 1 : 0;
 
-        // Validate that percentage matches calculated percentage
+    // Validate that marks obtained don't exceed total marks
+    if ($validated['marks_obtained'] > $validated['total_marks']) {
+        return redirect()->back()
+            ->with('error', 'Marks obtained cannot exceed total marks.')
+            ->withInput();
+    }
+
+    // Validate that percentage matches calculated percentage (only if not absent)
+    if (!$validated['is_absent']) {
         $calculatedPercentage = ($validated['marks_obtained'] / $validated['total_marks']) * 100;
         if (abs($validated['percentage'] - $calculatedPercentage) > 0.1) {
             return redirect()->back()
                 ->with('error', 'Percentage does not match the calculated value based on marks.')
                 ->withInput();
         }
+    }
 
-        try {
-            DB::beginTransaction();
+    try {
+        DB::beginTransaction();
 
-            // Check for duplicate result (same exam, student, and attempt)
-            $existingResult = MExamResult::where('exam_id', $validated['exam_id'])
-                ->where('student_id', $validated['student_id'])
-                ->where('attempt_number', $validated['attempt_number'])
-                ->exists();
+        // Check for duplicate result (same exam, student, and attempt)
+        $existingResult = MExamResult::where('exam_id', $validated['exam_id'])
+            ->where('student_id', $validated['student_id'])
+            ->where('attempt_number', $validated['attempt_number'])
+            ->exists();
 
-            if ($existingResult) {
-                return redirect()->back()
-                    ->with('error', 'A result for this exam, student, and attempt number already exists.')
-                    ->withInput();
-            }
-
-            // Auto-calculate grade if not provided
-            if (empty($validated['grade']) && $validated['status'] === 'graded') {
-                $validated['grade'] = $this->calculateGrade($validated['percentage']);
-            }
-
-            // Auto-calculate grade point if not provided
-            if (empty($validated['grade_point']) && $validated['status'] === 'graded' && !empty($validated['grade'])) {
-                $validated['grade_point'] = $this->calculateGradePoint($validated['grade']);
-            }
-
-            // Set graded information if status is graded
-            if ($validated['status'] === 'graded') {
-                $validated['graded_by'] = Auth::id();
-                $validated['graded_at'] = now();
-            }
-
-            // Handle absent status
-            if ($validated['is_absent']) {
-                $validated['status'] = 'absent';
-                $validated['marks_obtained'] = 0;
-                $validated['percentage'] = 0;
-            }
-
-            // Add created by information
-            $validated['created_by'] = Auth::id();
-
-            $result = MExamResult::create($validated);
-
-            // Update class statistics if provided
-            if ($request->has('class_rank') || $request->has('total_students') || $request->has('class_average')) {
-                $this->updateClassStatistics($result->exam_id);
-            }
-
-            DB::commit();
-
-            return redirect()->route('exam-results.index')
-                ->with('success', 'Exam result created successfully!');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
+        if ($existingResult) {
             return redirect()->back()
-                ->with('error', 'Failed to create exam result: ' . $e->getMessage())
+                ->with('error', 'A result for this exam, student, and attempt number already exists.')
                 ->withInput();
         }
+
+        // Auto-calculate grade if not provided and status is graded
+        if (empty($validated['grade']) && $validated['status'] === 'graded' && !$validated['is_absent']) {
+            $validated['grade'] = $this->calculateGrade($validated['percentage']);
+        }
+
+        // Auto-calculate grade point if not provided
+        if (empty($validated['grade_point']) && $validated['status'] === 'graded' && !empty($validated['grade']) && !$validated['is_absent']) {
+            $validated['grade_point'] = $this->calculateGradePoint($validated['grade']);
+        }
+
+        // Set graded information if status is graded
+        if ($validated['status'] === 'graded') {
+            $validated['graded_by'] = Auth::id();
+            $validated['graded_at'] = now();
+        }
+
+        // Handle absent status
+        if ($validated['is_absent']) {
+            $validated['status'] = 'absent';
+            $validated['marks_obtained'] = 0;
+            $validated['percentage'] = 0;
+            $validated['grade'] = null;
+            $validated['grade_point'] = null;
+        }
+
+        // Add created by information
+        $validated['created_by'] = Auth::id();
+
+        $result = MExamResult::create($validated);
+
+        // Update class statistics if provided
+        if ($request->has('class_rank') || $request->has('total_students') || $request->has('class_average')) {
+            $this->updateClassStatistics($result->exam_id);
+        }
+
+        DB::commit();
+
+        return redirect()->route('mschool.exam-results.index')
+            ->with('success', 'Exam result created successfully!');
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return redirect()->back()
+            ->with('error', 'Failed to create exam result: ' . $e->getMessage())
+            ->withInput();
     }
+}
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, MExamResult $examResult)
-    {
-        $validated = $request->validate([
-            'exam_id' => 'required|exists:m_exams,exam_id',
-            'student_id' => 'required|exists:m_students,student_id',
-            'enrollment_id' => 'required|exists:m_enrollments,enrollment_id',
-            'marks_obtained' => 'required|numeric|min:0',
-            'total_marks' => 'required|numeric|min:0',
-            'percentage' => 'required|numeric|min:0|max:100',
-            'grade' => 'nullable|string|max:5',
-            'grade_point' => 'nullable|numeric|min:0|max:4',
-            'remarks' => 'nullable|string|max:500',
-            'status' => 'required|in:pending,graded,absent,cheated,special_case',
-            'attempt_number' => 'required|integer|min:1',
-            'attempt_date' => 'nullable|date',
-            'time_taken_minutes' => 'nullable|integer|min:1',
-            'section_marks' => 'nullable|array',
-            'question_wise_marks' => 'nullable|array',
-            'grading_notes' => 'nullable|string',
-            'is_absent' => 'boolean',
-            'is_retake' => 'boolean',
-            'is_supplementary' => 'boolean',
-            'absent_reason' => 'nullable|string|max:500',
-            'class_rank' => 'nullable|integer|min:1',
-            'total_students' => 'nullable|integer|min:1',
-            'class_average' => 'nullable|numeric|min:0|max:100',
-        ]);
+public function update(Request $request, MExamResult $examResult)
+{
+    $validated = $request->validate([
+        'exam_id' => 'required|exists:m_exams,exam_id',
+        'student_id' => 'required|exists:m_students,student_id',
+        'enrollment_id' => 'required|exists:m_enrollments,enrollment_id',
+        'marks_obtained' => 'required|numeric|min:0',
+        'total_marks' => 'required|numeric|min:0',
+        'percentage' => 'required|numeric|min:0|max:100',
+        'grade' => 'nullable|string|max:5',
+        'grade_point' => 'nullable|numeric|min:0|max:4',
+        'remarks' => 'nullable|string|max:500',
+        'status' => 'required|in:pending,graded,absent,cheated,special_case',
+        'attempt_number' => 'required|integer|min:1',
+        'attempt_date' => 'nullable|date',
+        'time_taken_minutes' => 'nullable|integer|min:1',
+        'section_marks' => 'nullable|array',
+        'question_wise_marks' => 'nullable|array',
+        'grading_notes' => 'nullable|string',
+        'is_absent' => 'sometimes|boolean',  // Changed from 'boolean' to 'sometimes|boolean'
+        'is_retake' => 'sometimes|boolean',  // Changed from 'boolean' to 'sometimes|boolean'
+        'is_supplementary' => 'sometimes|boolean',  // Changed from 'boolean' to 'sometimes|boolean'
+        'absent_reason' => 'nullable|string|max:500',
+        'class_rank' => 'nullable|integer|min:1',
+        'total_students' => 'nullable|integer|min:1',
+        'class_average' => 'nullable|numeric|min:0|max:100',
+    ]);
 
-        // Validate that marks obtained don't exceed total marks
-        if ($validated['marks_obtained'] > $validated['total_marks']) {
-            return redirect()->back()
-                ->with('error', 'Marks obtained cannot exceed total marks.')
-                ->withInput();
-        }
+    // Set default values for checkboxes (they are not sent when unchecked)
+    $validated['is_absent'] = $request->has('is_absent') ? 1 : 0;
+    $validated['is_retake'] = $request->has('is_retake') ? 1 : 0;
+    $validated['is_supplementary'] = $request->has('is_supplementary') ? 1 : 0;
 
-        // Validate that percentage matches calculated percentage
+    // Validate that marks obtained don't exceed total marks
+    if ($validated['marks_obtained'] > $validated['total_marks']) {
+        return redirect()->back()
+            ->with('error', 'Marks obtained cannot exceed total marks.')
+            ->withInput();
+    }
+
+    // Validate that percentage matches calculated percentage (only if not absent)
+    if (!$validated['is_absent']) {
         $calculatedPercentage = ($validated['marks_obtained'] / $validated['total_marks']) * 100;
         if (abs($validated['percentage'] - $calculatedPercentage) > 0.1) {
             return redirect()->back()
                 ->with('error', 'Percentage does not match the calculated value based on marks.')
                 ->withInput();
         }
+    }
 
-        try {
-            DB::beginTransaction();
+    try {
+        DB::beginTransaction();
 
-            // Check for duplicate result (same exam, student, and attempt, excluding current)
-            $existingResult = MExamResult::where('exam_id', $validated['exam_id'])
-                ->where('student_id', $validated['student_id'])
-                ->where('attempt_number', $validated['attempt_number'])
-                ->where('result_id', '!=', $examResult->result_id)
-                ->exists();
+        // Check for duplicate result (same exam, student, and attempt, excluding current)
+        $existingResult = MExamResult::where('exam_id', $validated['exam_id'])
+            ->where('student_id', $validated['student_id'])
+            ->where('attempt_number', $validated['attempt_number'])
+            ->where('result_id', '!=', $examResult->result_id)
+            ->exists();
 
-            if ($existingResult) {
-                return redirect()->back()
-                    ->with('error', 'Another result for this exam, student, and attempt number already exists.')
-                    ->withInput();
-            }
-
-            // Auto-calculate grade if not provided and status is graded
-            if (empty($validated['grade']) && $validated['status'] === 'graded') {
-                $validated['grade'] = $this->calculateGrade($validated['percentage']);
-            }
-
-            // Auto-calculate grade point if not provided
-            if (empty($validated['grade_point']) && $validated['status'] === 'graded' && !empty($validated['grade'])) {
-                $validated['grade_point'] = $this->calculateGradePoint($validated['grade']);
-            }
-
-            // Update graded information if status changed to graded
-            if ($validated['status'] === 'graded' && $examResult->status !== 'graded') {
-                $validated['graded_by'] = Auth::id();
-                $validated['graded_at'] = now();
-            }
-
-            // Handle absent status
-            if ($validated['is_absent']) {
-                $validated['status'] = 'absent';
-                $validated['marks_obtained'] = 0;
-                $validated['percentage'] = 0;
-            }
-
-            // Add updated by information
-            $validated['updated_by'] = Auth::id();
-
-            $examResult->update($validated);
-
-            // Update class statistics if provided
-            if ($request->has('class_rank') || $request->has('total_students') || $request->has('class_average')) {
-                $this->updateClassStatistics($examResult->exam_id);
-            }
-
-            DB::commit();
-
-            return redirect()->route('exam-results.index')
-                ->with('success', 'Exam result updated successfully!');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
+        if ($existingResult) {
             return redirect()->back()
-                ->with('error', 'Failed to update exam result: ' . $e->getMessage())
+                ->with('error', 'Another result for this exam, student, and attempt number already exists.')
                 ->withInput();
         }
+
+        // Auto-calculate grade if not provided and status is graded
+        if (empty($validated['grade']) && $validated['status'] === 'graded' && !$validated['is_absent']) {
+            $validated['grade'] = $this->calculateGrade($validated['percentage']);
+        }
+
+        // Auto-calculate grade point if not provided
+        if (empty($validated['grade_point']) && $validated['status'] === 'graded' && !empty($validated['grade']) && !$validated['is_absent']) {
+            $validated['grade_point'] = $this->calculateGradePoint($validated['grade']);
+        }
+
+        // Update graded information if status changed to graded
+        if ($validated['status'] === 'graded' && $examResult->status !== 'graded') {
+            $validated['graded_by'] = Auth::id();
+            $validated['graded_at'] = now();
+        }
+
+        // Handle absent status
+        if ($validated['is_absent']) {
+            $validated['status'] = 'absent';
+            $validated['marks_obtained'] = 0;
+            $validated['percentage'] = 0;
+            $validated['grade'] = null;
+            $validated['grade_point'] = null;
+        }
+
+        // Add updated by information
+        $validated['updated_by'] = Auth::id();
+
+        $examResult->update($validated);
+
+        // Update class statistics if provided
+        if ($request->has('class_rank') || $request->has('total_students') || $request->has('class_average')) {
+            $this->updateClassStatistics($examResult->exam_id);
+        }
+
+        DB::commit();
+
+        return redirect()->route('mschool.exam-results.index')
+            ->with('success', 'Exam result updated successfully!');
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return redirect()->back()
+            ->with('error', 'Failed to update exam result: ' . $e->getMessage())
+            ->withInput();
     }
+}
 
     /**
      * Remove the specified resource from storage.

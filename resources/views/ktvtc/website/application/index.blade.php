@@ -129,10 +129,7 @@
                                     </svg>
                                     <h3 class="text-lg font-bold text-gray-800">Applying for: <span class="text-green-700">{{ $course->name }}</span></h3>
                                 </div>
-                                <a href="{{ route('application.form') }}"
-                                   class="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium">
-                                    Change Course
-                                </a>
+
                             </div>
 
                             <!-- Course Details -->
@@ -183,6 +180,7 @@
                         <!-- Intake and Study Mode Selection -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                            <!-- Intake Selection with Separate Sections -->
+<!-- Intake Selection with Separate Sections and 2026 Priority -->
 <div>
     <label class="block text-sm font-medium text-gray-700 mb-2">Intake Period *</label>
     <select name="intake_period" id="intakePeriod" required
@@ -191,18 +189,74 @@
 
         @if($course && $course->intakes->count() > 0)
             @php
-                $futureIntakes = $course->intakes->filter(fn($i) => !$i->is_past);
+                // Separate intakes into 2026, future, and past
+                $year2026Intakes = $course->intakes->filter(fn($i) => $i->year == 2026 && !$i->is_past);
+                $futureIntakes = $course->intakes->filter(fn($i) => $i->year > 2026 && !$i->is_past);
+                $otherFutureIntakes = $course->intakes->filter(fn($i) => $i->year < 2026 && $i->year >= date('Y') && !$i->is_past);
                 $pastIntakes = $course->intakes->filter(fn($i) => $i->is_past);
+
+                // Sort intakes by month order
+                $monthOrder = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+                $year2026Intakes = $year2026Intakes->sortBy(function($intake) use ($monthOrder) {
+                    return array_search($intake->month, $monthOrder);
+                });
+
+                $futureIntakes = $futureIntakes->sortBy(function($intake) use ($monthOrder) {
+                    return $intake->year * 100 + array_search($intake->month, $monthOrder);
+                });
+
+                $otherFutureIntakes = $otherFutureIntakes->sortBy(function($intake) use ($monthOrder) {
+                    return $intake->year * 100 + array_search($intake->month, $monthOrder);
+                });
+
+                $pastIntakes = $pastIntakes->sortByDesc(function($intake) use ($monthOrder) {
+                    return $intake->year * 100 + array_search($intake->month, $monthOrder);
+                });
             @endphp
 
+            @if($year2026Intakes->count() > 0)
+                <optgroup label="2026 Intakes (Priority)">
+                    @foreach($year2026Intakes as $intake)
+                        @php
+                            $deadlineDate = $intake->application_deadline ? $intake->application_deadline->format('M j, Y') : null;
+                        @endphp
+                        <option value="{{ $intake->month }} {{ $intake->year }}"
+                                class="text-green-700 font-medium bg-green-50">
+                             {{ $intake->month }} {{ $intake->year }}
+                            @if($deadlineDate)
+                                (Deadline: {{ $deadlineDate }})
+                            @endif
+                        </option>
+                    @endforeach
+                </optgroup>
+            @endif
+
             @if($futureIntakes->count() > 0)
-                <optgroup label="Upcoming Intakes">
+                <optgroup label="Future Intakes (2027+)">
                     @foreach($futureIntakes as $intake)
                         @php
                             $deadlineDate = $intake->application_deadline ? $intake->application_deadline->format('M j, Y') : null;
                         @endphp
                         <option value="{{ $intake->month }} {{ $intake->year }}"
-                                class="text-green-700 font-medium">
+                                class="text-blue-700">
+                            {{ $intake->month }} {{ $intake->year }}
+                            @if($deadlineDate)
+                                (Deadline: {{ $deadlineDate }})
+                            @endif
+                        </option>
+                    @endforeach
+                </optgroup>
+            @endif
+
+            @if($otherFutureIntakes->count() > 0)
+                <optgroup label="Other Upcoming Intakes">
+                    @foreach($otherFutureIntakes as $intake)
+                        @php
+                            $deadlineDate = $intake->application_deadline ? $intake->application_deadline->format('M j, Y') : null;
+                        @endphp
+                        <option value="{{ $intake->month }} {{ $intake->year }}"
+                                class="text-gray-700">
                             {{ $intake->month }} {{ $intake->year }}
                             @if($deadlineDate)
                                 (Deadline: {{ $deadlineDate }})
@@ -213,7 +267,7 @@
             @endif
 
             @if($pastIntakes->count() > 0)
-                <optgroup label=" Past Intakes (Manual Applications)">
+                <optgroup label="Past Intakes (Manual Applications)">
                     @foreach($pastIntakes as $intake)
                         <option value="{{ $intake->month }} {{ $intake->year }}"
                                 class="text-gray-500">
@@ -228,6 +282,15 @@
     @error('intake_period')
         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
     @enderror
+
+    @if(isset($year2026Intakes) && $year2026Intakes->count() > 0)
+        <p class="text-sm text-green-600 mt-2 flex items-start">
+            <svg class="w-4 h-4 mr-1 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+
+        </p>
+    @endif
 
     @if(isset($pastIntakes) && $pastIntakes->count() > 0)
         <p class="text-sm text-amber-600 mt-2 flex items-start">

@@ -65,13 +65,13 @@
                             </td>
                             <td class="px-6 py-4">
                                 <span class="inline-flex items-center px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
-                                    {{ $template->template_type }}
+                                    {{ ucfirst($template->template_type) }}
                                 </span>
                             </td>
                             <td class="px-6 py-4">
                                 <div class="text-sm">
-                                    <p>Name: {{ $template->name_x }},{{ $template->name_y }}</p>
-                                    <p>Course: {{ $template->course_x }},{{ $template->course_y }}</p>
+                                    <p>Name: {{ $template->name_x }}, {{ $template->name_y }}</p>
+                                    <p>Course: {{ $template->course_x }}, {{ $template->course_y }}</p>
                                 </div>
                             </td>
                             <td class="px-6 py-4">
@@ -84,7 +84,7 @@
                                             class="text-green-600 hover:text-green-800">
                                         Test
                                     </button>
-                                    <button onclick="confirmDelete('{{ route('mschool.certificate-templates.destroy', $template->template_id) }}')"
+                                    <button onclick="confirmDelete({{ $template->template_id }})"
                                             class="text-red-600 hover:text-red-800">
                                         Delete
                                     </button>
@@ -131,6 +131,7 @@
             <div class="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
                 <form id="templateForm" method="POST" enctype="multipart/form-data">
                     @csrf
+                    <input type="hidden" name="_method" id="methodField" value="POST">
                     <input type="hidden" id="templateId" name="template_id">
 
                     <div class="space-y-6">
@@ -156,7 +157,7 @@
 
                         <!-- PDF File -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">PDF Template *</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">PDF Template <span id="fileRequired">*</span></label>
                             <input type="file" id="templateFile" name="template_file" accept=".pdf"
                                    class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
                             <p class="text-sm text-gray-500 mt-1" id="currentFile"></p>
@@ -165,29 +166,39 @@
                         <!-- Coordinates -->
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Student Name X</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Student Name X (points)</label>
                                 <input type="number" id="nameX" name="name_x" required
                                        class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
-                                       value="50">
+                                       value="420">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Student Name Y</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Student Name Y (points)</label>
                                 <input type="number" id="nameY" name="name_y" required
                                        class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
-                                       value="120">
+                                       value="250">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Course Name X</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Course Name X (points)</label>
                                 <input type="number" id="courseX" name="course_x" required
                                        class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
-                                       value="50">
+                                       value="425">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Course Name Y</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Course Name Y (points)</label>
                                 <input type="number" id="courseY" name="course_y" required
                                        class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
-                                       value="150">
+                                       value="300">
                             </div>
+                        </div>
+
+                        <!-- Coordinate Help Text -->
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <p class="text-xs text-blue-800">
+                                <strong>Tip:</strong> Based on your certificate design, these coordinates should place text correctly:
+                                <br>• Student Name: X=420, Y=250 (≈ 148mm, 88mm)
+                                <br>• Course Name: X=425, Y=300 (≈ 150mm, 106mm)
+                                <br>Use the <strong>Test</strong> button to preview and adjust if needed.
+                            </p>
                         </div>
                     </div>
 
@@ -278,24 +289,38 @@
         </div>
     </div>
 </div>
-
 <script>
+// Store base URLs for routes
+const routes = {
+    store: '{{ route("mschool.certificate-templates.store") }}',
+    edit: '{{ route("mschool.certificate-templates.edit", ["certificateTemplate" => ":id"]) }}',
+    update: '{{ route("mschool.certificate-templates.update", ["certificateTemplate" => ":id"]) }}',
+    test: '{{ route("mschool.certificate-templates.test", ["certificateTemplate" => ":id"]) }}',
+    destroy: '{{ route("mschool.certificate-templates.destroy", ["certificateTemplate" => ":id"]) }}'
+};
+
+// Helper function to replace route parameter
+function replaceRouteParam(route, id) {
+    return route.replace(':id', id);
+}
+
 // Open create modal
 function openCreateModal() {
     document.getElementById('modalTitle').textContent = 'Create Template';
-    document.getElementById('templateForm').action = '{{ route("mschool.certificate-templates.store") }}';
-    document.getElementById('templateForm').method = 'POST';
+    document.getElementById('methodField').value = 'POST';
+    document.getElementById('templateForm').action = routes.store;
 
-    // Reset form
+    // Reset form with default coordinates
     document.getElementById('templateId').value = '';
     document.getElementById('templateName').value = '';
     document.getElementById('templateType').value = '';
     document.getElementById('templateFile').required = true;
+    document.getElementById('fileRequired').textContent = '*';
     document.getElementById('currentFile').textContent = '';
-    document.getElementById('nameX').value = '50';
-    document.getElementById('nameY').value = '120';
-    document.getElementById('courseX').value = '50';
-    document.getElementById('courseY').value = '150';
+    document.getElementById('nameX').value = '420';
+    document.getElementById('nameY').value = '250';
+    document.getElementById('courseX').value = '425';
+    document.getElementById('courseY').value = '300';
 
     document.getElementById('templateModal').classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
@@ -303,18 +328,31 @@ function openCreateModal() {
 
 // Open edit modal
 function openEditModal(templateId) {
-    fetch(`/certificate-templates/${templateId}`)
-        .then(response => response.json())
+    const editUrl = replaceRouteParam(routes.edit, templateId);
+
+    fetch(editUrl)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
         .then(data => {
+            if (!data.success) {
+                throw new Error(data.message || 'Failed to load template');
+            }
+
             document.getElementById('modalTitle').textContent = 'Edit Template';
-            document.getElementById('templateForm').action = `/mschool/certificate-templates/${templateId}`;
-            document.getElementById('templateForm').method = 'PUT';
+            document.getElementById('methodField').value = 'PUT';
+            const updateUrl = replaceRouteParam(routes.update, templateId);
+            document.getElementById('templateForm').action = updateUrl;
 
             document.getElementById('templateId').value = data.template_id;
             document.getElementById('templateName').value = data.template_name;
             document.getElementById('templateType').value = data.template_type;
             document.getElementById('templateFile').required = false;
-            document.getElementById('currentFile').textContent = `Current: ${data.template_file.split('/').pop()}`;
+            document.getElementById('fileRequired').textContent = ' (optional)';
+            document.getElementById('currentFile').textContent = `Current file: ${data.template_file.split('/').pop()}`;
             document.getElementById('nameX').value = data.name_x;
             document.getElementById('nameY').value = data.name_y;
             document.getElementById('courseX').value = data.course_x;
@@ -325,19 +363,21 @@ function openEditModal(templateId) {
         })
         .catch(error => {
             console.error('Error loading template:', error);
-            alert('Error loading template data');
+            alert('Error loading template data: ' + error.message);
         });
 }
 
 // Test template
 function testTemplate(templateId) {
-    document.getElementById('testForm').action = `/mschool/certificate-templates/${templateId}/test`;
+    const testUrl = replaceRouteParam(routes.test, templateId);
+    document.getElementById('testForm').action = testUrl;
     document.getElementById('testModal').classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
 }
 
 // Delete confirmation
-function confirmDelete(deleteUrl) {
+function confirmDelete(templateId) {
+    const deleteUrl = replaceRouteParam(routes.destroy, templateId);
     document.getElementById('deleteForm').action = deleteUrl;
     document.getElementById('deleteModal').classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
@@ -367,5 +407,191 @@ document.addEventListener('keydown', function(event) {
         closeDeleteModal();
     }
 });
+
+// Handle create/edit form submission
+document.getElementById('templateForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const formData = new FormData(this);
+    const url = this.action;
+    const method = document.getElementById('methodField').value;
+
+    // For PUT requests, add the _method field
+    if (method === 'PUT') {
+        formData.append('_method', 'PUT');
+    }
+
+    // Show loading state
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Saving...';
+    submitBtn.disabled = true;
+
+    fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        // Check if response is a redirect
+        if (response.redirected) {
+            window.location.href = response.url;
+            return;
+        }
+
+        // Check content type
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            return response.json();
+        }
+
+        // If not JSON, assume it's a redirect
+        return response.text().then(text => {
+            if (text.includes('redirect')) {
+                window.location.reload();
+            }
+            throw new Error('Unexpected response format');
+        });
+    })
+    .then(data => {
+        if (data && !data.success) {
+            throw new Error(data.message || 'An error occurred');
+        }
+        // Close modal and reload on success
+        closeTemplateModal();
+        window.location.reload();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error: ' + error.message);
+        // Reset button
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+    });
+});
+
+// Handle test form submission
+document.getElementById('testForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const url = this.action;
+    const formData = new FormData(this);
+
+    // Show loading state
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Generating...';
+    submitBtn.disabled = true;
+
+    // Create a new window to show the PDF
+    const pdfWindow = window.open('', '_blank');
+    if (pdfWindow) {
+        pdfWindow.document.write('<div style="text-align:center; padding:50px; font-family:sans-serif;">');
+        pdfWindow.document.write('<h2>Generating Certificate...</h2>');
+        pdfWindow.document.write('<p>Please wait while we create your test certificate.</p>');
+        pdfWindow.document.write('<div style="margin-top:20px;"><div class="spinner"></div></div>');
+        pdfWindow.document.write('</div>');
+        pdfWindow.document.write('<style>.spinner { border: 4px solid #f3f3f3; border-top: 4px solid #B91C1C; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto; } @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>');
+    }
+
+    fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value
+        }
+    })
+    .then(response => {
+        if (response.headers.get('content-type') === 'application/pdf') {
+            return response.blob();
+        }
+        return response.json().then(data => {
+            throw new Error(data.message || 'Failed to generate certificate');
+        });
+    })
+    .then(blob => {
+        const pdfUrl = URL.createObjectURL(blob);
+        if (pdfWindow) {
+            pdfWindow.location.href = pdfUrl;
+        } else {
+            window.open(pdfUrl, '_blank');
+        }
+        closeTestModal();
+        URL.revokeObjectURL(pdfUrl);
+    })
+    .catch(error => {
+        if (pdfWindow) {
+            pdfWindow.close();
+        }
+        alert('Error: ' + error.message);
+        console.error('Test error:', error);
+    })
+    .finally(() => {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+    });
+});
+
+// Handle delete form submission
+document.getElementById('deleteForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    const url = this.action;
+    const formData = new FormData(this);
+
+    // Show loading state
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Deleting...';
+    submitBtn.disabled = true;
+
+    fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (response.redirected) {
+            window.location.href = response.url;
+            return;
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data && !data.success) {
+            throw new Error(data.message || 'An error occurred');
+        }
+        closeDeleteModal();
+        window.location.reload();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error: ' + error.message);
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+    });
+});
+
+// Add modal close on outside click
+document.addEventListener('click', function(event) {
+    const modal = document.getElementById('templateModal');
+    const testModal = document.getElementById('testModal');
+    const deleteModal = document.getElementById('deleteModal');
+
+    if (event.target.classList.contains('fixed') && event.target.classList.contains('inset-0')) {
+        closeTemplateModal();
+        closeTestModal();
+        closeDeleteModal();
+    }
+});
+
+// Log to verify routes are loaded correctly
+console.log('Routes loaded:', routes);
 </script>
 @endsection

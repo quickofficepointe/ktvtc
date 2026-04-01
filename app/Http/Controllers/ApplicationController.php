@@ -7,6 +7,7 @@ use App\Models\ApplicationPayment;
 use App\Models\Course;
 use App\Models\Campus;
 use App\Models\CourseIntakes;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
@@ -267,7 +268,7 @@ class ApplicationController extends Controller
                 $result = $this->smsService->sendSingleSms($adminPhone, $message);
                 $results[$adminPhone] = $result;
 
-                \Log::info('Admin application notification sent', [
+                Log::info('Admin application notification sent', [
                     'phone' => $adminPhone,
                     'success' => $result['success'] ?? false,
                     'application_id' => $application->id,
@@ -278,7 +279,7 @@ class ApplicationController extends Controller
             return $results;
 
         } catch (\Exception $e) {
-            \Log::error('Failed to send admin application notification: ' . $e->getMessage());
+            Log::error('Failed to send admin application notification: ' . $e->getMessage());
             return false;
         }
     }
@@ -286,29 +287,15 @@ class ApplicationController extends Controller
     /**
      * Generate admin notification message for new application
      */
-    private function generateAdminApplicationNotificationMessage(Application $application, Course $course, string $campusName): string
-    {
-        $fullName = $application->first_name . ' ' . $application->last_name;
-        $applicationTime = $application->submitted_at->format('d/m/Y H:i');
+ private function generateAdminApplicationNotificationMessage(Application $application, Course $course, string $campusName): string
+{
+    $fullName = $application->first_name . ' ' . $application->last_name;
+    $applicationTime = $application->submitted_at->format('d/m/Y H:i');
 
-        $message = "NEW APPLICATION RECEIVED\n";
-        $message .= "====================\n";
-        $message .= "App No: {$application->application_number}\n";
-        $message .= "Name: {$fullName}\n";
-        $message .= "Phone: {$application->phone}\n";
-        $message .= "Email: {$application->email}\n";
-        $message .= "Course: {$course->name}\n";
-        $message .= "Campus: {$campusName}\n";
-        $message .= "Intake: {$application->intake_period}\n";
-        $message .= "Mode: " . ucfirst(str_replace('_', ' ', $application->study_mode)) . "\n";
-        $message .= "Applied: {$applicationTime}\n";
-        $message .= "Payment: Pending (KES 500)\n";
-        $message .= "====================\n";
-        $message .= "Check admin panel for details.\n";
-        $message .= "Kenswed Technical College";
+    $message = "New application received from {$fullName} ({$application->phone}) for {$course->name} at {$campusName} campus. Application Number: {$application->application_number}. Intake: {$application->intake_period}. Mode: " . ucfirst(str_replace('_', ' ', $application->study_mode)) . ". Applied on {$applicationTime}. Registration fee of KES 500 pending. Please review in admin panel.";
 
-        return $message;
-    }
+    return $message;
+}
 
     /**
      * Send confirmation SMS to applicant
@@ -319,7 +306,7 @@ class ApplicationController extends Controller
             $message = $this->generateApplicantConfirmationMessage($application, $course);
             $result = $this->smsService->sendSingleSms($application->phone, $message);
 
-            \Log::info('Applicant confirmation SMS sent', [
+            Log::info('Applicant confirmation SMS sent', [
                 'phone' => $application->phone,
                 'success' => $result['success'] ?? false,
                 'application_id' => $application->id,
@@ -329,7 +316,7 @@ class ApplicationController extends Controller
             return $result;
 
         } catch (\Exception $e) {
-            \Log::error('Failed to send applicant confirmation: ' . $e->getMessage());
+            Log::error('Failed to send applicant confirmation: ' . $e->getMessage());
             return false;
         }
     }
@@ -337,28 +324,15 @@ class ApplicationController extends Controller
     /**
      * Generate applicant confirmation message
      */
-    private function generateApplicantConfirmationMessage(Application $application, Course $course): string
-    {
-        $fullName = $application->first_name . ' ' . $application->last_name;
-        $applicationTime = $application->submitted_at->format('d/m/Y H:i');
+private function generateApplicantConfirmationMessage(Application $application, Course $course): string
+{
+    $fullName = $application->first_name . ' ' . $application->last_name;
+    $applicationTime = $application->submitted_at->format('d/m/Y H:i');
 
-        $message = "APPLICATION SUBMITTED\n";
-        $message .= "====================\n";
-        $message .= "Dear {$fullName},\n";
-        $message .= "Your application has been received.\n\n";
-        $message .= "App No: {$application->application_number}\n";
-        $message .= "Course: {$course->name}\n";
-        $message .= "Intake: {$application->intake_period}\n";
-        $message .= "Mode: " . ucfirst(str_replace('_', ' ', $application->study_mode)) . "\n";
-        $message .= "Date: {$applicationTime}\n";
-        $message .= "====================\n";
-        $message .= "Please pay KES 500 registration fee to complete.\n";
-        $message .= "Payment link: " . route('application.payment.form', $application->id) . "\n";
-        $message .= "Thank you for choosing\n";
-        $message .= "Kenswed Technical College";
+    $message = "Dear {$fullName}, thank you for applying to Kenswed Technical College. Your application for {$course->name} ({$application->intake_period} intake) has been received. Application Number: {$application->application_number}. To complete your application, please pay the registration fee of KES 500 via: " . route('application.payment.form', $application->id) . " Regards, Kenswed Technical College.";
 
-        return $message;
-    }
+    return $message;
+}
 
     /**
      * Send payment confirmation SMS
@@ -369,7 +343,7 @@ class ApplicationController extends Controller
             $message = $this->generatePaymentConfirmationMessage($application, $payment);
             $result = $this->smsService->sendSingleSms($application->phone, $message);
 
-            \Log::info('Payment confirmation SMS sent', [
+            Log::info('Payment confirmation SMS sent', [
                 'phone' => $application->phone,
                 'success' => $result['success'] ?? false,
                 'application_id' => $application->id,
@@ -379,7 +353,7 @@ class ApplicationController extends Controller
             return $result;
 
         } catch (\Exception $e) {
-            \Log::error('Failed to send payment confirmation: ' . $e->getMessage());
+            Log::error('Failed to send payment confirmation: ' . $e->getMessage());
             return false;
         }
     }
@@ -387,25 +361,14 @@ class ApplicationController extends Controller
     /**
      * Generate payment confirmation message
      */
-    private function generatePaymentConfirmationMessage(Application $application, ApplicationPayment $payment): string
-    {
-        $fullName = $application->first_name . ' ' . $application->last_name;
+  private function generatePaymentConfirmationMessage(Application $application, ApplicationPayment $payment): string
+{
+    $fullName = $application->first_name . ' ' . $application->last_name;
 
-        $message = "PAYMENT CONFIRMED\n";
-        $message .= "====================\n";
-        $message .= "Dear {$fullName},\n\n";
-        $message .= "App No: {$application->application_number}\n";
-        $message .= "Amount: KES " . number_format($payment->amount, 2) . "\n";
-        $message .= "Receipt: {$payment->mpesa_receipt_number}\n";
-        $message .= "Date: " . now()->format('d/m/Y H:i') . "\n";
-        $message .= "====================\n";
-        $message .= "Your application is now complete.\n";
-        $message .= "We will review and contact you soon.\n";
-        $message .= "Thank you!\n";
-        $message .= "Kenswed Technical College";
+    $message = "Dear {$fullName}, payment of KES " . number_format($payment->amount, 2) . " for application {$application->application_number} has been confirmed. M-Pesa Receipt: {$payment->mpesa_receipt_number}. Your application is now complete and under review. We will contact you soon. Thank you for choosing Kenswed Technical College.";
 
-        return $message;
-    }
+    return $message;
+}
 
     /**
      * Display application success page (after payment)
@@ -526,7 +489,7 @@ class ApplicationController extends Controller
             $message = $this->generateStatusUpdateMessage($application);
             $result = $this->smsService->sendSingleSms($application->phone, $message);
 
-            \Log::info('Status update SMS sent', [
+            log::info('Status update SMS sent', [
                 'phone' => $application->phone,
                 'status' => $application->status,
                 'success' => $result['success'] ?? false,
@@ -536,7 +499,7 @@ class ApplicationController extends Controller
             return $result;
 
         } catch (\Exception $e) {
-            \Log::error('Failed to send status update: ' . $e->getMessage());
+            Log::error('Failed to send status update: ' . $e->getMessage());
             return false;
         }
     }
@@ -544,35 +507,21 @@ class ApplicationController extends Controller
     /**
      * Generate status update message
      */
-    private function generateStatusUpdateMessage(Application $application): string
-    {
-        $fullName = $application->first_name . ' ' . $application->last_name;
-        $statusText = strtoupper(str_replace('_', ' ', $application->status));
-        $courseName = $application->course ? $application->course->name : 'your course';
+private function generateStatusUpdateMessage(Application $application): string
+{
+    $fullName = $application->first_name . ' ' . $application->last_name;
+    $courseName = $application->course ? $application->course->name : 'your course';
 
-        $message = "APPLICATION STATUS UPDATE\n";
-        $message .= "====================\n";
-        $message .= "Dear {$fullName},\n\n";
-        $message .= "App No: {$application->application_number}\n";
-        $message .= "Course: {$courseName}\n";
-        $message .= "Status: {$statusText}\n";
-        $message .= "Date: " . now()->format('d/m/Y H:i') . "\n";
-        $message .= "====================\n";
-
-        if ($application->status === 'accepted') {
-            $message .= "Congratulations! Your application has been accepted.\n";
-            $message .= "You will receive admission details shortly.\n";
-        } elseif ($application->status === 'rejected') {
-            $message .= "We regret to inform you that your application was not successful.\n";
-        } elseif ($application->status === 'waiting_list') {
-            $message .= "Your application is on waiting list.\n";
-            $message .= "We'll notify you if a space becomes available.\n";
-        } else {
-            $message .= "Your application status has been updated.\n";
-        }
-
-        $message .= "\nKenswed Technical College";
-
-        return $message;
+    if ($application->status === 'accepted') {
+        $message = "Dear {$fullName}, congratulations! Your application for {$courseName} (App No: {$application->application_number}) has been accepted. Admission details will be sent to you shortly. Welcome to Kenswed Technical College.";
+    } elseif ($application->status === 'rejected') {
+        $message = "Dear {$fullName}, thank you for applying to Kenswed Technical College. We regret to inform you that your application for {$courseName} (App No: {$application->application_number}) was not successful. We wish you all the best in your future endeavors.";
+    } elseif ($application->status === 'waiting_list') {
+        $message = "Dear {$fullName}, your application for {$courseName} (App No: {$application->application_number}) has been placed on our waiting list. We will notify you immediately if a space becomes available. Thank you for your patience.";
+    } else {
+        $message = "Dear {$fullName}, your application for {$courseName} (App No: {$application->application_number}) is now {$application->status}. We will update you once a decision is made. Thank you for applying to Kenswed Technical College.";
     }
+
+    return $message;
+}
 }

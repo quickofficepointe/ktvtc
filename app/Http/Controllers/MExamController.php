@@ -31,7 +31,7 @@ class MExamController extends Controller
 
         $academicYear = date('Y') . '/' . (date('Y') + 1);
 
-        return view('ktvtc.mschool.exams.index', compact('exams', 'courses', 'subjects', 'academicYear'));
+        return view('ktvtc.mschool.exam.index', compact('exams', 'courses', 'subjects', 'academicYear'));
     }
 
     /**

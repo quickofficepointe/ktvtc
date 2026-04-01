@@ -31,7 +31,7 @@ class MCertificateTemplateController extends Controller
 
         $validator = Validator::make($request->all(), [
             'template_name' => 'required|string|max:255',
-            'template_type' => 'required|string|in:completion,participation,achievement,recognition|unique:m_certificate_templates,template_type',
+            'template_type' => 'required|string|in:completion,participation,achievement,recognition',
             'template_file' => 'required|file|mimes:pdf|max:5120',
             'name_x' => 'required|integer|min:0',
             'name_y' => 'required|integer|min:0',
@@ -43,11 +43,13 @@ class MCertificateTemplateController extends Controller
         ]);
 
         if ($validator->fails()) {
-            Log::error('Validation failed', ['errors' => $validator->errors()->toArray()]);
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
+            if ($request->ajax()) {
+                return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+            }
+            return redirect()->back()
+                ->withErrors($validator)
+                ->withInput()
+                ->with('error', 'Please fix the validation errors below.');
         }
 
         DB::beginTransaction();
@@ -70,7 +72,7 @@ class MCertificateTemplateController extends Controller
 
             Log::info('File stored', [
                 'file_path' => $filePath,
-                'relative_path' => $filePath, // This is the path relative to the 'public' disk
+                'relative_path' => $filePath,
                 'full_disk_path' => Storage::disk('public')->path($filePath)
             ]);
 
@@ -78,13 +80,8 @@ class MCertificateTemplateController extends Controller
                 throw new \Exception('Failed to store template file');
             }
 
-            // Verify file was stored - check with Storage facade
+            // Verify file was stored
             if (!Storage::disk('public')->exists($filePath)) {
-                Log::error('File verification failed', [
-                    'expected_path' => $filePath,
-                    'disk_path' => Storage::disk('public')->path($filePath),
-                    'files_in_directory' => Storage::disk('public')->files($directory)
-                ]);
                 throw new \Exception('Template file was not saved properly. Storage check failed.');
             }
 
@@ -92,7 +89,7 @@ class MCertificateTemplateController extends Controller
             $template = MCertificateTemplate::create([
                 'template_name' => $request->template_name,
                 'template_type' => $request->template_type,
-                'template_file' => $filePath, // Store the relative path
+                'template_file' => $filePath,
                 'name_x' => $request->name_x,
                 'name_y' => $request->name_y,
                 'course_x' => $request->course_x,
@@ -102,11 +99,11 @@ class MCertificateTemplateController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Certificate template created successfully!',
-                'template' => $template
-            ]);
+            if ($request->ajax()) {
+                return response()->json(['success' => true, 'message' => 'Template created successfully']);
+            }
+            return redirect()->route('mschool.certificate-templates.index')
+                ->with('success', 'Certificate template created successfully!');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -120,37 +117,55 @@ class MCertificateTemplateController extends Controller
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to create template: ' . $e->getMessage()
-            ], 500);
+            if ($request->ajax()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            }
+            return redirect()->back()
+                ->with('error', 'Failed to create template: ' . $e->getMessage())
+                ->withInput();
         }
     }
 
     /**
      * Get template for editing
      */
-    public function edit(MCertificateTemplate $template)
+    public function edit($id)
     {
-        return response()->json([
-            'success' => true,
-            'template' => $template
-        ]);
+        try {
+            $template = MCertificateTemplate::findOrFail($id);
+
+            return response()->json([
+                'success' => true,
+                'template_id' => $template->template_id,
+                'template_name' => $template->template_name,
+                'template_type' => $template->template_type,
+                'template_file' => $template->template_file,
+                'name_x' => $template->name_x,
+                'name_y' => $template->name_y,
+                'course_x' => $template->course_x,
+                'course_y' => $template->course_y,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error loading template: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Template not found'], 404);
+        }
     }
 
     /**
      * Update template
      */
-    public function update(Request $request, MCertificateTemplate $template)
+    public function update(Request $request, $id)
     {
         Log::info('Template update method called', [
-            'template_id' => $template->template_id,
+            'template_id' => $id,
             'request' => $request->except(['template_file'])
         ]);
 
+        $template = MCertificateTemplate::findOrFail($id);
+
         $validator = Validator::make($request->all(), [
             'template_name' => 'required|string|max:255',
-            'template_type' => 'required|string|in:completion,participation,achievement,recognition|unique:m_certificate_templates,template_type,' . $template->template_id . ',template_id',
+            'template_type' => 'required|string|in:completion,participation,achievement,recognition',
             'template_file' => 'nullable|file|mimes:pdf|max:5120',
             'name_x' => 'required|integer|min:0',
             'name_y' => 'required|integer|min:0',
@@ -159,11 +174,13 @@ class MCertificateTemplateController extends Controller
         ]);
 
         if ($validator->fails()) {
-            Log::error('Validation failed on update', ['errors' => $validator->errors()->toArray()]);
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
+            if ($request->ajax()) {
+                return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+            }
+            return redirect()->back()
+                ->withErrors($validator)
+                ->withInput()
+                ->with('error', 'Please fix the validation errors below.');
         }
 
         DB::beginTransaction();
@@ -221,42 +238,44 @@ class MCertificateTemplateController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Certificate template updated successfully!',
-                'template' => $template->fresh()
-            ]);
+            if ($request->ajax()) {
+                return response()->json(['success' => true, 'message' => 'Template updated successfully']);
+            }
+            return redirect()->route('mschool.certificate-templates.index')
+                ->with('success', 'Certificate template updated successfully!');
 
         } catch (\Exception $e) {
             DB::rollBack();
 
             Log::error('Template update failed: ' . $e->getMessage(), [
-                'template_id' => $template->template_id,
+                'template_id' => $id,
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update template: ' . $e->getMessage()
-            ], 500);
+            if ($request->ajax()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            }
+            return redirect()->back()
+                ->with('error', 'Failed to update template: ' . $e->getMessage())
+                ->withInput();
         }
     }
 
     /**
      * Delete template
      */
-    public function destroy(MCertificateTemplate $template)
+    public function destroy($id)
     {
-        Log::info('Template delete method called', ['template_id' => $template->template_id]);
+        Log::info('Template delete method called', ['template_id' => $id]);
+
+        $template = MCertificateTemplate::findOrFail($id);
 
         DB::beginTransaction();
         try {
             // Check if template is in use
             if ($template->certificates()->exists()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cannot delete template because it has issued certificates. Please reassign or delete those certificates first.'
-                ], 400);
+                return redirect()->back()
+                    ->with('error', 'Cannot delete template because it has issued certificates. Please reassign or delete those certificates first.');
             }
 
             $filePath = $template->template_file;
@@ -271,38 +290,36 @@ class MCertificateTemplateController extends Controller
 
             DB::commit();
 
-            Log::info('Template deleted successfully', ['template_id' => $template->template_id]);
+            Log::info('Template deleted successfully', ['template_id' => $id]);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Certificate template deleted successfully!'
-            ]);
+            return redirect()->route('mschool.certificate-templates.index')
+                ->with('success', 'Certificate template deleted successfully!');
 
         } catch (\Exception $e) {
             DB::rollBack();
 
             Log::error('Template deletion failed: ' . $e->getMessage(), [
-                'template_id' => $template->template_id,
+                'template_id' => $id,
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to delete template: ' . $e->getMessage()
-            ], 500);
+            return redirect()->back()
+                ->with('error', 'Failed to delete template: ' . $e->getMessage());
         }
     }
 
     /**
      * Test template coordinates
      */
-    public function testCoordinates(Request $request, MCertificateTemplate $template)
+    public function testCoordinates(Request $request, $id)
     {
         Log::info('Template test method called', [
-            'template_id' => $template->template_id,
+            'template_id' => $id,
             'test_name' => $request->test_name,
             'test_course' => $request->test_course
         ]);
+
+        $template = MCertificateTemplate::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
             'test_name' => 'required|string|max:100',
@@ -310,10 +327,7 @@ class MCertificateTemplateController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
         }
 
         try {
@@ -386,24 +400,21 @@ class MCertificateTemplateController extends Controller
                 ->header('Pragma', 'public');
 
         } catch (\Exception $e) {
-            Log::error('Template test failed: ' . $e->getMessage() . ' | Template ID: ' . $template->template_id, [
+            Log::error('Template test failed: ' . $e->getMessage() . ' | Template ID: ' . $id, [
                 'trace' => $e->getTraceAsString()
             ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Test failed: ' . $e->getMessage()
-            ], 500);
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 
     /**
      * Get template details for preview
      */
-    public function show(MCertificateTemplate $template)
+    public function show($id)
     {
         try {
-            $template->loadCount('certificates');
+            $template = MCertificateTemplate::withCount('certificates')->findOrFail($id);
 
             $fileExists = false;
             $fileSize = null;

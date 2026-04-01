@@ -346,13 +346,14 @@ Route::middleware(['auth', 'verified', 'role.mschool'])->prefix('mschool')->name
         Route::delete('/{examResult}', [MExamResultController::class, 'destroy'])->name('destroy');
     });
 
-    Route::prefix('certificate-templates')->name('certificate-templates.')->group(function () {
-        Route::get('/', [MCertificateTemplateController::class, 'index'])->name('index');
-        Route::post('/', [MCertificateTemplateController::class, 'store'])->name('store');
-        Route::put('/{certificateTemplate}', [MCertificateTemplateController::class, 'update'])->name('update');
-        Route::delete('/{certificateTemplate}', [MCertificateTemplateController::class, 'destroy'])->name('destroy');
-    });
-
+   Route::prefix('certificate-templates')->name('certificate-templates.')->group(function () {
+    Route::get('/', [MCertificateTemplateController::class, 'index'])->name('index');
+    Route::post('/', [MCertificateTemplateController::class, 'store'])->name('store');
+    Route::get('/{certificateTemplate}/edit', [MCertificateTemplateController::class, 'edit'])->name('edit'); // Add this
+    Route::put('/{certificateTemplate}', [MCertificateTemplateController::class, 'update'])->name('update');
+    Route::delete('/{certificateTemplate}', [MCertificateTemplateController::class, 'destroy'])->name('destroy');
+    Route::post('/{certificateTemplate}/test', [MCertificateTemplateController::class, 'testCoordinates'])->name('test'); // Add this
+});
     Route::prefix('certificates')->name('certificates.')->group(function () {
         Route::get('/', [MCertificateController::class, 'index'])->name('index');
         Route::post('/', [MCertificateController::class, 'store'])->name('store');

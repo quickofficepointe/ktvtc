@@ -178,44 +178,34 @@ class SmsService
     /**
      * Generate admin notification message
      */
-    public function generateAdminOrderNotificationMessage(Sale $sale)
-    {
-        $shop = $sale->shop;
-        $shopName = $shop ? $shop->shop_name : 'Unknown Shop';
+    /**
+ * Generate admin notification message
+ */
+public function generateAdminOrderNotificationMessage(Sale $sale)
+{
+    $shop = $sale->shop;
+    $shopName = $shop ? $shop->shop_name : 'Unknown Shop';
 
-        $orderTypeMap = [
-            'pos' => 'POS Counter',
-            'online' => 'Online',
-            'mobile' => 'Mobile App',
-            'preorder' => 'Pre-order',
-            'delivery' => 'Delivery'
-        ];
+    $orderTypeMap = [
+        'pos' => 'POS Counter',
+        'online' => 'Online',
+        'mobile' => 'Mobile App',
+        'preorder' => 'Pre-order',
+        'delivery' => 'Delivery'
+    ];
 
-        $orderType = $orderTypeMap[$sale->sale_type] ?? ucfirst($sale->sale_type);
+    $orderType = $orderTypeMap[$sale->sale_type] ?? ucfirst($sale->sale_type);
 
-        $message = "NEW ORDER ALERT\n";
-        $message .= "====================\n";
-        $message .= "Shop: {$shopName}\n";
-        $message .= "Invoice: {$sale->invoice_number}\n";
-        $message .= "Type: {$orderType}\n";
-        $message .= "Customer: {$sale->customer_name}\n";
-        $message .= "Phone: {$sale->customer_phone}\n";
-        $message .= "Time: " . $sale->sale_date->format('H:i') . "\n";
-        $message .= "Items: {$sale->total_items}\n";
-        $message .= "Amount: KES " . number_format($sale->total_amount, 2) . "\n";
-        $message .= "Payment: " . strtoupper($sale->payment_method) . " - " . strtoupper($sale->payment_status) . "\n";
-        $message .= "Status: " . strtoupper($sale->order_status) . "\n";
+    $message = "New order received from {$shopName}. Invoice: {$sale->invoice_number}. Type: {$orderType}. Customer: {$sale->customer_name} ({$sale->customer_phone}). Total items: {$sale->total_items}. Amount: KES " . number_format($sale->total_amount, 2) . ". Payment: {$sale->payment_method} - {$sale->payment_status}. Order status: {$sale->order_status}.";
 
-        if ($sale->delivery_address) {
-            $message .= "Delivery: {$sale->delivery_address}\n";
-        }
-
-        $message .= "====================\n";
-        $message .= "Check system for details.\n";
-        $message .= "Kenswed Cafeteria System";
-
-        return $message;
+    if ($sale->delivery_address) {
+        $message .= " Delivery address: {$sale->delivery_address}.";
     }
+
+    $message .= " Please check the system for details. Kenswed Cafeteria.";
+
+    return $message;
+}
 
     /**
      * Send bulk SMS (up to 20 messages)
@@ -438,86 +428,121 @@ class SmsService
     /**
      * Generate order confirmation message for customer
      */
-    public function generateOrderConfirmationMessage(Sale $sale)
-    {
-        $items = '';
-        $itemCount = 0;
-        foreach ($sale->items as $index => $item) {
-            $items .= ($index + 1) . ". {$item->product_name} x{$item->quantity} - KES " . number_format($item->final_price, 2) . "\n";
-            $itemCount++;
+ /**
+ * Generate order confirmation message for customer
+ */
+public function generateOrderConfirmationMessage(Sale $sale)
+{
+    $items = '';
+    $itemCount = 0;
+    foreach ($sale->items as $index => $item) {
+        $items .= "{$item->product_name} x{$item->quantity} - KES " . number_format($item->final_price, 2);
+        $itemCount++;
 
-            // Limit to first 5 items for SMS length
-            if ($itemCount >= 5) {
-                $remaining = $sale->total_items - 5;
-                if ($remaining > 0) {
-                    $items .= "...and {$remaining} more item(s)\n";
-                }
-                break;
+        if ($itemCount < count($sale->items)) {
+            $items .= ", ";
+        }
+
+        // Limit to first 5 items for SMS length
+        if ($itemCount >= 5) {
+            $remaining = $sale->total_items - 5;
+            if ($remaining > 0) {
+                $items .= " and {$remaining} more item(s)";
             }
+            break;
         }
-
-        $message = "ORDER CONFIRMATION\n";
-        $message .= "====================\n";
-        $message .= "Invoice: {$sale->invoice_number}\n";
-        $message .= "Date: " . $sale->sale_date->format('d/m/Y H:i') . "\n";
-        $message .= "Items:\n{$items}";
-        $message .= "Subtotal: KES " . number_format($sale->subtotal, 2) . "\n";
-
-        if ($sale->tax_amount > 0) {
-            $message .= "Tax: KES " . number_format($sale->tax_amount, 2) . "\n";
-        }
-
-        if ($sale->delivery_fee > 0) {
-            $message .= "Delivery: KES " . number_format($sale->delivery_fee, 2) . "\n";
-        }
-
-        if ($sale->discount_amount > 0) {
-            $message .= "Discount: -KES " . number_format($sale->discount_amount, 2) . "\n";
-        }
-
-        $message .= "TOTAL: KES " . number_format($sale->total_amount, 2) . "\n";
-        $message .= "Payment: " . strtoupper($sale->payment_method) . "\n";
-
-        if ($sale->mpesa_receipt) {
-            $message .= "Receipt: {$sale->mpesa_receipt}\n";
-        }
-
-        $message .= "Status: " . strtoupper($sale->order_status) . "\n";
-
-        if ($sale->delivery_address) {
-            $message .= "Address: {$sale->delivery_address}\n";
-        }
-
-        $message .= "====================\n";
-        $message .= "Thank you! \n";
-        $message .= "Kenswed Cafeteria";
-
-        return $message;
     }
 
+    $message = "Dear {$sale->customer_name}, thank you for your order. Invoice: {$sale->invoice_number}. Items: {$items}. Total: KES " . number_format($sale->total_amount, 2) . ". Payment: {$sale->payment_method}.";
+
+    if ($sale->mpesa_receipt) {
+        $message .= " M-Pesa Receipt: {$sale->mpesa_receipt}.";
+    }
+
+    if ($sale->delivery_address) {
+        $message .= " Delivery to: {$sale->delivery_address}.";
+    }
+
+    $message .= " Order status: {$sale->order_status}. We will notify you when your order is ready. Thank you for choosing Kenswed Cafeteria.";
+
+    return $message;
+}
+/**
+ * Generate admin application notification message
+ */
+public function generateAdminApplicationNotificationMessage($application, $course, $campusName)
+{
+    $fullName = $application->first_name . ' ' . $application->last_name;
+    $applicationTime = $application->submitted_at->format('d/m/Y H:i');
+
+    $message = "New application received from {$fullName} ({$application->phone}) for {$course->name} at {$campusName} campus. Application Number: {$application->application_number}. Intake: {$application->intake_period}. Mode: " . ucfirst(str_replace('_', ' ', $application->study_mode)) . ". Applied on {$applicationTime}. Registration fee of KES 500 pending. Please review in admin panel. Kenswed Technical College.";
+
+    return $message;
+}
+
+/**
+ * Generate applicant confirmation message
+ */
+public function generateApplicantConfirmationMessage($application, $course)
+{
+    $fullName = $application->first_name . ' ' . $application->last_name;
+    $applicationTime = $application->submitted_at->format('d/m/Y H:i');
+
+    $message = "Dear {$fullName}, thank you for applying to Kenswed Technical College. Your application for {$course->name} ({$application->intake_period} intake) has been received. Application Number: {$application->application_number}. To complete your application, please pay the registration fee of KES 500 via the link provided. Regards, Kenswed Technical College.";
+
+    return $message;
+}
+
+/**
+ * Generate payment confirmation message for application
+ */
+public function generateApplicationPaymentConfirmationMessage($application, $payment)
+{
+    $fullName = $application->first_name . ' ' . $application->last_name;
+
+    $message = "Dear {$fullName}, payment of KES " . number_format($payment->amount, 2) . " for application {$application->application_number} has been confirmed. M-Pesa Receipt: {$payment->mpesa_receipt_number}. Your application is now complete and under review. We will contact you soon. Thank you for choosing Kenswed Technical College.";
+
+    return $message;
+}
+
+/**
+ * Generate application status update message
+ */
+public function generateApplicationStatusUpdateMessage($application)
+{
+    $fullName = $application->first_name . ' ' . $application->last_name;
+    $courseName = $application->course ? $application->course->name : 'your course';
+
+    if ($application->status === 'accepted') {
+        $message = "Dear {$fullName}, congratulations! Your application for {$courseName} (App No: {$application->application_number}) has been accepted. Admission details will be sent to you shortly. Welcome to Kenswed Technical College.";
+    } elseif ($application->status === 'rejected') {
+        $message = "Dear {$fullName}, thank you for applying to Kenswed Technical College. We regret to inform you that your application for {$courseName} (App No: {$application->application_number}) was not successful. We wish you all the best in your future endeavors.";
+    } elseif ($application->status === 'waiting_list') {
+        $message = "Dear {$fullName}, your application for {$courseName} (App No: {$application->application_number}) has been placed on our waiting list. We will notify you immediately if a space becomes available. Thank you for your patience.";
+    } else {
+        $message = "Dear {$fullName}, your application for {$courseName} (App No: {$application->application_number}) is now {$application->status}. We will update you once a decision is made. Thank you for applying to Kenswed Technical College.";
+    }
+
+    return $message;
+}
     /**
      * Generate payment confirmation message
      */
-    public function generatePaymentConfirmationMessage(Sale $sale)
-    {
-        $message = "PAYMENT CONFIRMED\n";
-        $message .= "====================\n";
-        $message .= "Invoice: {$sale->invoice_number}\n";
-        $message .= "Amount: KES " . number_format($sale->total_amount, 2) . "\n";
-        $message .= "Method: " . strtoupper($sale->payment_method) . "\n";
+/**
+ * Generate payment confirmation message
+ */
+public function generatePaymentConfirmationMessage(Sale $sale)
+{
+    $message = "Dear {$sale->customer_name}, payment of KES " . number_format($sale->total_amount, 2) . " for invoice {$sale->invoice_number} has been confirmed.";
 
-        if ($sale->mpesa_receipt) {
-            $message .= "M-Pesa Receipt: {$sale->mpesa_receipt}\n";
-        }
-
-        $message .= "Date: " . now()->format('d/m/Y H:i') . "\n";
-        $message .= "Status: " . strtoupper($sale->order_status) . "\n";
-        $message .= "====================\n";
-        $message .= "Thank you for your payment!\n";
-        $message .= "Kenswed Cafeteria";
-
-        return $message;
+    if ($sale->mpesa_receipt) {
+        $message .= " M-Pesa Receipt: {$sale->mpesa_receipt}.";
     }
+
+    $message .= " Payment method: {$sale->payment_method}. Your order is now being processed. Thank you for choosing Kenswed Cafeteria.";
+
+    return $message;
+}
 
     /**
      * Get admin phone numbers

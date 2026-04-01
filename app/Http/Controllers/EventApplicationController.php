@@ -50,6 +50,8 @@ public function getByEvent(Event $event)
         'data' => $applications
     ]);
 }
+
+
     /**
      * Show the form for creating a new resource.
      */
@@ -155,7 +157,63 @@ public function getByEvent(Event $event)
 
         return view('event-applications.show', compact('application'));
     }
+/**
+ * Send event application confirmation to parent
+ */
+public function generateEventApplicationConfirmation($application, $event)
+{
+    $message = "Dear {$application->parent_name}, thank you for registering for {$event->title}. Your application for {$application->number_of_people} attendee(s) has been received. Reference: {$application->mpesa_reference_number}. We will review and confirm your registration within 24 hours. For inquiries, contact us. Thank you for choosing Kenswed.";
 
+    return $message;
+}
+
+/**
+ * Generate event status update message
+ */
+public function generateEventStatusUpdateMessage($application, $event, $newStatus)
+{
+    $message = "Dear {$application->parent_name}, ";
+
+    if ($newStatus === 'confirmed') {
+        $message .= "your registration for {$event->title} has been confirmed. Please arrive at {$event->venue} on {$event->start_date->format('l, F j, Y')} at {$event->start_date->format('g:i A')}. Bring a copy of this confirmation for entry.";
+    } elseif ($newStatus === 'cancelled') {
+        $message .= "your registration for {$event->title} has been cancelled. If you did not request this, please contact us immediately.";
+    } elseif ($newStatus === 'completed') {
+        $message .= "thank you for attending {$event->title}. We hope you had a wonderful experience.";
+    } else {
+        $message .= "your registration for {$event->title} is now {$newStatus}. We will update you once a final decision is made.";
+    }
+
+    $message .= " Reference: {$application->mpesa_reference_number}. Kenswed Technical College.";
+
+    return $message;
+}
+
+/**
+ * Generate event payment confirmation message
+ */
+public function generateEventPaymentConfirmationMessage($application, $event)
+{
+    $totalAttendees = $application->number_of_people;
+    $totalAmount = $application->total_amount;
+
+    $message = "Dear {$application->parent_name}, payment of KES " . number_format($totalAmount, 2) . " for {$event->title} ({$totalAttendees} attendee(s)) has been confirmed. Receipt: {$application->mpesa_reference_number}. Your registration is now complete. Thank you for choosing Kenswed Technical College.";
+
+    return $message;
+}
+
+/**
+ * Generate event reminder message
+ */
+public function generateEventReminderMessage($application, $event)
+{
+    $eventDate = $event->start_date->format('l, F j, Y');
+    $eventTime = $event->start_date->format('g:i A');
+
+    $message = "Dear {$application->parent_name}, reminder: {$event->title} is tomorrow, {$eventDate} at {$eventTime}. Venue: {$event->venue}. Please bring your confirmation and arrive 30 minutes early. Contact us if you need assistance. Kenswed Technical College.";
+
+    return $message;
+}
     /**
      * Show the form for editing the specified resource.
      */

@@ -259,7 +259,7 @@ function switchTab(tab) {
 
 // Load assignable students
 function loadAssignableStudents() {
-    fetch('{{ route("mschool.certificates.assignable") }}')
+    fetch('{{ route("mschool.certificates.assignable-students") }}')
         .then(response => response.json())
         .then(data => {
             const tbody = document.getElementById('studentsTableBody');
@@ -344,8 +344,9 @@ function loadAssignableStudents() {
 }
 
 // Load issued certificates
+// Load issued certificates
 function loadIssuedCertificates() {
-    fetch('{{ route("mschool.certificates.issued.list") }}')
+    fetch('{{ route("mschool.certificates.issued-certificates") }}')
         .then(response => response.json())
         .then(data => {
             const tbody = document.getElementById('issuedTableBody');
@@ -386,7 +387,7 @@ function loadIssuedCertificates() {
                                     class="text-primary hover:text-red-700">
                                 View
                             </button>
-                            <a href="{{ route('mschool.certificates.download', '') }}/${cert.certificate_id}"
+                            <a href="/mschool/certificates/${cert.certificate_id}/download"
                                class="text-green-600 hover:text-green-800">
                                 Download
                             </a>
@@ -395,6 +396,10 @@ function loadIssuedCertificates() {
                 `;
                 tbody.appendChild(row);
             });
+        })
+        .catch(error => {
+            console.error('Error loading certificates:', error);
+            document.getElementById('issuedEmptyState').innerHTML = '<p class="text-red-500">Error loading certificates</p>';
         });
 }
 

@@ -256,7 +256,7 @@
                                         '{{ $subject->cover_image }}',
                                         '{{ $subject->syllabus_file }}'
                                     )" class="px-3 py-1 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100">Edit</button>
-                                    <button onclick="confirmDelete('{{ route('subjects.destroy', $subject->subject_id) }}')" class="px-3 py-1 text-xs rounded bg-red-50 text-red-600 hover:bg-red-100">Delete</button>
+                                    <button onclick="confirmDelete('{{ route('mschool.subjects.destroy', $subject->subject_id) }}')" class="px-3 py-1 text-xs rounded bg-red-50 text-red-600 hover:bg-red-100">Delete</button>
                                 </div>
                             </td>
                         </tr>
@@ -310,7 +310,7 @@
 
             <!-- Modal Body -->
             <div class="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
-                <form action="{{ route('subjects.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+                <form action="{{ route('mschool.subjects.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
                     @csrf
 
                     <!-- Basic Information -->
@@ -922,7 +922,7 @@
         const editForm = document.getElementById('editForm');
        // Fixed line - use the correct route name 'course-subjects.update'
 // Fixed line - properly pass the ID parameter
-editForm.action = '{{ route("course-subjects.update", ["id" => ":id"]) }}'.replace(':id', id);
+editForm.action = '{{ route("mschool.course-subjects.update", ["id" => ":id"]) }}'.replace(':id', id);
 
         // Fill form fields
         document.getElementById('editSubjectId').value = id;
