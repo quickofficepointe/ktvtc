@@ -222,6 +222,10 @@
                         <i class="fas fa-file-alt mr-3"></i> Policies
                     </a>
                 </li>
+                    <a href="{{ route('website.certifications.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.certifications.index') ? 'active' : '' }}">
+                        <i class="fas fa-certificate mr-3"></i> Certifications
+                    </a>
+                </li>
                 <li>
                     <a href="{{ route('website.partners.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.partners.index') ? 'active' : '' }}">
                         <i class="fas fa-handshake mr-3"></i> Partners

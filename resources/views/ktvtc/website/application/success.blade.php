@@ -44,9 +44,14 @@
                     for applying to our <span class="font-semibold">{{ $application->course->name }}</span> program.
                 </p>
 
-                <!-- Payment Status -->
-               @php
-    $payment = $application->payments->where('status', 'completed')->first();
+                <!-- Payment Status - DYNAMIC -->
+@php
+    // Get payment from KcbBuniTransaction table - ONLY application fees
+    $payment = \App\Models\KcbBuniTransaction::where('application_id', $application->id)
+        ->where('status', 'completed')
+        ->where('transaction_type', 'application_fee')  // ← Only show application payments
+        ->latest()
+        ->first();
     $hasPayment = $payment ? true : false;
 @endphp
 
@@ -65,11 +70,15 @@
                         </div>
                         <div class="flex justify-between">
                             <span class="text-green-700">M-Pesa Receipt:</span>
-                            <span class="font-semibold text-green-800">{{ $payment->mpesa_receipt_number }}</span>
+                            <span class="font-semibold text-green-800">{{ $payment->mpesa_receipt_number ?? 'N/A' }}</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-green-700">Payment Date:</span>
-                            <span class="font-semibold text-green-800">{{ $payment->paid_at ? $payment->paid_at->format('M j, Y g:i A') : now()->format('M j, Y g:i A') }}</span>
+                            <span class="font-semibold text-green-800">{{ $payment->paid_at ? $payment->paid_at->format('M j, Y g:i A') : ($payment->created_at ? $payment->created_at->format('M j, Y g:i A') : now()->format('M j, Y g:i A')) }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-green-700">Phone Number:</span>
+                            <span class="font-semibold text-green-800">{{ $payment->phone_number ?? 'N/A' }}</span>
                         </div>
                     </div>
                 </div>
@@ -113,7 +122,7 @@
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-600">Submission Date:</span>
-                            <span class="font-semibold">{{ $application->submitted_at->format('M j, Y g:i A') }}</span>
+                            <span class="font-semibold">{{ $application->submitted_at ? $application->submitted_at->format('M j, Y g:i A') : now()->format('M j, Y g:i A') }}</span>
                         </div>
                         @if($hasPayment)
                         <div class="flex justify-between pt-2 border-t border-gray-200">
@@ -254,12 +263,11 @@
     </div>
 </section>
 
-<!-- Payment Tracking Script (Optional - for pending payments) -->
+<!-- Payment Tracking Script (for pending payments) -->
 @if(!$hasPayment)
 <script>
-    // Auto-refresh to check payment status every 10 seconds
     let checkCount = 0;
-    const maxChecks = 30; // Check for 5 minutes (30 * 10 seconds)
+    const maxChecks = 60; // Check for 10 minutes (60 * 10 seconds)
 
     const paymentCheckInterval = setInterval(function() {
         checkCount++;
@@ -270,9 +278,7 @@
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
             },
-            body: JSON.stringify({
-                application_id: {{ $application->id }}
-            })
+            body: JSON.stringify({ application_id: {{ $application->id }} })
         })
         .then(response => response.json())
         .then(data => {

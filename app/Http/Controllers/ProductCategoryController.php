@@ -65,7 +65,28 @@ class ProductCategoryController extends Controller
             'filters' => $request->only(['search', 'is_active', 'business_section_id', 'parent_category_id'])
         ]);
     }
+public function toggleStatus(Request $request, $id)
+{
+    $category = ProductCategory::findOrFail($id);
 
+    $validator = Validator::make($request->all(), [
+        'is_active' => 'required|boolean'
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json(['errors' => $validator->errors()], 422);
+    }
+
+    $category->update([
+        'is_active' => $request->is_active,
+        'updated_by' => auth()->id()
+    ]);
+
+    return response()->json([
+        'message' => 'Category status updated successfully',
+        'is_active' => $category->is_active
+    ]);
+}
     // API Index - For AJAX calls
     public function apiIndex(Request $request)
     {

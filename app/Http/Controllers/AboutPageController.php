@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\AboutPage;
+use App\Models\Certification;
 use App\Models\Course;
 use App\Models\Department;
 
@@ -18,57 +19,94 @@ use Illuminate\Support\Facades\DB;
 class AboutPageController extends Controller
 {
 
-   public function welcome()
-    {
-        $banners = Banner::where('is_active', true)
-                        ->orderBy('order')
-                        ->get();
+public function welcome()
+{
+    $banners = Banner::where('is_active', true)
+                    ->orderBy('order')
+                    ->get();
 
-        // Get featured courses for the welcome page (limit to 6)
-        $featuredCourses = Course::with(['department', 'intakes'])
+    // Get featured courses
+    $featuredCourses = Course::with(['department', 'intakes'])
+        ->where('is_active', true)
+        ->where('featured', true)
+        ->orderBy('sort_order', 'asc')
+        ->orderBy('name', 'asc')
+        ->limit(6)
+        ->get();
+
+    if ($featuredCourses->count() < 6) {
+        $additionalCourses = Course::with(['department', 'intakes'])
             ->where('is_active', true)
-            ->where('featured', true)
+            ->where('featured', false)
             ->orderBy('sort_order', 'asc')
             ->orderBy('name', 'asc')
-            ->limit(6)
+            ->limit(6 - $featuredCourses->count())
             ->get();
+        $featuredCourses = $featuredCourses->merge($additionalCourses);
+    }
 
-        // If not enough featured courses, get active courses to fill
-        if ($featuredCourses->count() < 6) {
-            $additionalCourses = Course::with(['department', 'intakes'])
-                ->where('is_active', true)
-                ->where('featured', false)
-                ->orderBy('sort_order', 'asc')
-                ->orderBy('name', 'asc')
-                ->limit(6 - $featuredCourses->count())
-                ->get();
+    // Get latest blogs
+    $latestBlogs = Blog::with('category')
+        ->where('is_active', true)
+        ->where('is_published', true)
+        ->orderBy('published_at', 'desc')
+        ->limit(3)
+        ->get();
 
-            $featuredCourses = $featuredCourses->merge($additionalCourses);
-        }
-
-        // Get latest blogs for news section
-        $latestBlogs = Blog::with('category')
-            ->where('is_active', true)
-            ->where('is_published', true)
-            ->orderBy('published_at', 'desc')
-            ->limit(3)
-            ->get();
- // Get latest events for events section (upcoming events only)
+    // Get latest events
     $latestEvents = Event::where('is_published', true)
         ->where('is_active', true)
         ->where('event_start_date', '>=', now())
         ->orderBy('event_start_date', 'asc')
         ->limit(3)
         ->get();
-        $departments = Department::where('is_active', true)
-            ->has('courses')
-            ->withCount(['courses' => function($query) {
-                $query->where('is_active', true);
-            }])
-            ->get();
 
-        return view('welcome', compact('banners', 'featuredCourses', 'departments','latestEvents', 'latestBlogs'));
-    }
+    $departments = Department::where('is_active', true)
+        ->has('courses')
+        ->withCount(['courses' => function($query) {
+            $query->where('is_active', true);
+        }])
+        ->get();
+
+    // ✅ FIXED: Get certifications for the website (using the imported class)
+    $certifications = Certification::where('is_active', true)
+        ->orderBy('display_order')
+        ->orderBy('name')
+        ->get();
+
+    $accreditations = Certification::where('certification_type', 'accreditation')
+        ->where('is_active', true)
+        ->orderBy('display_order')
+        ->get();
+
+    $examBodies = Certification::where('certification_type', 'examination_body')
+        ->where('is_active', true)
+        ->orderBy('display_order')
+        ->get();
+
+    $professionalBodies = Certification::where('certification_type', 'professional_body')
+        ->where('is_active', true)
+        ->orderBy('display_order')
+        ->get();
+
+    $registrations = Certification::where('certification_type', 'registration')
+        ->where('is_active', true)
+        ->orderBy('display_order')
+        ->get();
+
+    return view('welcome', compact(
+        'banners',
+        'featuredCourses',
+        'departments',
+        'latestEvents',
+        'latestBlogs',
+        'certifications',
+        'accreditations',
+        'examBodies',
+        'professionalBodies',
+        'registrations'
+    ));
+}
     /**
  * Display about page for public website
  */

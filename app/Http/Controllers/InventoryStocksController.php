@@ -19,7 +19,9 @@ class InventoryStocksController extends Controller
     public function index(Request $request)
     {
         // Get stocks for display
-        $stockQuery = InventoryStock::with(['product', 'shop'])
+        $stockQuery = InventoryStock::with(['product' => function($q) {
+            $q->withTrashed(); // Include soft-deleted products
+        }, 'shop'])
             ->when($request->shop_id, function ($q, $shopId) {
                 $q->where('shop_id', $shopId);
             })
@@ -29,16 +31,19 @@ class InventoryStocksController extends Controller
             ->when($request->search, function ($q, $search) {
                 $q->where(function ($query) use ($search) {
                     $query->whereHas('product', function ($q) use ($search) {
-                        $q->where('product_name', 'like', "%{$search}%")
+                        $q->withTrashed()
+                          ->where('product_name', 'like', "%{$search}%")
                           ->orWhere('product_code', 'like', "%{$search}%");
                     });
                 });
             });
 
-        $stocks = $stockQuery->orderBy('available_stock', 'asc')->paginate(25);
+        $stocks = $stockQuery->orderBy('current_stock', 'asc')->paginate(25);
 
         // Get recent movements
-        $movementQuery = InventoryMovement::with(['product', 'shop', 'recorder'])
+        $movementQuery = InventoryMovement::with(['product' => function($q) {
+            $q->withTrashed(); // Include soft-deleted products
+        }, 'shop', 'recorder'])
             ->when($request->movement_shop_id, function ($q, $shopId) {
                 $q->where('shop_id', $shopId);
             })
@@ -122,9 +127,7 @@ class InventoryStocksController extends Controller
                     [
                         'current_stock' => 0,
                         'reserved_stock' => 0,
-                        'available_stock' => 0,
                         'average_unit_cost' => $item['unit_cost'] ?? 0,
-                        'stock_value' => 0,
                     ]
                 );
 
@@ -145,9 +148,12 @@ class InventoryStocksController extends Controller
 
                 $unitCost = $item['unit_cost'] ?? $stock->average_unit_cost;
 
+                // Generate movement number
+                $movementNumber = 'MOV-' . date('YmdHis') . '-' . strtoupper(substr(uniqid(), -6));
+
                 // Create movement
                 InventoryMovement::create([
-                    'movement_number' => 'MOV-' . time() . '-' . rand(1000, 9999),
+                    'movement_number' => $movementNumber,
                     'product_id' => $item['product_id'],
                     'shop_id' => $validated['shop_id'],
                     'movement_type' => $movementType,
@@ -169,10 +175,9 @@ class InventoryStocksController extends Controller
                     'created_by' => auth()->id(),
                 ]);
 
-                // Update stock
+                // Update stock - REMOVED available_stock and stock_value as they are generated columns
                 $stock->update([
                     'current_stock' => $newQuantity,
-                    'available_stock' => $newQuantity - $stock->reserved_stock,
                     'last_movement_at' => now(),
                     'last_adjusted_date' => now(),
                 ]);
@@ -213,22 +218,19 @@ class InventoryStocksController extends Controller
                     ->where('product_id', $item['product_id'])
                     ->first();
 
-                if (!$sourceStock || $sourceStock->available_stock < $item['quantity']) {
+                if (!$sourceStock || ($sourceStock->current_stock - $sourceStock->reserved_stock) < $item['quantity']) {
                     throw new \Exception("Insufficient stock for product ID {$item['product_id']} in source shop");
                 }
+
+                $transferNumber = 'TRF-' . date('YmdHis') . '-' . strtoupper(substr(uniqid(), -6));
 
                 // Update source (transfer out)
                 $oldSourceStock = $sourceStock->current_stock;
                 $newSourceStock = $oldSourceStock - $item['quantity'];
-                $sourceStock->update([
-                    'current_stock' => $newSourceStock,
-                    'available_stock' => $newSourceStock - $sourceStock->reserved_stock,
-                    'last_movement_at' => now(),
-                ]);
 
                 // Create transfer out movement
                 InventoryMovement::create([
-                    'movement_number' => 'MOV-' . time() . '-' . rand(1000, 9999),
+                    'movement_number' => 'MOV-OUT-' . $transferNumber,
                     'product_id' => $item['product_id'],
                     'shop_id' => $validated['from_shop_id'],
                     'movement_type' => 'transfer_out',
@@ -238,7 +240,7 @@ class InventoryStocksController extends Controller
                     'total_cost' => $item['quantity'] * ($item['unit_cost'] ?? $sourceStock->average_unit_cost),
                     'previous_stock' => $oldSourceStock,
                     'new_stock' => $newSourceStock,
-                    'reference_number' => 'TRF-' . date('YmdHis'),
+                    'reference_number' => $transferNumber,
                     'reference_type' => 'stock_transfer',
                     'from_shop_id' => $validated['from_shop_id'],
                     'to_shop_id' => $validated['to_shop_id'],
@@ -247,6 +249,12 @@ class InventoryStocksController extends Controller
                     'movement_date' => $validated['transfer_date'],
                     'notes' => $validated['notes'],
                     'created_by' => auth()->id(),
+                ]);
+
+                // Update source stock - REMOVED available_stock (generated column)
+                $sourceStock->update([
+                    'current_stock' => $newSourceStock,
+                    'last_movement_at' => now(),
                 ]);
 
                 // Update destination (transfer in)
@@ -258,7 +266,6 @@ class InventoryStocksController extends Controller
                     [
                         'current_stock' => 0,
                         'reserved_stock' => 0,
-                        'available_stock' => 0,
                         'average_unit_cost' => $item['unit_cost'] ?? $sourceStock->average_unit_cost,
                     ]
                 );
@@ -266,15 +273,9 @@ class InventoryStocksController extends Controller
                 $oldDestStock = $destStock->current_stock;
                 $newDestStock = $oldDestStock + $item['quantity'];
 
-                $destStock->update([
-                    'current_stock' => $newDestStock,
-                    'available_stock' => $newDestStock - $destStock->reserved_stock,
-                    'last_movement_at' => now(),
-                ]);
-
                 // Create transfer in movement
                 InventoryMovement::create([
-                    'movement_number' => 'MOV-' . time() . '-' . rand(1000, 9999),
+                    'movement_number' => 'MOV-IN-' . $transferNumber,
                     'product_id' => $item['product_id'],
                     'shop_id' => $validated['to_shop_id'],
                     'movement_type' => 'transfer_in',
@@ -284,7 +285,7 @@ class InventoryStocksController extends Controller
                     'total_cost' => $item['quantity'] * ($item['unit_cost'] ?? $sourceStock->average_unit_cost),
                     'previous_stock' => $oldDestStock,
                     'new_stock' => $newDestStock,
-                    'reference_number' => 'TRF-' . date('YmdHis'),
+                    'reference_number' => $transferNumber,
                     'reference_type' => 'stock_transfer',
                     'from_shop_id' => $validated['from_shop_id'],
                     'to_shop_id' => $validated['to_shop_id'],
@@ -293,6 +294,12 @@ class InventoryStocksController extends Controller
                     'movement_date' => $validated['transfer_date'],
                     'notes' => $validated['notes'],
                     'created_by' => auth()->id(),
+                ]);
+
+                // Update destination stock - REMOVED available_stock (generated column)
+                $destStock->update([
+                    'current_stock' => $newDestStock,
+                    'last_movement_at' => now(),
                 ]);
             }
 
@@ -310,7 +317,7 @@ class InventoryStocksController extends Controller
      */
     public function deleteMovement(InventoryMovement $movement)
     {
-        // Only allow deletion of recent movements
+        // Only allow deletion of recent movements (within 24 hours)
         if ($movement->created_at->diffInHours(now()) > 24) {
             return response()->json(['success' => false, 'message' => 'Cannot delete movements older than 24 hours.'], 403);
         }
@@ -324,15 +331,22 @@ class InventoryStocksController extends Controller
 
             if ($stock) {
                 // Calculate new stock after reversal
-                if (in_array($movement->movement_type, ['purchase', 'transfer_in', 'adjustment_in', 'production_in', 'return_in'])) {
+                $movementTypesThatIncreaseStock = ['purchase', 'transfer_in', 'adjustment_in', 'production_in', 'return_in'];
+
+                if (in_array($movement->movement_type, $movementTypesThatIncreaseStock)) {
                     $newStock = $stock->current_stock - $movement->quantity;
                 } else {
                     $newStock = $stock->current_stock + $movement->quantity;
                 }
 
+                // Ensure stock doesn't go negative
+                if ($newStock < 0) {
+                    throw new \Exception("Cannot delete movement - would cause negative stock");
+                }
+
+                // Update stock - REMOVED available_stock (generated column)
                 $stock->update([
                     'current_stock' => $newStock,
-                    'available_stock' => $newStock - $stock->reserved_stock,
                 ]);
             }
 
@@ -352,7 +366,9 @@ class InventoryStocksController extends Controller
      */
     public function getMovementsData(Request $request)
     {
-        $query = InventoryMovement::with(['product', 'shop', 'recorder'])
+        $query = InventoryMovement::with(['product' => function($q) {
+            $q->withTrashed();
+        }, 'shop', 'recorder'])
             ->when($request->shop_id, function ($q, $shopId) {
                 $q->where('shop_id', $shopId);
             })
@@ -382,7 +398,9 @@ class InventoryStocksController extends Controller
      */
     public function getStocksData(Request $request)
     {
-        $query = InventoryStock::with(['product', 'shop'])
+        $query = InventoryStock::with(['product' => function($q) {
+            $q->withTrashed();
+        }, 'shop'])
             ->when($request->shop_id, function ($q, $shopId) {
                 $q->where('shop_id', $shopId);
             })
@@ -392,17 +410,60 @@ class InventoryStocksController extends Controller
             ->when($request->search, function ($q, $search) {
                 $q->where(function ($query) use ($search) {
                     $query->whereHas('product', function ($q) use ($search) {
-                        $q->where('product_name', 'like', "%{$search}%")
+                        $q->withTrashed()
+                          ->where('product_name', 'like', "%{$search}%")
                           ->orWhere('product_code', 'like', "%{$search}%");
                     });
                 });
             });
 
-        $stocks = $query->orderBy('available_stock', 'asc')->paginate(25);
+        $stocks = $query->orderBy('current_stock', 'asc')->paginate(25);
 
         return response()->json([
             'html' => view('cafeteria.inventory.partials.stocks-table', compact('stocks'))->render(),
             'pagination' => $stocks->links()->toHtml()
         ]);
+    }
+
+    /**
+     * Get low stock alerts
+     */
+    public function getLowStockAlerts(Request $request)
+    {
+        $query = InventoryStock::with(['product' => function($q) {
+            $q->withTrashed();
+        }, 'shop'])
+            ->whereRaw('current_stock - reserved_stock <= 0')
+            ->orWhereHas('product', function($q) {
+                $q->where('track_inventory', true)
+                  ->whereColumn('current_stock', '<=', 'reorder_level');
+            });
+
+        if ($request->shop_id) {
+            $query->where('shop_id', $request->shop_id);
+        }
+
+        $alerts = $query->get();
+
+        return response()->json([
+            'success' => true,
+            'count' => $alerts->count(),
+            'alerts' => $alerts
+        ]);
+    }
+
+    /**
+     * Get stock statistics
+     */
+    public function getStockStats(Request $request)
+    {
+        $stats = [
+            'total_products' => Product::where('is_active', true)->count(),
+            'total_stock_value' => InventoryStock::sum(DB::raw('current_stock * average_unit_cost')),
+            'low_stock_count' => InventoryStock::whereRaw('current_stock - reserved_stock <= 0')->count(),
+            'out_of_stock_count' => InventoryStock::where('current_stock', '<=', 0)->count(),
+        ];
+
+        return response()->json($stats);
     }
 }

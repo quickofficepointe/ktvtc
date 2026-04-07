@@ -426,7 +426,7 @@ class StudentController extends Controller
             $student->other_documents = json_decode($student->other_documents, true);
         }
 
-        return view('students.show', compact('student'));
+        return view('ktvtc.admin.students.show', compact('student'));
     }
 
     /**

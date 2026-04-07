@@ -116,7 +116,95 @@ class AdminController extends Controller
         'paymentChartData'
     ));
 }
+// Add these methods to your AdminController class
 
+public function showUser($id)
+{
+    $user = User::findOrFail($id);
+
+    if (request()->ajax() || request()->wantsJson()) {
+        return response()->json($user);
+    }
+
+    return view('ktvtc.admin.users.show', compact('user'));
+}
+
+public function editUser($id)
+{
+    $user = User::findOrFail($id);
+
+    if (request()->ajax() || request()->wantsJson()) {
+        return response()->json($user);
+    }
+
+    return view('ktvtc.admin.users.edit', compact('user'));
+}
+
+public function updateUser(Request $request, $id)
+{
+    $user = User::findOrFail($id);
+
+    $request->validate([
+        'name' => 'required|string|max:255',
+        'email' => 'required|email|unique:users,email,' . $id,
+        'phone_number' => 'nullable|string',
+        'role' => 'required|integer',
+        'bio' => 'nullable|string',
+    ]);
+
+    $user->update([
+        'name' => $request->name,
+        'email' => $request->email,
+        'phone_number' => $request->phone_number,
+        'role' => $request->role,
+        'bio' => $request->bio,
+    ]);
+
+    if (request()->ajax() || request()->wantsJson()) {
+        return response()->json(['success' => true, 'message' => 'User updated successfully']);
+    }
+
+    return redirect()->route('admin.users.index')
+        ->with('success', 'User updated successfully.');
+}
+
+public function updateStatus(Request $request, $id)
+{
+    $user = User::findOrFail($id);
+    $user->is_approved = $request->is_approved;
+    $user->save();
+
+    if (request()->ajax() || request()->wantsJson()) {
+        return response()->json(['success' => true]);
+    }
+
+    return redirect()->route('admin.users.index')
+        ->with('success', 'User status updated successfully.');
+}
+
+public function bulkUserActions(Request $request)
+{
+    $action = $request->action;
+    $userIds = $request->user_ids;
+
+    switch ($action) {
+        case 'approve':
+            User::whereIn('id', $userIds)->update(['is_approved' => true]);
+            break;
+        case 'activate':
+            User::whereIn('id', $userIds)->update(['is_approved' => true]);
+            break;
+        case 'deactivate':
+            User::whereIn('id', $userIds)->update(['is_approved' => false]);
+            break;
+        case 'delete':
+            User::whereIn('id', $userIds)->delete();
+            break;
+    }
+
+    return redirect()->route('admin.users.index')
+        ->with('success', 'Bulk action completed successfully.');
+}
     public function users()
     {
         // Use paginate() instead of get() to get Paginator instance

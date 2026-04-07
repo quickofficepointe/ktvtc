@@ -1000,6 +1000,7 @@
 @endsection
 
 @section('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     // Get CSRF token from meta tag
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
@@ -1187,7 +1188,11 @@
             document.body.classList.add('overflow-hidden');
         } catch (error) {
             console.error('Error:', error);
-            alert('Failed to load product data: ' + error.message);
+            await Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to load product data: ' + error.message
+            });
         }
     }
 
@@ -1329,7 +1334,11 @@
             document.body.classList.add('overflow-hidden');
         } catch (error) {
             console.error('Error:', error);
-            alert('Failed to load product details: ' + error.message);
+            await Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to load product details: ' + error.message
+            });
         }
     }
 
@@ -1362,7 +1371,11 @@
             document.body.classList.add('overflow-hidden');
         } catch (error) {
             console.error('Error:', error);
-            alert('Failed to load product data: ' + error.message);
+            await Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to load product data: ' + error.message
+            });
         }
     }
 
@@ -1371,6 +1384,65 @@
         document.getElementById('deleteForm').action = `/cafeteria/products/${productId}`;
         document.getElementById('deleteModal').classList.remove('hidden');
         document.body.classList.add('overflow-hidden');
+
+        // Handle delete confirmation with SweetAlert
+        const confirmBtn = document.getElementById('confirmDeleteBtn');
+        const oldOnClick = confirmBtn.onclick;
+
+        confirmBtn.onclick = async (e) => {
+            e.preventDefault();
+
+            const result = await Swal.fire({
+                title: 'Confirm Deletion',
+                text: `Are you sure you want to delete "${productName}"? This action cannot be undone.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc2626',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, delete it!',
+                cancelButtonText: 'Cancel'
+            });
+
+            if (result.isConfirmed) {
+                const form = document.getElementById('deleteForm');
+                const formData = new FormData(form);
+
+                try {
+                    const response = await fetch(form.action, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': csrfToken,
+                            'Accept': 'application/json'
+                        },
+                        body: formData
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(data.message || 'Failed to delete product');
+                    }
+
+                    await Swal.fire({
+                        icon: 'success',
+                        title: 'Deleted!',
+                        text: 'Product has been deleted successfully.',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+
+                    closeModal('#deleteModal');
+                    setTimeout(() => window.location.reload(), 1500);
+                } catch (error) {
+                    console.error('Error:', error);
+                    await Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: error.message || 'An error occurred while deleting the product'
+                    });
+                }
+            }
+        };
     }
 
     function closeModal(modalId) {
@@ -1384,20 +1456,24 @@
     async function saveProduct() {
         const form = document.getElementById('productForm');
         if (!form) {
-            alert('Form not found!');
+            await Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Form not found!'
+            });
             return;
         }
 
         // Validate required fields
         const requiredFields = form.querySelectorAll('[required]');
         let isValid = true;
-        let errorMessage = '';
+        let errorMessages = [];
 
         requiredFields.forEach(field => {
             if (!field.value.trim()) {
                 isValid = false;
                 const label = document.querySelector(`label[for="${field.id}"]`);
-                errorMessage += `${label ? label.textContent : 'Field'} is required\n`;
+                errorMessages.push(`${label ? label.textContent : 'Field'} is required`);
             }
         });
 
@@ -1405,11 +1481,15 @@
         const sellingPrice = parseFloat(document.getElementById('selling_price').value);
         if (isNaN(sellingPrice) || sellingPrice < 0) {
             isValid = false;
-            errorMessage += 'Selling price must be a valid positive number\n';
+            errorMessages.push('Selling price must be a valid positive number');
         }
 
         if (!isValid) {
-            alert(errorMessage);
+            await Swal.fire({
+                icon: 'error',
+                title: 'Validation Error',
+                html: errorMessages.join('<br>')
+            });
             return;
         }
 
@@ -1463,23 +1543,33 @@
 
             if (!response.ok) {
                 if (data.errors) {
-                    let errorMessages = '';
+                    let errorMessages = [];
                     for (const field in data.errors) {
-                        errorMessages += data.errors[field].join('\n') + '\n';
+                        errorMessages.push(data.errors[field].join('\n'));
                     }
-                    alert(errorMessages);
+                    throw new Error(errorMessages.join('\n'));
                 } else {
-                    alert(data.message || 'An error occurred while saving the product');
+                    throw new Error(data.message || 'An error occurred while saving the product');
                 }
             } else {
-                alert(method === 'POST' ? 'Product created successfully!' : 'Product updated successfully!');
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: method === 'POST' ? 'Product created successfully!' : 'Product updated successfully!',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+
                 closeModal('#productModal');
-                // Reload the page to see changes
-                setTimeout(() => window.location.reload(), 1000);
+                setTimeout(() => window.location.reload(), 1500);
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('An error occurred while saving the product. Please check the console for details.');
+            await Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: error.message || 'An error occurred while saving the product'
+            });
         } finally {
             if (saveBtn) {
                 saveBtn.disabled = false;
@@ -1492,7 +1582,11 @@
         const productId = document.getElementById('stockProductId').value;
         const form = document.getElementById('stockForm');
         if (!form) {
-            alert('Stock form not found!');
+            await Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Stock form not found!'
+            });
             return;
         }
 
@@ -1502,12 +1596,20 @@
         const movementType = document.getElementById('movement_type').value;
 
         if (!quantity || !shopId || !movementType) {
-            alert('Please fill all required fields');
+            await Swal.fire({
+                icon: 'error',
+                title: 'Validation Error',
+                text: 'Please fill all required fields'
+            });
             return;
         }
 
         if (parseFloat(quantity) <= 0) {
-            alert('Quantity must be greater than 0');
+            await Swal.fire({
+                icon: 'error',
+                title: 'Invalid Quantity',
+                text: 'Quantity must be greater than 0'
+            });
             return;
         }
 
@@ -1535,22 +1637,33 @@
 
             if (!response.ok) {
                 if (data.errors) {
-                    let errorMessages = '';
+                    let errorMessages = [];
                     for (const field in data.errors) {
-                        errorMessages += data.errors[field].join('\n') + '\n';
+                        errorMessages.push(data.errors[field].join('\n'));
                     }
-                    alert(errorMessages);
+                    throw new Error(errorMessages.join('\n'));
                 } else {
-                    alert(data.message || 'An error occurred while updating stock');
+                    throw new Error(data.message || 'An error occurred while updating stock');
                 }
             } else {
-                alert('Stock updated successfully!');
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: 'Stock updated successfully!',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+
                 closeModal('#stockModal');
-                setTimeout(() => window.location.reload(), 1000);
+                setTimeout(() => window.location.reload(), 1500);
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('An error occurred while updating stock');
+            await Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: error.message || 'An error occurred while updating stock'
+            });
         } finally {
             if (updateBtn) {
                 updateBtn.disabled = false;
@@ -1569,8 +1682,13 @@
         window.location.href = `{{ route('cafeteria.products.index') }}?${params.toString()}`;
     }
 
-    function showBulkUpdateModal() {
-        alert('Bulk update feature coming soon!');
+    async function showBulkUpdateModal() {
+        await Swal.fire({
+            icon: 'info',
+            title: 'Coming Soon',
+            text: 'Bulk update feature is under development and will be available soon!',
+            confirmButtonColor: '#e74c3c'
+        });
     }
 
     // Helper functions
@@ -1617,14 +1735,22 @@
 
         // Check file size (2MB max)
         if (file.size > 2 * 1024 * 1024) {
-            alert('File size must be less than 2MB');
+            Swal.fire({
+                icon: 'error',
+                title: 'File Too Large',
+                text: 'File size must be less than 2MB'
+            });
             input.value = '';
             return;
         }
 
         // Check file type
         if (!file.type.match('image.*')) {
-            alert('Please select an image file');
+            Swal.fire({
+                icon: 'error',
+                title: 'Invalid File Type',
+                text: 'Please select an image file'
+            });
             input.value = '';
             return;
         }

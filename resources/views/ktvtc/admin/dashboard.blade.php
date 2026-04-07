@@ -11,7 +11,7 @@
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-600">Total Students</p>
-                <p class="text-3xl font-bold text-gray-800 mt-2">{{ $totalStudents ?? 0 }}</p>
+                <p class="text-3xl font-bold text-gray-800 mt-2">{{ number_format($totalStudents ?? 0) }}</p>
             </div>
             <div class="w-12 h-12 rounded-lg bg-primary-light flex items-center justify-center">
                 <i class="fas fa-users text-primary text-xl"></i>
@@ -19,7 +19,7 @@
         </div>
         <div class="mt-4 flex items-center text-sm text-gray-500">
             <i class="fas fa-user-check text-success mr-1"></i>
-            <span>{{ $activeStudents ?? 0 }} active</span>
+            <span>{{ number_format($activeStudents ?? 0) }} active</span>
         </div>
     </div>
 
@@ -28,7 +28,7 @@
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-600">Enrollments</p>
-                <p class="text-3xl font-bold text-gray-800 mt-2">{{ $totalEnrollments ?? 0 }}</p>
+                <p class="text-3xl font-bold text-gray-800 mt-2">{{ number_format($totalEnrollments ?? 0) }}</p>
             </div>
             <div class="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center">
                 <i class="fas fa-book-open text-blue-600 text-xl"></i>
@@ -36,7 +36,7 @@
         </div>
         <div class="mt-4 flex items-center text-sm text-gray-500">
             <i class="fas fa-play-circle text-green-600 mr-1"></i>
-            <span>{{ $activeEnrollments ?? 0 }} in progress</span>
+            <span>{{ number_format($activeEnrollments ?? 0) }} in progress</span>
         </div>
     </div>
 
@@ -45,7 +45,7 @@
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-600">Total Collected</p>
-                <p class="text-3xl font-bold text-green-600 mt-2">KES {{ number_format($totalCollected ?? 0) }}</p>
+                <p class="text-3xl font-bold text-green-600 mt-2">KES {{ number_format($totalCollected ?? 0, 2) }}</p>
             </div>
             <div class="w-12 h-12 rounded-lg bg-green-50 flex items-center justify-center">
                 <i class="fas fa-coins text-green-600 text-xl"></i>
@@ -53,7 +53,7 @@
         </div>
         <div class="mt-4 flex items-center text-sm text-gray-500">
             <i class="fas fa-clock text-amber-600 mr-1"></i>
-            <span>KES {{ number_format($outstandingBalance ?? 0) }} outstanding</span>
+            <span>KES {{ number_format($outstandingBalance ?? 0, 2) }} outstanding</span>
         </div>
     </div>
 
@@ -62,7 +62,7 @@
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-600">Today's Collection</p>
-                <p class="text-3xl font-bold text-primary mt-2">KES {{ number_format($todayCollection ?? 0) }}</p>
+                <p class="text-3xl font-bold text-primary mt-2">KES {{ number_format($todayCollection ?? 0, 2) }}</p>
             </div>
             <div class="w-12 h-12 rounded-lg bg-amber-50 flex items-center justify-center">
                 <i class="fas fa-calendar-day text-amber-600 text-xl"></i>
@@ -70,7 +70,7 @@
         </div>
         <div class="mt-4 flex items-center text-sm text-gray-500">
             <i class="fas fa-arrow-up text-success mr-1"></i>
-            <span>{{ $todayPayments ?? 0 }} payments today</span>
+            <span>{{ number_format($todayPayments ?? 0) }} payments today</span>
             <span class="ml-auto text-xs">Click to view</span>
         </div>
     </div>
@@ -106,7 +106,7 @@
         <div class="space-y-3">
             <div class="flex justify-between items-center">
                 <span class="text-sm text-gray-600">Active</span>
-                <span class="text-sm font-semibold text-green-600">{{ $activeStudents ?? 0 }}</span>
+                <span class="text-sm font-semibold text-green-600">{{ number_format($activeStudents ?? 0) }}</span>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-2">
                 <div class="bg-green-500 h-2 rounded-full" style="width: {{ $activePercentage ?? 0 }}%"></div>
@@ -114,7 +114,7 @@
 
             <div class="flex justify-between items-center mt-2">
                 <span class="text-sm text-gray-600">Graduated</span>
-                <span class="text-sm font-semibold text-purple-600">{{ $graduatedStudents ?? 0 }}</span>
+                <span class="text-sm font-semibold text-purple-600">{{ number_format($graduatedStudents ?? 0) }}</span>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-2">
                 <div class="bg-purple-500 h-2 rounded-full" style="width: {{ $graduatedPercentage ?? 0 }}%"></div>
@@ -122,7 +122,7 @@
 
             <div class="flex justify-between items-center mt-2">
                 <span class="text-sm text-gray-600">Dropped/Suspended</span>
-                <span class="text-sm font-semibold text-red-600">{{ $inactiveStudents ?? 0 }}</span>
+                <span class="text-sm font-semibold text-red-600">{{ number_format($inactiveStudents ?? 0) }}</span>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-2">
                 <div class="bg-red-500 h-2 rounded-full" style="width: {{ $inactivePercentage ?? 0 }}%"></div>
@@ -139,7 +139,7 @@
         <div class="space-y-3">
             <div class="flex justify-between items-center">
                 <span class="text-sm text-gray-600">In Progress</span>
-                <span class="text-sm font-semibold text-green-600">{{ $inProgressEnrollments ?? 0 }}</span>
+                <span class="text-sm font-semibold text-green-600">{{ number_format($inProgressEnrollments ?? 0) }}</span>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-2">
                 <div class="bg-green-500 h-2 rounded-full" style="width: {{ $inProgressPercentage ?? 0 }}%"></div>
@@ -147,7 +147,7 @@
 
             <div class="flex justify-between items-center mt-2">
                 <span class="text-sm text-gray-600">Completed</span>
-                <span class="text-sm font-semibold text-blue-600">{{ $completedEnrollments ?? 0 }}</span>
+                <span class="text-sm font-semibold text-blue-600">{{ number_format($completedEnrollments ?? 0) }}</span>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-2">
                 <div class="bg-blue-500 h-2 rounded-full" style="width: {{ $completedPercentage ?? 0 }}%"></div>
@@ -155,7 +155,7 @@
 
             <div class="flex justify-between items-center mt-2">
                 <span class="text-sm text-gray-600">Pending Payment</span>
-                <span class="text-sm font-semibold text-amber-600">{{ $pendingPaymentEnrollments ?? 0 }}</span>
+                <span class="text-sm font-semibold text-amber-600">{{ number_format($pendingPaymentEnrollments ?? 0) }}</span>
             </div>
             <div class="w-full bg-gray-200 rounded-full h-2">
                 <div class="bg-amber-500 h-2 rounded-full" style="width: {{ $pendingPaymentPercentage ?? 0 }}%"></div>
@@ -170,7 +170,7 @@
             Quick Actions
         </h3>
         <div class="space-y-3">
-            <a href="" class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-primary/5 transition-colors">
+            <a href="{{ route('admin.students.create') }}" class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-primary/5 transition-colors">
                 <div class="w-8 h-8 rounded-full bg-primary-light flex items-center justify-center mr-3">
                     <i class="fas fa-user-plus text-primary text-sm"></i>
                 </div>
@@ -180,7 +180,7 @@
                 </div>
             </a>
 
-            <a href="" class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-primary/5 transition-colors">
+            <a href="{{ route('admin.enrollments.create') }}" class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-primary/5 transition-colors">
                 <div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center mr-3">
                     <i class="fas fa-book-open text-blue-600 text-sm"></i>
                 </div>
@@ -190,7 +190,7 @@
                 </div>
             </a>
 
-            <a href="" class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-primary/5 transition-colors">
+            <a href="{{ route('admin.fee-payments.create') }}" class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-primary/5 transition-colors">
                 <div class="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center mr-3">
                     <i class="fas fa-credit-card text-green-600 text-sm"></i>
                 </div>
@@ -200,7 +200,7 @@
                 </div>
             </a>
 
-            <a href="" class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-primary/5 transition-colors">
+            <a href="{{ route('admin.exam-registrations.create') }}" class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-primary/5 transition-colors">
                 <div class="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center mr-3">
                     <i class="fas fa-file-alt text-purple-600 text-sm"></i>
                 </div>
@@ -219,7 +219,7 @@
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
             <h3 class="text-lg font-semibold text-gray-800">Recent Enrollments</h3>
-            <a href="" class="text-sm text-primary hover:underline">View all</a>
+            <a href="{{ route('admin.enrollments.index') }}" class="text-sm text-primary hover:underline">View all</a>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full">
@@ -238,16 +238,18 @@
                             <div class="flex items-center">
                                 <div class="w-8 h-8 rounded-full bg-primary-light flex items-center justify-center mr-2">
                                     <span class="text-xs font-medium text-primary">
-                                        {{ substr($enrollment->student_name ?? 'S', 0, 1) }}
+                                        {{ substr($enrollment->student->full_name ?? $enrollment->student_name ?? 'S', 0, 1) }}
                                     </span>
                                 </div>
                                 <div>
-                                    <p class="text-sm font-medium text-gray-900">{{ $enrollment->student_name ?? 'N/A' }}</p>
-                                    <p class="text-xs text-gray-500">{{ $enrollment->student_number ?? '' }}</p>
+                                    <p class="text-sm font-medium text-gray-900">
+                                        {{ $enrollment->student->full_name ?? $enrollment->student_name ?? 'N/A' }}
+                                    </p>
+                                    <p class="text-xs text-gray-500">{{ $enrollment->student->student_number ?? $enrollment->student_number ?? '' }}</p>
                                 </div>
                             </div>
                         </td>
-                        <td class="px-6 py-4 text-sm text-gray-900">{{ $enrollment->course_name ?? 'N/A' }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900">{{ $enrollment->course->name ?? $enrollment->course_name ?? 'N/A' }}</td>
                         <td class="px-6 py-4 text-sm text-gray-600">{{ $enrollment->intake_month ?? '' }} {{ $enrollment->intake_year ?? '' }}</td>
                         <td class="px-6 py-4">
                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
@@ -273,7 +275,7 @@
     <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
             <h3 class="text-lg font-semibold text-gray-800">Recent Payments</h3>
-            <a href="" class="text-sm text-primary hover:underline">View all</a>
+            <a href="{{ route('admin.fee-payments.index') }}" class="text-sm text-primary hover:underline">View all</a>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full">
@@ -295,14 +297,16 @@
                             <div class="flex items-center">
                                 <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mr-2">
                                     <span class="text-xs font-medium text-green-600">
-                                        {{ substr($payment->student_name ?? 'S', 0, 1) }}
+                                        {{ substr($payment->student->full_name ?? $payment->student_name ?? 'S', 0, 1) }}
                                     </span>
                                 </div>
-                                <span class="text-sm text-gray-900">{{ $payment->student_name ?? 'N/A' }}</span>
+                                <span class="text-sm text-gray-900">
+                                    {{ $payment->student->full_name ?? $payment->student_name ?? 'N/A' }}
+                                </span>
                             </div>
                         </td>
                         <td class="px-6 py-4">
-                            <span class="text-sm font-bold text-green-600">KES {{ number_format($payment->amount ?? 0) }}</span>
+                            <span class="text-sm font-bold text-green-600">KES {{ number_format($payment->amount ?? 0, 2) }}</span>
                         </td>
                         <td class="px-6 py-4 text-sm text-gray-600">{{ isset($payment->payment_date) ? $payment->payment_date->format('d/m/Y') : 'N/A' }}</td>
                     </tr>
@@ -347,10 +351,20 @@
                             @forelse($todayPaymentsList ?? [] as $payment)
                             <tr>
                                 <td class="px-6 py-4 text-sm font-mono">{{ $payment->receipt_number ?? '' }}</td>
-                                <td class="px-6 py-4">{{ $payment->student_name ?? 'N/A' }}</td>
-                                <td class="px-6 py-4 font-medium text-green-600">KES {{ number_format($payment->amount ?? 0) }}</td>
-                                <td class="px-6 py-4">{{ ucfirst($payment->payment_method ?? 'N/A') }}</td>
-                                <td class="px-6 py-4">{{ isset($payment->created_at) ? $payment->created_at->format('h:i A') : 'N/A' }}</td>
+                                <td class="px-6 py-4 text-sm text-gray-900">
+                                    {{ $payment->student->full_name ?? $payment->student_name ?? 'N/A' }}
+                                </td>
+                                <td class="px-6 py-4 text-sm font-medium text-green-600">KES {{ number_format($payment->amount ?? 0, 2) }}</td>
+                                <td class="px-6 py-4 text-sm">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                                        @if($payment->payment_method == 'mpesa') bg-green-100 text-green-800
+                                        @elseif($payment->payment_method == 'cash') bg-yellow-100 text-yellow-800
+                                        @else bg-gray-100 text-gray-800
+                                        @endif">
+                                        {{ ucfirst($payment->payment_method ?? 'N/A') }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-gray-600">{{ isset($payment->created_at) ? $payment->created_at->format('h:i A') : 'N/A' }}</td>
                             </tr>
                             @empty
                             <tr>
@@ -361,7 +375,7 @@
                         <tfoot class="bg-gray-50">
                             <tr>
                                 <td colspan="2" class="px-6 py-4 text-right font-bold">Total:</td>
-                                <td class="px-6 py-4 font-bold text-primary">KES {{ number_format($todayCollection ?? 0) }}</td>
+                                <td class="px-6 py-4 font-bold text-primary">KES {{ number_format($todayCollection ?? 0, 2) }}</td>
                                 <td colspan="2"></td>
                             </tr>
                         </tfoot>

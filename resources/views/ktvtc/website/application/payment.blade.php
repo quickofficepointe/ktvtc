@@ -3,6 +3,10 @@
 @section('title', 'Application Fee Payment - Kenswed Technical College')
 
 @section('content')
+<!-- SweetAlert2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-16 text-white">
     <div class="container mx-auto px-4">
         <div class="text-center">
@@ -73,10 +77,17 @@
                     </div>
                     <h4 class="text-xl font-semibold text-gray-800 mb-2">Payment Successful!</h4>
                     <p class="text-gray-600 mb-4">Your application fee has been received.</p>
-                    <a href="{{ route('application.success', $application->id) }}"
-                       class="inline-block bg-[#B91C1C] text-white px-8 py-3 rounded-lg hover:bg-[#991B1B] transition-colors">
-                        Continue to Application
-                    </a>
+                    <p id="receiptInfo" class="text-sm text-green-600 mb-4"></p>
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                        <a href="{{ route('application.success', $application->id) }}"
+                           class="inline-block bg-[#B91C1C] text-white px-8 py-3 rounded-lg hover:bg-[#991B1B] transition-colors">
+                            Continue to Application
+                        </a>
+                        <button onclick="window.location.reload()"
+                                class="inline-block border border-[#B91C1C] text-[#B91C1C] px-8 py-3 rounded-lg hover:bg-red-50 transition-colors">
+                            Pay Another
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Error State -->
@@ -118,14 +129,46 @@
 <script>
 let paymentInterval;
 let checkoutRequestId;
+let pollingAttempts = 0;
+const MAX_POLLING_ATTEMPTS = 30;
 
 document.getElementById('payButton').addEventListener('click', function() {
-    const phoneNumber = document.getElementById('phoneNumber').value.trim();
+    let phoneNumber = document.getElementById('phoneNumber').value.trim();
 
     if (!phoneNumber) {
-        alert('Please enter your phone number');
+        Swal.fire({
+            icon: 'warning',
+            title: 'Phone Number Required',
+            text: 'Please enter your M-Pesa registered phone number',
+            confirmButtonColor: '#B91C1C'
+        });
         return;
     }
+
+    // Format phone number to international format
+    let formattedPhone = phoneNumber.replace(/\D/g, '');
+    if (formattedPhone.startsWith('0')) {
+        formattedPhone = '254' + formattedPhone.substring(1);
+    }
+    if (!formattedPhone.startsWith('254')) {
+        formattedPhone = '254' + formattedPhone;
+    }
+
+    // Validate phone number length
+    if (formattedPhone.length !== 12) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Invalid Phone Number',
+            text: 'Please enter a valid 10-digit phone number (e.g., 0712345678)',
+            confirmButtonColor: '#B91C1C'
+        });
+        return;
+    }
+
+    // Disable button and show processing
+    const payBtn = document.getElementById('payButton');
+    payBtn.disabled = true;
+    payBtn.innerHTML = '<div class="flex items-center justify-center"><div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div> Sending STK Push...</div>';
 
     // Show processing state
     document.getElementById('paymentForm').classList.add('hidden');
@@ -136,9 +179,10 @@ document.getElementById('payButton').addEventListener('click', function() {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Accept': 'application/json'
         },
-        body: JSON.stringify({ phone_number: phoneNumber })
+        body: JSON.stringify({ phone_number: formattedPhone })
     })
     .then(response => response.json())
     .then(data => {
@@ -146,48 +190,70 @@ document.getElementById('payButton').addEventListener('click', function() {
             checkoutRequestId = data.checkout_request_id;
             // Start checking payment status
             paymentInterval = setInterval(checkPaymentStatus, 3000);
+            pollingAttempts = 0;
         } else {
             showError(data.message || 'Payment initiation failed');
+            resetPaymentButton();
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        showError('Network error. Please try again.');
+        showError('Network error. Please check your connection and try again.');
+        resetPaymentButton();
     });
 });
 
 function checkPaymentStatus() {
+    pollingAttempts++;
+
     if (!checkoutRequestId) return;
 
     fetch('{{ route("application.payment.status") }}', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Accept': 'application/json'
         },
         body: JSON.stringify({ checkout_request_id: checkoutRequestId })
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success) {
-            // Payment completed
+        if (data.success && data.status === 'completed') {
+            // Payment completed successfully
             clearInterval(paymentInterval);
             document.getElementById('processingState').classList.add('hidden');
             document.getElementById('successState').classList.remove('hidden');
 
-            // Redirect after 3 seconds
+            // Show receipt info
+            const receiptInfo = document.getElementById('receiptInfo');
+            if (data.mpesa_receipt_number) {
+                receiptInfo.innerHTML = `Receipt Number: <strong>${data.mpesa_receipt_number}</strong>`;
+            }
+
+            // Auto redirect after 5 seconds
             setTimeout(() => {
                 window.location.href = '{{ route("application.success", $application->id) }}';
-            }, 3000);
+            }, 5000);
+
         } else if (data.status === 'failed') {
             // Payment failed
             clearInterval(paymentInterval);
-            showError(data.message || 'Payment failed');
+            showError(data.message || 'Payment failed. Please try again.');
+
+        } else if (pollingAttempts >= MAX_POLLING_ATTEMPTS) {
+            // Timeout after 90 seconds
+            clearInterval(paymentInterval);
+            showError('Payment timeout. Please check your M-Pesa messages or try again.');
         }
-        // If still pending, continue checking
+        // If pending, continue checking
     })
     .catch(error => {
         console.error('Error checking status:', error);
+        if (pollingAttempts >= MAX_POLLING_ATTEMPTS) {
+            clearInterval(paymentInterval);
+            showError('Unable to verify payment status. Please check your M-Pesa messages.');
+        }
     });
 }
 
@@ -196,6 +262,19 @@ function showError(message) {
     document.getElementById('processingState').classList.add('hidden');
     document.getElementById('errorState').classList.remove('hidden');
     document.getElementById('errorMessage').textContent = message;
+
+    Swal.fire({
+        icon: 'error',
+        title: 'Payment Failed',
+        text: message,
+        confirmButtonColor: '#B91C1C'
+    });
+}
+
+function resetPaymentButton() {
+    const payBtn = document.getElementById('payButton');
+    payBtn.disabled = false;
+    payBtn.innerHTML = 'Pay KES 500 via M-Pesa';
 }
 
 function resetPayment() {
@@ -203,6 +282,10 @@ function resetPayment() {
     document.getElementById('paymentForm').classList.remove('hidden');
     document.getElementById('processingState').classList.add('hidden');
     document.getElementById('successState').classList.add('hidden');
+    resetPaymentButton();
+    pollingAttempts = 0;
+    checkoutRequestId = null;
+    if (paymentInterval) clearInterval(paymentInterval);
 }
 </script>
 @endsection

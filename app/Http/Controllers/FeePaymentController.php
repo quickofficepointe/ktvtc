@@ -132,91 +132,96 @@ class FeePaymentController extends Controller
     /**
      * ============ STORE PAYMENT ============
      */
-    public function store(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'student_id' => 'required|exists:students,id',
-            'enrollment_id' => 'required|exists:enrollments,id',
-            'amount' => 'required|numeric|min:1',
-            'payment_method' => 'required|in:cash,mpesa,bank,kcb,other',
-            'payment_date' => 'required|date',
-            'transaction_code' => 'nullable|string|max:100',
-            'payment_for_month' => 'nullable|string|max:20',
-            'payer_name' => 'nullable|string|max:255',
-            'payer_phone' => 'nullable|string|max:20',
-            'payer_type' => 'nullable|in:student,parent,sponsor,employer,other',
-            'notes' => 'nullable|string',
+public function store(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'student_id' => 'required|exists:students,id',
+        'enrollment_id' => 'required|exists:enrollments,id',
+        'amount' => 'required|numeric|min:1',
+        'payment_method' => 'required|in:cash,mpesa,bank,kcb,other',
+        'payment_date' => 'required|date',
+        'transaction_code' => 'nullable|string|max:100',
+        'payment_for_month' => 'nullable|string|max:20',
+        'payer_name' => 'nullable|string|max:255',
+        'payer_phone' => 'nullable|string|max:20',
+        'payer_type' => 'nullable|in:student,parent,sponsor,employer,other',
+        'notes' => 'nullable|string',
+    ]);
+
+    if ($validator->fails()) {
+        return redirect()->back()
+            ->withErrors($validator)
+            ->withInput();
+    }
+
+    DB::beginTransaction();
+
+    try {
+        $enrollment = Enrollment::find($request->enrollment_id);
+
+        // Calculate current balance (total_fees - amount_paid)
+        $currentBalance = $enrollment->total_fees - $enrollment->amount_paid;
+
+        // Check if amount exceeds balance
+        if ($request->amount > $currentBalance) {
+            return redirect()->back()
+                ->with('error', 'Payment amount exceeds the outstanding balance of KES ' . number_format($currentBalance, 2))
+                ->withInput();
+        }
+
+        // Generate receipt number
+        $receiptNumber = FeePayment::generateReceiptNumber();
+
+        // Create payment
+        $payment = FeePayment::create([
+            'student_id' => $request->student_id,
+            'enrollment_id' => $request->enrollment_id,
+            'amount' => $request->amount,
+            'payment_date' => $request->payment_date,
+            'receipt_number' => $receiptNumber,
+            'payment_method' => $request->payment_method,
+            'transaction_code' => $request->transaction_code,
+            'payment_for_month' => $request->payment_for_month,
+            'payer_name' => $request->payer_name,
+            'payer_phone' => $request->payer_phone,
+            'payer_type' => $request->payer_type ?? 'student',
+            'status' => 'completed',
+            'is_verified' => true, // Auto-verify for manual entries
+            'verified_by' => Auth::id(),
+            'verified_at' => now(),
+            'notes' => $request->notes,
+            'recorded_by' => Auth::id(),
+            'import_source' => $request->import_source ?? 'manual',
         ]);
 
-        if ($validator->fails()) {
-            return redirect()->back()
-                ->withErrors($validator)
-                ->withInput();
-        }
+        // ✅ FIXED: Update enrollment amount_paid
+        $enrollment->amount_paid = $enrollment->amount_paid + $request->amount;
+        $enrollment->save();
 
-        DB::beginTransaction();
+        DB::commit();
 
-        try {
-            $enrollment = Enrollment::find($request->enrollment_id);
+        return redirect()->route('admin.fee-payments.show', $payment)
+            ->with('success', 'Payment recorded successfully. Receipt: ' . $receiptNumber);
 
-            // Check if amount exceeds balance
-            if ($request->amount > $enrollment->balance) {
-                return redirect()->back()
-                    ->with('error', 'Payment amount exceeds the outstanding balance of KES ' . number_format($enrollment->balance, 2))
-                    ->withInput();
-            }
+    } catch (\Exception $e) {
+        DB::rollBack();
 
-            // Generate receipt number
-            $receiptNumber = $this->generateReceiptNumber();
-
-            // Create payment
-            $payment = FeePayment::create([
-                'student_id' => $request->student_id,
-                'enrollment_id' => $request->enrollment_id,
-                'amount' => $request->amount,
-                'payment_date' => $request->payment_date,
-                'receipt_number' => $receiptNumber,
-                'payment_method' => $request->payment_method,
-                'transaction_code' => $request->transaction_code,
-                'payment_for_month' => $request->payment_for_month,
-                'payer_name' => $request->payer_name,
-                'payer_phone' => $request->payer_phone,
-                'payer_type' => $request->payer_type ?? 'student',
-                'status' => 'completed',
-                'is_verified' => false,
-                'notes' => $request->notes,
-                'recorded_by' => Auth::id(),
-                'import_source' => $request->import_source ?? 'manual',
-            ]);
-
-            // Update enrollment balance
-            $enrollment->amount_paid += $request->amount;
-            $enrollment->balance = $enrollment->total_course_fee - $enrollment->amount_paid;
-            $enrollment->save();
-
-            DB::commit();
-
-            return redirect()->route('admin.fee-payments.show', $payment)
-                ->with('success', 'Payment recorded successfully. Receipt: ' . $receiptNumber);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            return redirect()->back()
-                ->with('error', 'Failed to record payment: ' . $e->getMessage())
-                ->withInput();
-        }
+        return redirect()->back()
+            ->with('error', 'Failed to record payment: ' . $e->getMessage())
+            ->withInput();
     }
+}
 
     /**
      * ============ SHOW PAYMENT ============
      */
-    public function show(FeePayment $feePayment)
-    {
-        $feePayment->load(['student', 'enrollment.course', 'verifier', 'recorder']);
+   public function show(FeePayment $feePayment)
+{
+    $feePayment->load(['student', 'enrollment.course', 'verifier', 'recorder']);
 
-        return view('ktvtc.admin.fee-payments.show', compact('feePayment'));
-    }
+    return view('ktvtc.admin.fee-payments.show', compact('feePayment'))
+        ->with('payment', $feePayment); // ✅ Pass as 'payment' variable
+}
 
     /**
      * ============ DESTROY PAYMENT ============
@@ -321,12 +326,16 @@ class FeePaymentController extends Controller
     /**
      * ============ RECEIPT ============
      */
-    public function receipt(FeePayment $feePayment)
-    {
-        $feePayment->load(['student', 'enrollment.course']);
+/**
+ * ============ RECEIPT ============
+ */
+public function receipt(FeePayment $feePayment)
+{
+    $feePayment->load(['student', 'enrollment.course']);
+    $payment = $feePayment; // Create alias for the view
 
-        return view('ktvtc.admin.fee-payments.receipt', compact('feePayment'));
-    }
+    return view('ktvtc.admin.fee-payments.receipt', compact('payment'));
+}
 
     /**
      * ============ BULK VERIFY ============

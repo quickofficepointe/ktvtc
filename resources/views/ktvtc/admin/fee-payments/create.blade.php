@@ -116,7 +116,7 @@
                                    id="amount"
                                    value="{{ old('amount') }}"
                                    min="1"
-                                   step="100"
+                                   step="0.01"
                                    required
                                    class="w-full pl-12 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                                    placeholder="0.00">
@@ -335,7 +335,7 @@
                 const selected = this.options[this.selectedIndex];
                 summaryStudent.textContent = selected.text.split(' - ')[0];
 
-                fetch(`/admin/api/students/${studentId}/enrollments`)
+                      fetch(`/admin/enrollments/api/by-student?student_id=${studentId}`)
                     .then(response => response.json())
                     .then(data => {
                         enrollmentSelect.innerHTML = '<option value="">Select Enrollment</option>';

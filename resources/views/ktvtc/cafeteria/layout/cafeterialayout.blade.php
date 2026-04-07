@@ -3,26 +3,26 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>KTVTC Cafeteria @yield('title')</title>
 
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- DataTables CSS -->
+    <!-- DataTables -->
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.dataTables.min.css">
 
-    <!-- Select2 CSS -->
+    <!-- Select2 -->
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 
-    <!-- Toastr CSS -->
+    <!-- Toastr -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css">
 
     <script>
@@ -30,24 +30,15 @@
             theme: {
                 extend: {
                     colors: {
-                        'primary': '#E63946',      /* Vibrant red */
-                        'secondary': '#000000',     /* Black */
-                        'light': '#FFFFFF',        /* White */
-                        'dark': '#1D3557',         /* Dark blue */
-                        'accent': '#A8DADC',       /* Light teal */
-                        'success': '#10B981',      /* Green */
-                        'warning': '#F59E0B',      /* Amber */
-                        'danger': '#EF4444',       /* Red */
-                        'info': '#3B82F6',         /* Blue */
-                        'cafeteria': {
-                            'food': '#F97316',     /* Orange */
-                            'beverage': '#8B5CF6', /* Purple */
-                            'snack': '#F59E0B',    /* Amber */
-                            'gift': '#10B981',     /* Green */
-                        }
+                        'primary': '#E63946',
+                        'primary-dark': '#C1121F',
+                        'success': '#10B981',
+                        'warning': '#F59E0B',
+                        'danger': '#EF4444',
+                        'info': '#3B82F6',
                     },
                     fontFamily: {
-                        sans: ['DM Sans', 'sans-serif'],
+                        sans: ['Inter', 'sans-serif'],
                     },
                 }
             }
@@ -55,597 +46,570 @@
     </script>
 
     <style>
-        body {
-            font-family: 'DM Sans', sans-serif;
-            background-color: #F8F9FA;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #F8F9FA;
+            overflow-x: hidden;
+        }
+
+        /* Sidebar Styles */
         .sidebar {
             background: linear-gradient(180deg, #E63946 0%, #C1121F 100%);
-            box-shadow: 4px 0 10px rgba(0, 0, 0, 0.1);
+            position: fixed;
+            top: 64px;
+            bottom: 0;
+            width: 260px;
+            z-index: 40;
+            overflow-y: auto;
+            transition: transform 0.3s ease-in-out;
         }
+
+        /* Desktop - Sidebar visible */
+        @media (min-width: 769px) {
+            .sidebar {
+                transform: translateX(0);
+                left: 0;
+            }
+            .main-content {
+                margin-left: 260px;
+            }
+            .mobile-menu-btn {
+                display: none;
+            }
+            .mobile-overlay {
+                display: none !important;
+            }
+        }
+
+        /* Mobile - Sidebar hidden by default */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                left: 0;
+                width: 260px;
+                z-index: 1000;
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .mobile-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 999;
+            }
+            .mobile-overlay.open {
+                display: block;
+            }
+            .main-content {
+                margin-left: 0;
+            }
+            .mobile-menu-btn {
+                display: block;
+            }
+        }
+
         .nav-link {
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             border-radius: 8px;
         }
+
         .nav-link:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-            transform: translateX(5px);
+            background: rgba(255, 255, 255, 0.1);
         }
+
         .nav-link.active {
-            background-color: #FFFFFF !important;
+            background: white !important;
             color: #E63946 !important;
             font-weight: 600;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        .stat-card {
-            border-radius: 12px;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-        .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-        }
-        .table-container {
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-        }
-        .modal-content {
-            border-radius: 12px;
-            border: none;
-        }
+
         .btn-primary {
-            background: linear-gradient(135deg, #E63946 0%, #C1121F 100%);
-            transition: all 0.3s ease;
+            background: #E63946;
+            transition: all 0.2s ease;
         }
+
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(230, 57, 70, 0.3);
+            background: #C1121F;
         }
-        .badge {
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .notification-badge {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background-color: #EF4444;
-            color: white;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            display: flex;
+
+        /* Loading Overlay */
+        #loadingOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
             align-items: center;
             justify-content: center;
-            font-size: 11px;
+        }
+
+        .spinner {
+            width: 45px;
+            height: 45px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #E63946;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Custom Scrollbar */
+        .sidebar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .sidebar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
         }
     </style>
 
     @yield('styles')
 </head>
-<body class="bg-gray-50">
-    <!-- Navbar -->
-    <nav class="fixed top-0 left-0 right-0 z-50 bg-primary shadow-lg h-16">
-        <div class="flex items-center justify-between h-full px-4 md:px-6">
-            <div class="flex items-center">
-                <!-- Mobile Menu Toggle -->
-                <button class="mr-4 text-white md:hidden" id="mobileSidebarToggle">
-                    <i class="fas fa-bars text-xl"></i>
+<body>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay">
+    <div class="bg-white rounded-xl p-6 text-center min-w-[220px] shadow-2xl">
+        <div class="spinner"></div>
+        <p class="text-gray-800 font-semibold" id="loadingMessage">Processing...</p>
+        <p class="text-gray-500 text-xs mt-1">Please wait</p>
+    </div>
+</div>
+
+<!-- Mobile Overlay -->
+<div id="mobileOverlay" class="mobile-overlay"></div>
+
+<!-- Navbar -->
+<nav class="fixed top-0 left-0 right-0 h-16 bg-primary shadow-lg z-50">
+    <div class="flex items-center justify-between h-full px-4 md:px-6">
+        <div class="flex items-center">
+            <!-- Mobile Menu Button -->
+            <button id="mobileMenuBtn" class="mobile-menu-btn mr-3 text-white w-10 h-10 rounded-lg hover:bg-white/10 transition-colors">
+                <i class="fas fa-bars text-xl"></i>
+            </button>
+            <!-- Logo -->
+            <a href="{{ route('cafeteria.dashboard') }}" class="flex items-center">
+                <div class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center mr-2">
+                    <i class="fas fa-utensils text-white text-lg"></i>
+                </div>
+                <span class="font-bold text-white text-lg">Cafeteria</span>
+            </a>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <!-- User Dropdown -->
+            <div class="relative">
+                <button id="userBtn" class="flex items-center text-white hover:bg-white/10 px-2 py-1 rounded-lg transition-colors">
+                    <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                        <i class="fas fa-user text-sm"></i>
+                    </div>
+                    <span class="hidden md:block ml-2 text-sm font-medium">{{ Auth::user()->name ?? 'User' }}</span>
+                    <i class="fas fa-chevron-down ml-1 text-xs hidden md:block"></i>
                 </button>
+                <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl z-50 border border-gray-100">
+                    <div class="py-2">
+                        <a href="#" class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                            <i class="fas fa-user w-4 mr-3 text-gray-400"></i> My Profile
+                        </a>
+                        <a href="{{ route('cafeteria.settings.index') }}" class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                            <i class="fas fa-cog w-4 mr-3 text-gray-400"></i> Settings
+                        </a>
+                        <div class="border-t border-gray-100 my-1"></div>
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="flex items-center w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50">
+                                <i class="fas fa-sign-out-alt w-4 mr-3"></i> Logout
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
 
-                <!-- Logo & Brand -->
-                <a class="flex items-center" href="{{ route('cafeteria.dashboard') }}">
-                    <div class="w-10 h-10 rounded-full bg-white bg-opacity-20 flex items-center justify-center mr-2">
-                        <i class="fas fa-utensils text-white text-lg"></i>
-                    </div>
-                    <div>
-                        <span class="font-bold text-white text-xl">KTVTC Cafeteria</span>
-                        <span class="block text-xs text-white text-opacity-80">Management System</span>
-                    </div>
+<!-- Sidebar -->
+<aside id="sidebar" class="sidebar">
+    <div class="p-4">
+        <ul class="space-y-1">
+            <!-- Dashboard -->
+            <li>
+                <a href="{{ route('cafeteria.dashboard') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link {{ request()->routeIs('cafeteria.dashboard') ? 'active' : '' }}">
+                    <i class="fas fa-tachometer-alt w-5 mr-3"></i>
+                    <span>Dashboard</span>
                 </a>
+            </li>
+
+            <!-- Sales -->
+            <li class="mt-4">
+                <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider">Sales</p>
+            </li>
+            <li>
+                <a href="{{ route('cafeteria.sales.pos') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link {{ request()->routeIs('cafeteria.sales.pos') ? 'active' : '' }}">
+                    <i class="fas fa-cash-register w-5 mr-3"></i>
+                    <span>POS Terminal</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('cafeteria.sales.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link {{ request()->routeIs('cafeteria.sales.index') ? 'active' : '' }}">
+                    <i class="fas fa-shopping-cart w-5 mr-3"></i>
+                    <span>Sales List</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('cafeteria.daily-productions.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link {{ request()->routeIs('cafeteria.daily-productions.*') ? 'active' : '' }}">
+                    <i class="fas fa-clipboard-list w-5 mr-3"></i>
+                    <span>Daily Production</span>
+                </a>
+            </li>
+
+            <!-- Products -->
+            <li class="mt-4">
+                <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider">Products</p>
+            </li>
+            <li>
+                <a href="{{ route('cafeteria.categories.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link {{ request()->routeIs('cafeteria.categories.*') ? 'active' : '' }}">
+                    <i class="fas fa-tags w-5 mr-3"></i>
+                    <span>Categories</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('cafeteria.products.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link {{ request()->routeIs('cafeteria.products.*') ? 'active' : '' }}">
+                    <i class="fas fa-utensils w-5 mr-3"></i>
+                    <span>Products</span>
+                </a>
+            </li>
+
+            <!-- Inventory -->
+            <li class="mt-4">
+                <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider">Inventory</p>
+            </li>
+            <li>
+                <a href="{{ route('cafeteria.inventory.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link {{ request()->routeIs('cafeteria.inventory.*') ? 'active' : '' }}">
+                    <i class="fas fa-boxes w-5 mr-3"></i>
+                    <span>Inventory Control</span>
+                </a>
+            </li>
+
+            <!-- Purchases -->
+            <li class="mt-4">
+                <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider">Purchases</p>
+            </li>
+            <li>
+                <a href="{{ route('cafeteria.suppliers.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link {{ request()->routeIs('cafeteria.suppliers.*') ? 'active' : '' }}">
+                    <i class="fas fa-truck w-5 mr-3"></i>
+                    <span>Suppliers</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('cafeteria.purchase-orders.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link {{ request()->routeIs('cafeteria.purchase-orders.*') ? 'active' : '' }}">
+                    <i class="fas fa-shopping-basket w-5 mr-3"></i>
+                    <span>Purchase Orders</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('cafeteria.grn.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link {{ request()->routeIs('cafeteria.grn.*') ? 'active' : '' }}">
+                    <i class="fas fa-clipboard-check w-5 mr-3"></i>
+                    <span>Goods Received</span>
+                </a>
+            </li>
+
+            <!-- Reports -->
+            <li class="mt-4">
+                <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider">Reports</p>
+            </li>
+           <li>
+    <a href="{{ route('cafeteria.reports.dashboard') }}"
+       class="flex items-center px-3 py-2.5 rounded-lg nav-link {{ request()->routeIs('cafeteria.reports.*') ? 'active' : '' }}">
+        <i class="fas fa-chart-pie w-5 mr-3"></i>
+        <span>Reports</span>
+    </a>
+</li>
+
+            <!-- Payments -->
+            <li class="mt-4">
+                <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider">Finance</p>
+            </li>
+            <li>
+                <a href="{{ route('cafeteria.payments.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link {{ request()->routeIs('cafeteria.payments.*') ? 'active' : '' }}">
+                    <i class="fas fa-credit-card w-5 mr-3"></i>
+                    <span>Payments</span>
+                </a>
+            </li>
+
+            <!-- Settings -->
+            <li class="mt-4">
+                <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider">System</p>
+            </li>
+            <li>
+                <a href="{{ route('cafeteria.settings.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link {{ request()->routeIs('cafeteria.settings.*') ? 'active' : '' }}">
+                    <i class="fas fa-cog w-5 mr-3"></i>
+                    <span>Settings</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+</aside>
+
+<!-- Main Content -->
+<main class="main-content pt-16 min-h-screen">
+    <!-- Breadcrumb & Header -->
+    <div class="bg-white border-b px-4 py-4 md:px-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between">
+            <div>
+                <h1 class="text-xl font-bold text-gray-800">@yield('title', 'Dashboard')</h1>
+                <p class="text-sm text-gray-500">@yield('subtitle', 'Cafeteria Management System')</p>
             </div>
-
-            <!-- Right Side Navigation -->
-            <div class="flex items-center space-x-4">
-                <!-- Notifications -->
-                <div class="relative">
-                    <button class="relative text-white focus:outline-none" id="notificationsDropdown">
-                        <i class="fas fa-bell text-xl"></i>
-                        <span class="notification-badge" id="notificationCount"></span>
-                    </button>
-                </div>
-
-                <!-- Quick Actions Dropdown -->
-                <div class="relative">
-                    <button class="text-white focus:outline-none" id="quickActionsDropdown">
-                        <i class="fas fa-bolt text-xl"></i>
-                    </button>
-                    <div class="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl hidden" id="quickActionsMenu">
-                        <div class="p-4">
-                            <h6 class="font-semibold text-gray-800 mb-3">Quick Actions</h6>
-                            <div class="grid grid-cols-2 gap-2">
-                                <a href="{{ route('cafeteria.sales.pos') }}" class="p-3 bg-gray-50 rounded-lg text-center hover:bg-primary hover:text-white transition">
-                                    <i class="fas fa-plus text-lg mb-1"></i>
-                                    <p class="text-xs font-medium">New Sale</p>
-                                </a>
-                                <a href="{{ route('cafeteria.reports.sales.daily') }}" class="p-3 bg-gray-50 rounded-lg text-center hover:bg-primary hover:text-white transition">
-                                    <i class="fas fa-chart-bar text-lg mb-1"></i>
-                                    <p class="text-xs font-medium">Daily Report</p>
-                                </a>
-                                <a href="{{ route('cafeteria.products.create') }}" class="p-3 bg-gray-50 rounded-lg text-center hover:bg-primary hover:text-white transition">
-                                    <i class="fas fa-box text-lg mb-1"></i>
-                                    <p class="text-xs font-medium">Add Product</p>
-                                </a>
-                                <a href="{{ route('cafeteria.purchase-orders.create') }}" class="p-3 bg-gray-50 rounded-lg text-center hover:bg-primary hover:text-white transition">
-                                    <i class="fas fa-shopping-cart text-lg mb-1"></i>
-                                    <p class="text-xs font-medium">Purchase Order</p>
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- User Dropdown -->
-                <div class="relative">
-                    <button class="flex items-center text-white focus:outline-none" id="userDropdown">
-                        <div class="w-9 h-9 rounded-full bg-white bg-opacity-20 flex items-center justify-center">
-                            <i class="fas fa-user-tie text-white"></i>
-                        </div>
-                        <div class="hidden md:block ml-3 text-left">
-                            <span class="font-medium text-sm">{{ auth()->user()->name }}</span>
-                            @if(auth()->user()->role_name)
-                            <span class="badge bg-{{ auth()->user()->role_badge ?? 'primary' }}">
-                                {{ auth()->user()->role_name }}
-                            </span>
-                            @endif
-                        </div>
-                        <i class="fas fa-chevron-down ml-2 text-sm"></i>
-                    </button>
-                    <div class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl hidden" id="userMenu">
-                        <div class="py-2">
-                            <a href="#" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <i class="fas fa-user mr-3 text-gray-500"></i> My Profile
-                            </a>
-                            <a href="{{ route('cafeteria.settings.index') }}" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <i class="fas fa-cog mr-3 text-gray-500"></i> Settings
-                            </a>
-                            <div class="border-t border-gray-100 my-1"></div>
-                            <form method="POST" action="{{ route('logout') }}">
-                                @csrf
-                                <button type="submit" class="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-                                    <i class="fas fa-sign-out-alt mr-3"></i> Logout
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
+            <div class="mt-3 md:mt-0">
+                @yield('header-actions')
             </div>
         </div>
-    </nav>
-
-    <!-- Sidebar - Organized by Categories -->
-    <div class="fixed top-16 left-0 bottom-0 w-64 text-white z-40 overflow-y-auto sidebar hidden md:block transform transition-transform duration-300" id="sidebar">
-        <div class="p-4">
-            <!-- Navigation Links -->
-            <ul class="space-y-1">
-                <!-- DASHBOARD -->
-                <li>
-                    <a href="{{ route('cafeteria.dashboard') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.dashboard') ? 'active' : '' }}">
-                        <i class="fas fa-tachometer-alt mr-3"></i> Dashboard
-                    </a>
-                </li>
-
-                <!-- ========== SALES & ORDERS ========== -->
-                <li class="mt-4">
-                    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">SALES & ORDERS</p>
-                </li>
-                <li>
-                    <a href="{{ route('cafeteria.sales.pos') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.sales.pos') ? 'active' : '' }}">
-                        <i class="fas fa-cash-register mr-3"></i> POS Terminal
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('cafeteria.daily-productions.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.daily-productions.*') ? 'active' : '' }}">
-                        <i class="fas fa-clipboard-list mr-3"></i> Daily Production
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('cafeteria.sales.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.sales.index') ? 'active' : '' }}">
-                        <i class="fas fa-shopping-cart mr-3"></i> Sales List
-                    </a>
-                </li>
-                <!--
-                <li>
-                    <a href="{{ route('cafeteria.sales.pending-payment') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.sales.pending-payment') ? 'active' : '' }}">
-                        <i class="fas fa-clock mr-3"></i> Pending Payments
-                    </a>
-                </li>
-                -->
-                <!-- ========== PRODUCT MANAGEMENT ========== -->
-                <li class="mt-4">
-                    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">PRODUCT MANAGEMENT</p>
-                </li>
-                <li>
-                    <a href="{{ route('cafeteria.categories.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.categories.*') ? 'active' : '' }}">
-                        <i class="fas fa-tags mr-3"></i> Categories
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('cafeteria.products.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.products.*') ? 'active' : '' }}">
-                        <i class="fas fa-utensils mr-3"></i> Products
-                    </a>
-                </li>
-                 <!--
-                <li>
-                    <a href="{{ route('cafeteria.products.low-stock') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.products.low-stock') ? 'active' : '' }}">
-                        <i class="fas fa-exclamation-triangle mr-3"></i> Low Stock Alert
-                    </a>
-                </li>
-                -->
-                <!-- ========== INVENTORY MANAGEMENT ========== -->
-                <li class="mt-4">
-                    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">INVENTORY MANAGEMENT</p>
-                </li>
-
-                <li>
-                    <a href="{{ route('cafeteria.inventory.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.inventory.*') ? 'active' : '' }}">
-                        <i class="fas fa-boxes mr-3"></i> Inventory Control
-                    </a>
-                </li>
-                  <!--
-                <li>
-                    <a href="{{ route('cafeteria.stock-adjustments.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.stock-adjustments.*') ? 'active' : '' }}">
-                        <i class="fas fa-exchange-alt mr-3"></i> Stock Adjustments
-                    </a>
-                </li>
-
-                <li>
-                    <a href="{{ route('cafeteria.stock-alerts.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.stock-alerts.*') ? 'active' : '' }}">
-                        <i class="fas fa-bell mr-3"></i> Stock Alerts
-                    </a>
-                </li>
-  -->
-                <!-- ========== PURCHASE & SUPPLIERS ========== -->
-                <li class="mt-4">
-                    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">PURCHASE & SUPPLIERS</p>
-                </li>
-                <li>
-                    <a href="{{ route('cafeteria.suppliers.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.suppliers.*') ? 'active' : '' }}">
-                        <i class="fas fa-truck mr-3"></i> Suppliers
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('cafeteria.purchase-orders.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.purchase-orders.*') ? 'active' : '' }}">
-                        <i class="fas fa-shopping-basket mr-3"></i> Purchase Orders
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('cafeteria.grn.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.grn.*') ? 'active' : '' }}">
-                        <i class="fas fa-clipboard-check mr-3"></i> Goods Received
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('cafeteria.direct-purchases.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.direct-purchases.*') ? 'active' : '' }}">
-                        <i class="fas fa-shopping-cart mr-3"></i> Direct Purchases
-                    </a>
-                </li>
-
-                <!-- ========== REPORTS & ANALYTICS ========== -->
-                <li class="mt-4">
-                    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">REPORTS & ANALYTICS</p>
-                </li>
-                <li>
-                    <a href="{{ route('cafeteria.reports.sales.daily') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.reports.sales.*') ? 'active' : '' }}">
-                        <i class="fas fa-calendar-day mr-3"></i> Sales Reports
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('cafeteria.reports.inventory.stock-levels') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.reports.inventory.*') ? 'active' : '' }}">
-                        <i class="fas fa-chart-pie mr-3"></i> Inventory Reports
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('cafeteria.reports.financial.profit-loss') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.reports.financial.*') ? 'active' : '' }}">
-                        <i class="fas fa-money-bill-wave mr-3"></i> Financial Reports
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('cafeteria.reports.purchase.summary') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.reports.purchase.*') ? 'active' : '' }}">
-                        <i class="fas fa-chart-bar mr-3"></i> Purchase Reports
-                    </a>
-                </li>
-
-                <!-- ========== PAYMENTS & FINANCE ========== -->
-                <li class="mt-4">
-                    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">PAYMENTS & FINANCE</p>
-                </li>
-                <li>
-                    <a href="{{ route('cafeteria.payments.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.payments.*') ? 'active' : '' }}">
-                        <i class="fas fa-credit-card mr-3"></i> Payment Transactions
-                    </a>
-                </li>
-
-                <!-- ========== SYSTEM & SETTINGS ========== -->
-                <li class="mt-4">
-                    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">SYSTEM & SETTINGS</p>
-                </li>
-                <li>
-                    <a href="{{ route('cafeteria.settings.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.settings.*') ? 'active' : '' }}">
-                        <i class="fas fa-cog mr-3"></i> System Settings
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('cafeteria.users.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.users.*') ? 'active' : '' }}">
-                        <i class="fas fa-users mr-3"></i> User Management
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('cafeteria.business-sections.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.business-sections.*') ? 'active' : '' }}">
-                        <i class="fas fa-building mr-3"></i> Business Sections
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('cafeteria.shops.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.shops.*') ? 'active' : '' }}">
-                        <i class="fas fa-store mr-3"></i> Shop Management
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('cafeteria.backup') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('cafeteria.backup') ? 'active' : '' }}">
-                        <i class="fas fa-database mr-3"></i> Backup & Restore
-                    </a>
-                </li>
-            </ul>
-
-            <!-- Quick Stats -->
-            <div class="mt-8 p-3 bg-white bg-opacity-10 rounded-lg">
-                <p class="text-xs font-semibold mb-2 text-white text-opacity-80">TODAY'S SNAPSHOT</p>
-                <div class="space-y-2">
-                    <div class="flex justify-between items-center">
-                        <span class="text-xs">Today's Sales</span>
-                        <span class="text-xs font-semibold" id="sidebarTodaySales">--</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-xs">Today's Orders</span>
-                        <span class="text-xs font-semibold" id="sidebarTodayOrders">--</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-xs">Low Stock Items</span>
-                        <span class="text-xs font-semibold" id="sidebarLowStock">--</span>
-                    </div>
-                </div>
-            </div>
+        <!-- Breadcrumb -->
+        <div class="mt-2">
+            <ol class="flex text-sm text-gray-500">
+                <li><a href="{{ route('cafeteria.dashboard') }}" class="hover:text-primary transition">Home</a></li>
+                @yield('breadcrumb')
+            </ol>
         </div>
     </div>
 
-    <!-- Main Content -->
-    <div class="main-content ml-0 md:ml-64 mt-16 p-4 md:p-6 min-h-screen" id="mainContent">
-        <!-- Page Header -->
-        <div class="mb-6">
-            <div class="flex flex-col md:flex-row md:items-center justify-between">
-                <div>
-                    <h1 class="text-2xl font-bold text-gray-800">@yield('page-title', 'Dashboard')</h1>
-                    <p class="text-gray-600">@yield('page-description', 'Cafeteria Management Dashboard')</p>
-                </div>
-                <div class="mt-4 md:mt-0">
-                    <div class="flex space-x-3">
-                        @yield('page-actions')
-                        <!-- Quick Action Buttons -->
-                        <a href="{{ route('cafeteria.sales.pos') }}" class="btn-primary text-white font-medium py-2 px-4 rounded-lg flex items-center">
-                            <i class="fas fa-plus mr-2"></i> New Sale
-                        </a>
-                        <a href="{{ route('cafeteria.reports.sales.daily') }}" class="bg-white text-primary border border-primary font-medium py-2 px-4 rounded-lg flex items-center">
-                            <i class="fas fa-print mr-2"></i> Daily Report
-                        </a>
-                    </div>
-                </div>
+    <!-- Flash Messages -->
+    <div class="px-4 pt-4 md:px-6">
+        @if(session('success'))
+            <div class="mb-4 p-3 bg-green-100 border-l-4 border-green-500 text-green-700 rounded shadow-sm">
+                <i class="fas fa-check-circle mr-2"></i> {{ session('success') }}
             </div>
-            <!-- Breadcrumb -->
-            <nav class="flex mt-4" aria-label="Breadcrumb">
-                <ol class="inline-flex items-center space-x-1 md:space-x-3">
-                    <li class="inline-flex items-center">
-                        <a href="{{ route('cafeteria.dashboard') }}" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-primary">
-                            <i class="fas fa-home mr-2"></i> Dashboard
-                        </a>
-                    </li>
-                    @yield('breadcrumbs')
-                </ol>
-            </nav>
-        </div>
-
-        <!-- Main Content Area -->
-        <div class="bg-white rounded-xl shadow-sm p-4 md:p-6">
-            @yield('content')
-        </div>
-
-        <!-- Footer -->
-        <footer class="mt-8 text-center text-gray-500 text-sm">
-            <p>KTVTC Cafeteria Management System v1.0 • © {{ date('Y') }} • Made with <i class="fas fa-heart text-red-500"></i> by KTVTC</p>
-            <p class="mt-1">Server Time: <span id="serverTime">{{ now()->format('Y-m-d H:i:s') }}</span></p>
-        </footer>
+        @endif
+        @if(session('error'))
+            <div class="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700 rounded shadow-sm">
+                <i class="fas fa-exclamation-circle mr-2"></i> {{ session('error') }}
+            </div>
+        @endif
+        @if(session('warning'))
+            <div class="mb-4 p-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded shadow-sm">
+                <i class="fas fa-exclamation-triangle mr-2"></i> {{ session('warning') }}
+            </div>
+        @endif
+        @if($errors->any())
+            <div class="mb-4 p-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded shadow-sm">
+                <i class="fas fa-exclamation-triangle mr-2"></i>
+                <ul class="list-disc list-inside mt-1">
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
     </div>
 
-    <!-- ========== SCRIPTS ========== -->
+    <!-- Content -->
+    <div class="p-4 md:p-6">
+        @yield('content')
+    </div>
 
-    <!-- jQuery -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Footer -->
+    <footer class="border-t bg-white px-4 py-3 md:px-6 text-center text-gray-500 text-sm mt-6">
+        <p>KTVTC Cafeteria Management System v1.0 &copy; {{ date('Y') }}</p>
+    </footer>
+</main>
 
-    <!-- DataTables -->
-    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
-    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/buttons/2.3.6/js/dataTables.buttons.min.js"></script>
-    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.print.min.js"></script>
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
 
-    <!-- Select2 -->
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-
-    <!-- Toastr -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
-
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <!-- Main JavaScript -->
-    <script>
-        // Initialize Toastr
+<script>
+    (function() {
+        // Toastr configuration
         toastr.options = {
-            "closeButton": true,
-            "progressBar": true,
-            "positionClass": "toast-top-right",
-            "timeOut": "3000"
+            closeButton: true,
+            progressBar: true,
+            positionClass: "toast-top-right",
+            timeOut: 3000,
+            extendedTimeOut: 1000
         };
 
-        // Sidebar Toggle
-        document.getElementById('mobileSidebarToggle').addEventListener('click', function() {
-            document.getElementById('sidebar').classList.toggle('hidden');
+        // Loading overlay functions
+        window.showLoading = function(message = 'Processing...') {
+            const overlay = document.getElementById('loadingOverlay');
+            const messageEl = document.getElementById('loadingMessage');
+            if (overlay) {
+                if (messageEl) messageEl.textContent = message;
+                overlay.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
+        };
+
+        window.hideLoading = function() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+                document.body.style.overflow = '';
+            }
+        };
+
+        // Auto show loading on form submit
+        document.addEventListener('submit', function(e) {
+            const form = e.target;
+            if (form.tagName === 'FORM' && !form.hasAttribute('data-no-loading')) {
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn && !submitBtn.disabled) {
+                    showLoading('Submitting...');
+                }
+            }
         });
 
-        // Dropdown Toggles
-        const dropdowns = {
-            'userDropdown': 'userMenu',
-            'notificationsDropdown': 'notificationsMenu',
-            'quickActionsDropdown': 'quickActionsMenu'
-        };
+        // Mobile sidebar toggle
+        const mobileBtn = document.getElementById('mobileMenuBtn');
+        const sidebar = document.getElementById('sidebar');
+        const mobileOverlay = document.getElementById('mobileOverlay');
 
-        Object.keys(dropdowns).forEach(dropdownId => {
-            const button = document.getElementById(dropdownId);
-            const menu = document.getElementById(dropdowns[dropdownId]);
+        function openSidebar() {
+            if (sidebar) sidebar.classList.add('open');
+            if (mobileOverlay) mobileOverlay.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
 
-            if (button && menu) {
-                button.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    menu.classList.toggle('hidden');
+        function closeSidebar() {
+            if (sidebar) sidebar.classList.remove('open');
+            if (mobileOverlay) mobileOverlay.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        if (mobileBtn) {
+            mobileBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                openSidebar();
+            });
+        }
+
+        if (mobileOverlay) {
+            mobileOverlay.addEventListener('click', closeSidebar);
+        }
+
+        // Close sidebar on window resize (when switching to desktop)
+        window.addEventListener('resize', function() {
+            if (window.innerWidth >= 769) {
+                closeSidebar();
+            }
+        });
+
+        // Close sidebar on escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeSidebar();
+            }
+        });
+
+        // User dropdown
+        const userBtn = document.getElementById('userBtn');
+        const userMenu = document.getElementById('userMenu');
+
+        if (userBtn && userMenu) {
+            userBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                userMenu.classList.toggle('hidden');
+            });
+
+            document.addEventListener('click', function() {
+                userMenu.classList.add('hidden');
+            });
+
+            userMenu.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+        }
+
+        // Initialize DataTables
+        $(document).ready(function() {
+            $('.datatable').each(function() {
+                if (!$.fn.DataTable.isDataTable(this)) {
+                    $(this).DataTable({
+                        pageLength: 25,
+                        language: {
+                            search: "Search:",
+                            searchPlaceholder: "Search...",
+                            lengthMenu: "_MENU_ records per page",
+                            info: "Showing _START_ to _END_ of _TOTAL_ entries",
+                            infoEmpty: "Showing 0 to 0 of 0 entries",
+                            zeroRecords: "No matching records found"
+                        },
+                        dom: '<"flex justify-between items-center mb-4"<"dt-buttons"B><"dt-search"f>>rt<"flex justify-between items-center mt-4"<"dt-info"i><"dt-pagination"p>>',
+                        buttons: ['copy', 'excel', 'print']
+                    });
+                }
+            });
+
+            // Initialize Select2
+            $('select:not(.no-select2)').each(function() {
+                $(this).select2({
+                    theme: 'classic',
+                    width: '100%',
+                    placeholder: $(this).data('placeholder') || 'Select an option'
                 });
-            }
-        });
-
-        // Close dropdowns when clicking outside
-        document.addEventListener('click', function(e) {
-            Object.values(dropdowns).forEach(menuId => {
-                const menu = document.getElementById(menuId);
-                if (menu && !menu.contains(e.target)) {
-                    const buttonId = Object.keys(dropdowns).find(key => dropdowns[key] === menuId);
-                    const button = document.getElementById(buttonId);
-                    if (button && !button.contains(e.target)) {
-                        menu.classList.add('hidden');
-                    }
-                }
             });
         });
 
-        // Update server time
-        function updateServerTime() {
-            const now = new Date();
-            document.getElementById('serverTime').textContent = now.toLocaleString('en-US', {
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
-            });
-        }
-        setInterval(updateServerTime, 1000);
+        // Helper function for AJAX requests with loading
+        window.ajaxWithLoading = function(url, options = {}) {
+            showLoading(options.loadingMessage || 'Loading...');
 
-        // Initialize Select2
-        $(document).ready(function() {
-            $('select').select2({
-                theme: 'classic',
-                width: '100%'
-            });
-
-            // Initialize DataTables on tables with class 'datatable'
-            $('.datatable').DataTable({
-                dom: 'Bfrtip',
-                buttons: ['print', 'copy', 'excel'],
-                pageLength: 25,
-                responsive: true,
-                language: {
-                    search: "_INPUT_",
-                    searchPlaceholder: "Search..."
-                }
-            });
-        });
-
-        // AJAX error handling
-        $(document).ajaxError(function(event, jqxhr, settings, thrownError) {
-            if (jqxhr.status !== 422) { // Don't show validation errors
-                toastr.error('An error occurred: ' + thrownError);
-            }
-        });
-
-        // CSRF Token for AJAX requests
-        $.ajaxSetup({
-            headers: {
-                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-            }
-        });
-
-        // Load sidebar stats
-        function loadSidebarStats() {
-            $.ajax({
-                url: '/cafeteria/stats',
-                method: 'GET',
-                success: function(data) {
-                    if (data.today_sales) {
-                        $('#sidebarTodaySales').text('KES ' + parseFloat(data.today_sales).toFixed(2));
-                    }
-                    if (data.today_orders) {
-                        $('#sidebarTodayOrders').text(data.today_orders);
-                    }
-                    if (data.low_stock_items) {
-                        $('#sidebarLowStock').text(data.low_stock_items);
-                    }
-                }
-            });
-        }
-
-        // Load sidebar stats on page load
-        $(document).ready(function() {
-            loadSidebarStats();
-        });
-
-        // Auto-refresh sidebar stats every 60 seconds
-        setInterval(loadSidebarStats, 60000);
-
-        // Print receipt function
-        function printReceipt(orderId) {
-            window.open('/cafeteria/sales/' + orderId + '/print-receipt', '_blank');
-        }
-
-        // Mark notification as read
-        function markNotificationAsRead(notificationId) {
-            $.ajax({
-                url: '/cafeteria/notifications/' + notificationId + '/mark-read',
-                method: 'POST',
+            return $.ajax({
+                url: url,
+                method: options.method || 'GET',
+                data: options.data || {},
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
                 success: function(response) {
-                    toastr.success('Notification marked as read');
-                    // Update notification count
-                    let count = parseInt($('#notificationCount').text());
-                    if (count > 0) {
-                        $('#notificationCount').text(count - 1);
-                    }
+                    hideLoading();
+                    if (options.onSuccess) options.onSuccess(response);
+                },
+                error: function(xhr) {
+                    hideLoading();
+                    if (options.onError) options.onError(xhr);
+                    else toastr.error('An error occurred. Please try again.');
                 }
             });
-        }
+        };
+    })();
+</script>
 
-        // Load notifications
-        function loadNotifications() {
-            $.get('/cafeteria/api/notifications', function(data) {
-                // Update notification count
-                if (data.unread_count !== undefined) {
-                    $('#notificationCount').text(data.unread_count > 0 ? data.unread_count : '');
-                }
-            });
-        }
-
-        // Load notifications on page load
-        $(document).ready(function() {
-            loadNotifications();
-        });
-    </script>
-
-    @yield('scripts')
+@yield('scripts')
 </body>
 </html>

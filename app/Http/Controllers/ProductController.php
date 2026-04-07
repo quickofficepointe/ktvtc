@@ -100,7 +100,118 @@ class ProductController extends Controller
             ])
         ]);
     }
+/**
+ * API: Search products for POS and other quick search needs
+ */
+public function search(Request $request)
+{
+    try {
+        $user = auth()->user();
+        $shopId = $user->shop_id ?? 1;
 
+        $query = Product::where('shop_id', $shopId)
+            ->where('is_active', true);
+
+        // Search by name, code, or barcode
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('product_name', 'like', "%{$search}%")
+                  ->orWhere('product_code', 'like', "%{$search}%")
+                  ->orWhere('barcode', 'like', "%{$search}%");
+            });
+        }
+
+        // Filter by category
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        // Filter by stock availability
+        if ($request->filled('in_stock_only') && $request->in_stock_only == 'true') {
+            $query->where(function($q) {
+                $q->where('track_inventory', false)
+                  ->orWhere('current_stock', '>', 0);
+            });
+        }
+
+        // Filter by business section
+        if ($request->filled('business_section_id')) {
+            $query->where('business_section_id', $request->business_section_id);
+        }
+
+        // Get paginated results
+        $perPage = $request->get('per_page', 20);
+        $products = $query->orderBy('product_name')->paginate($perPage);
+
+        // Transform products for POS display
+        $products->getCollection()->transform(function($product) {
+            return [
+                'id' => $product->id,
+                'product_code' => $product->product_code,
+                'product_name' => $product->product_name,
+                'selling_price' => (float) $product->selling_price,
+                'cost_price' => (float) $product->cost_price,
+                'current_stock' => (int) $product->current_stock,
+                'track_inventory' => (bool) $product->track_inventory,
+                'unit' => $product->unit,
+                'image' => $product->image,
+                'product_type' => $product->product_type,
+                'category_name' => $product->category ? $product->category->category_name : null,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $products->items(),
+            'total' => $products->total(),
+            'current_page' => $products->currentPage(),
+            'last_page' => $products->lastPage(),
+            'per_page' => $products->perPage()
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Product search error: ' . $e->getMessage(), [
+            'trace' => $e->getTraceAsString()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'error' => 'Failed to search products: ' . $e->getMessage()
+        ], 500);
+    }
+}
+/**
+ * Quick search for POS - returns limited fields
+ */
+public function quickSearch(Request $request)
+{
+    try {
+        $user = auth()->user();
+        $shopId = $user->shop_id ?? 1;
+        $search = $request->get('q', '');
+
+        if (strlen($search) < 2) {
+            return response()->json([]);
+        }
+
+        $products = Product::where('shop_id', $shopId)
+            ->where('is_active', true)
+            ->where(function($q) use ($search) {
+                $q->where('product_name', 'like', "%{$search}%")
+                  ->orWhere('product_code', 'like', "%{$search}%")
+                  ->orWhere('barcode', 'like', "%{$search}%");
+            })
+            ->limit(10)
+            ->get(['id', 'product_code', 'product_name', 'selling_price', 'current_stock', 'unit']);
+
+        return response()->json($products);
+
+    } catch (\Exception $e) {
+        \Log::error('Quick product search error: ' . $e->getMessage());
+        return response()->json([], 500);
+    }
+}
     // API Index - For AJAX calls
     public function apiIndex(Request $request)
     {

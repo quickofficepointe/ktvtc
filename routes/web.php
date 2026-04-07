@@ -21,6 +21,7 @@ use App\Http\Controllers\BusinessSectionController;
 use App\Http\Controllers\CafeteriaController;
 use App\Http\Controllers\CafeteriaDailyProductionController;
 use App\Http\Controllers\CampusController;
+use App\Http\Controllers\CertificationController;
 use App\Http\Controllers\ContactInfoController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\CourseIntakesController;
@@ -97,7 +98,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::post('/profile/update', [ProfileController::class, 'update'])->name('profile.update');
 });
-
+// Public route for certifications display
+Route::get('/certifications', [CertificationController::class, 'publicIndex'])->name('certifications.public');
 Route::get('/home', function () {
     $user = Auth::user();
 
@@ -392,6 +394,9 @@ Route::middleware(['auth', 'verified', 'role.admin'])
         Route::get('/', [AdminController::class, 'users'])->name('index');
         Route::post('/', [AdminController::class, 'store'])->name('store');
         Route::get('/{id}', [AdminController::class, 'showUser'])->name('show');
+        Route::get('/{id}/edit', [AdminController::class, 'editUser'])->name('edit');           // ✅ ADD THIS
+        Route::put('/{id}', [AdminController::class, 'updateUser'])->name('update');           // ✅ ADD THIS
+        Route::post('/bulk-actions', [AdminController::class, 'bulkUserActions'])->name('bulk-actions'); // ✅ ADD THIS
         Route::put('/{id}/role', [AdminController::class, 'updateRole'])->name('updateRole');
         Route::put('/{id}/status', [AdminController::class, 'updateStatus'])->name('updateStatus');
         Route::delete('/{id}', [AdminController::class, 'destroy'])->name('destroy');
@@ -742,6 +747,7 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])->prefix('cafeteria')->
         Route::get('/{product}/edit', [ProductController::class, 'edit'])->name('edit');
         Route::put('/{product}', [ProductController::class, 'update'])->name('update');
         Route::delete('/{product}', [ProductController::class, 'destroy'])->name('destroy');
+   Route::post('/{product}/update-stock', [ProductController::class, 'updateStock'])->name('update-stock');
         Route::get('/{product}/stock-history', [ProductController::class, 'stockHistory'])->name('stock-history');
         Route::get('/export', [ProductController::class, 'export'])->name('export');
         Route::post('/import', [ProductController::class, 'import'])->name('import');
@@ -752,8 +758,10 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])->prefix('cafeteria')->
     // Categories
     Route::prefix('categories')->name('categories.')->group(function () {
         Route::get('/', [ProductCategoryController::class, 'index'])->name('index');
+  Route::get('/{category}', [ProductCategoryController::class, 'show'])->name('show');
         Route::post('/', [ProductCategoryController::class, 'store'])->name('store');
         Route::put('/{category}', [ProductCategoryController::class, 'update'])->name('update');
+          Route::patch('/{category}/toggle-status', [ProductCategoryController::class, 'toggleStatus'])->name('toggle-status'); // Add this
         Route::delete('/{category}', [ProductCategoryController::class, 'destroy'])->name('destroy');
         Route::get('/{category}/products', [ProductCategoryController::class, 'products'])->name('products');
     });
@@ -776,6 +784,7 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])->prefix('cafeteria')->
     // Purchase Orders
     Route::prefix('purchase-orders')->name('purchase-orders.')->group(function () {
         Route::get('/', [PurchaseOrderController::class, 'index'])->name('index');
+Route::get('/get-products', [PurchaseOrderController::class, 'getProducts'])->name('get-products'); // ✅ ADD THIS LINE
         Route::get('/create', [PurchaseOrderController::class, 'create'])->name('create');
         Route::post('/', [PurchaseOrderController::class, 'store'])->name('store');
         Route::get('/{purchaseOrder}', [PurchaseOrderController::class, 'show'])->name('show');
@@ -792,6 +801,7 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])->prefix('cafeteria')->
         Route::get('/pending-approval', [PurchaseOrderController::class, 'pendingApproval'])->name('pending-approval');
         Route::get('/overdue', [PurchaseOrderController::class, 'overdue'])->name('overdue');
     });
+// Payment Transactions (add to CAFETERIA ROUTES section)
 
     // Goods Received Notes
     Route::prefix('grn')->name('grn.')->group(function () {
@@ -827,30 +837,32 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])->prefix('cafeteria')->
     });
 
     // Sales
-    Route::prefix('sales')->name('sales.')->group(function () {
-        Route::get('/', [SaleController::class, 'pos'])->name('index');
-        Route::get('/create', [SaleController::class, 'create'])->name('create');
-        Route::post('/', [SaleController::class, 'store'])->name('store');
-        Route::get('/{sale}/edit', [SaleController::class, 'edit'])->name('edit');
-        Route::put('/{sale}', [SaleController::class, 'update'])->name('update');
-        Route::delete('/{sale}', [SaleController::class, 'destroy'])->name('destroy');
-        Route::post('/{sale}/update-status', [SaleController::class, 'updateStatus'])->name('update-status');
-        Route::post('/{sale}/add-payment', [SaleController::class, 'addPayment'])->name('add-payment');
-        Route::post('/{sale}/cancel', [SaleController::class, 'cancel'])->name('cancel');
-        Route::get('/today', [SaleController::class, 'today'])->name('today');
-        Route::get('/pending-payment', [SaleController::class, 'pendingPayment'])->name('pending-payment');
-        Route::get('/cancelled', [SaleController::class, 'cancelled'])->name('cancelled');
-        Route::get('/daily-report', [SaleController::class, 'dailySalesReport'])->name('daily-report');
-        Route::get('/monthly-report', [SaleController::class, 'monthlyReport'])->name('monthly-report');
-        Route::get('/export', [SaleController::class, 'export'])->name('export');
-        Route::get('/{sale}/print', [SaleController::class, 'print'])->name('print');
-        Route::get('/{sale}/print-receipt', [SaleController::class, 'printReceipt'])->name('print-receipt');
-        Route::get('/{sale}/email-receipt', [SaleController::class, 'emailReceipt'])->name('email-receipt');
-        Route::get('/pos', [SaleController::class, 'pos'])->name('pos');
-        Route::post('/pos/quick-sale', [SaleController::class, 'quickSale'])->name('pos.quick-sale');
-        Route::post('/pos/initiate-mpesa', [SaleController::class, 'initiateMpesa'])->name('pos.initiate-mpesa');
-        Route::post('/pos/check-mpesa-status', [SaleController::class, 'checkMpesaStatus'])->name('pos.check-mpesa-status');
-    });
+ // Sales
+Route::prefix('sales')->name('sales.')->group(function () {
+    Route::get('/', [SaleController::class, 'pos'])->name('index');
+    Route::get('/create', [SaleController::class, 'create'])->name('create');
+    Route::post('/', [SaleController::class, 'store'])->name('store');
+    Route::get('/{sale}', [SaleController::class, 'show'])->name('show');  // ← ADD THIS
+    Route::get('/{sale}/edit', [SaleController::class, 'edit'])->name('edit');
+    Route::put('/{sale}', [SaleController::class, 'update'])->name('update');
+    Route::delete('/{sale}', [SaleController::class, 'destroy'])->name('destroy');
+    Route::post('/{sale}/update-status', [SaleController::class, 'updateStatus'])->name('update-status');
+    Route::post('/{sale}/add-payment', [SaleController::class, 'addPayment'])->name('add-payment');
+    Route::post('/{sale}/cancel', [SaleController::class, 'cancel'])->name('cancel');
+    Route::get('/today', [SaleController::class, 'today'])->name('today');
+    Route::get('/pending-payment', [SaleController::class, 'pendingPayment'])->name('pending-payment');
+    Route::get('/cancelled', [SaleController::class, 'cancelled'])->name('cancelled');
+    Route::get('/daily-report', [SaleController::class, 'dailySalesReport'])->name('daily-report');
+    Route::get('/monthly-report', [SaleController::class, 'monthlyReport'])->name('monthly-report');
+    Route::get('/export', [SaleController::class, 'export'])->name('export');
+    Route::get('/{sale}/print', [SaleController::class, 'print'])->name('print');
+    Route::get('/{sale}/print-receipt', [SaleController::class, 'printReceipt'])->name('print-receipt');
+    Route::get('/{sale}/email-receipt', [SaleController::class, 'emailReceipt'])->name('email-receipt');
+    Route::get('/pos', [SaleController::class, 'pos'])->name('pos');
+    Route::post('/pos/quick-sale', [SaleController::class, 'quickSale'])->name('pos.quick-sale');
+    Route::post('/pos/initiate-mpesa', [SaleController::class, 'initiateMpesa'])->name('pos.initiate-mpesa');
+    Route::post('/pos/check-mpesa-status', [SaleController::class, 'checkMpesaStatus'])->name('pos.check-mpesa-status');
+});
 
     // Inventory
     Route::prefix('inventory')->name('inventory.')->group(function () {
@@ -894,23 +906,32 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])->prefix('cafeteria')->
         Route::get('/check-expiring', [StockAlertController::class, 'checkExpiring'])->name('check-expiring');
     });
 
-    // Payment Transactions
-    Route::prefix('payments')->name('payments.')->group(function () {
-        Route::get('/', [PaymentTransactionController::class, 'index'])->name('index');
-        Route::get('/{transaction}', [PaymentTransactionController::class, 'show'])->name('show');
-        Route::put('/{transaction}', [PaymentTransactionController::class, 'update'])->name('update');
-        Route::delete('/{transaction}', [PaymentTransactionController::class, 'destroy'])->name('destroy');
-        Route::post('/{transaction}/reconcile', [PaymentTransactionController::class, 'reconcile'])->name('reconcile');
-        Route::post('/{transaction}/reverse', [PaymentTransactionController::class, 'reverse'])->name('reverse');
-        Route::get('/{transaction}/print', [PaymentTransactionController::class, 'print'])->name('print');
-        Route::get('/today', [PaymentTransactionController::class, 'today'])->name('today');
-        Route::get('/pending-reconciliation', [PaymentTransactionController::class, 'pendingReconciliation'])->name('pending-reconciliation');
-        Route::get('/by-method/{method}', [PaymentTransactionController::class, 'byMethod'])->name('by-method');
-        Route::get('/export', [PaymentTransactionController::class, 'export'])->name('export');
-        Route::post('/mpesa/callback', [PaymentTransactionController::class, 'mpesaCallback'])->name('mpesa.callback');
-        Route::post('/mpesa/validate', [PaymentTransactionController::class, 'mpesaValidate'])->name('mpesa.validate');
-        Route::get('/mpesa/transactions', [PaymentTransactionController::class, 'mpesaTransactions'])->name('mpesa.transactions');
-    });
+  // Payment Transactions
+Route::prefix('payments')->name('payments.')->group(function () {
+    // Main views
+    Route::get('/', [PaymentTransactionController::class, 'index'])->name('index');
+    Route::get('/export', [PaymentTransactionController::class, 'export'])->name('export');
+    Route::get('/today-stats', [PaymentTransactionController::class, 'todayStats'])->name('today-stats');
+    Route::get('/mpesa-transactions', [PaymentTransactionController::class, 'mpesaTransactions'])->name('mpesa-transactions');
+
+    // Single transaction operations
+    Route::get('/{paymentTransaction}', [PaymentTransactionController::class, 'show'])->name('show');
+    Route::put('/{paymentTransaction}', [PaymentTransactionController::class, 'update'])->name('update');
+    Route::delete('/{paymentTransaction}', [PaymentTransactionController::class, 'destroy'])->name('destroy');
+    Route::post('/{paymentTransaction}/reverse', [PaymentTransactionController::class, 'reverse'])->name('reverse');
+    Route::get('/{paymentTransaction}/print', [PaymentTransactionController::class, 'printReceipt'])->name('print');
+    Route::post('/{paymentTransaction}/reconcile', [PaymentTransactionController::class, 'reconcile'])->name('reconcile');
+
+    // Utility routes
+    Route::get('/today', [PaymentTransactionController::class, 'today'])->name('today');
+    Route::get('/pending-reconciliation', [PaymentTransactionController::class, 'pendingReconciliation'])->name('pending-reconciliation');
+    Route::get('/by-method/{method}', [PaymentTransactionController::class, 'byMethod'])->name('by-method');
+    Route::get('/by-sale/{saleId}', [PaymentTransactionController::class, 'getBySaleId'])->name('by-sale');
+
+    // M-Pesa callbacks
+    Route::post('/mpesa/callback', [PaymentTransactionController::class, 'mpesaCallback'])->name('mpesa.callback');
+    Route::post('/mpesa/validate', [PaymentTransactionController::class, 'mpesaValidate'])->name('mpesa.validate');
+});
 
     // Shops
     Route::prefix('shops')->name('shops.')->group(function () {
@@ -995,7 +1016,12 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])->prefix('cafeteria')->
         Route::get('/financial/revenue', [ReportController::class, 'revenueReport'])->name('financial.revenue');
         Route::get('/financial/expenses', [ReportController::class, 'expensesReport'])->name('financial.expenses');
         Route::get('/export/{type}', [ReportController::class, 'exportReport'])->name('export');
-    });
+    // Reports Dashboard
+Route::get('/dashboard', [ReportController::class, 'dashboard'])->name('dashboard');
+Route::get('/quick-stats', [ReportController::class, 'quickStats'])->name('quick-stats');
+Route::post('/schedule', [ReportController::class, 'scheduleReport'])->name('schedule');
+Route::get('/export/all', [ReportController::class, 'exportAllReports'])->name('export.all');
+        });
 
     // Quick Actions
     Route::post('/quick/reorder/{product}', [ProductController::class, 'quickReorder'])->name('quick.reorder');
@@ -1073,7 +1099,15 @@ Route::middleware(['auth', 'verified', 'role.website'])->prefix('website')->name
         Route::put('/{campus}', [CampusController::class, 'update'])->name('update');
         Route::delete('/{campus}', [CampusController::class, 'destroy'])->name('destroy');
     });
-
+// Certifications Management
+Route::prefix('certifications')->name('certifications.')->group(function () {
+    Route::get('/', [CertificationController::class, 'index'])->name('index');
+    Route::post('/', [CertificationController::class, 'store'])->name('store');
+    Route::get('/{certification}', [CertificationController::class, 'show'])->name('show');
+    Route::put('/{certification}', [CertificationController::class, 'update'])->name('update');
+    Route::delete('/{certification}', [CertificationController::class, 'destroy'])->name('destroy');
+    Route::post('/{id}/toggle-status', [CertificationController::class, 'toggleStatus'])->name('toggle-status');
+});
     // Contact Info
     Route::get('contact-infos', [ContactInfoController::class, 'index'])->name('contact-infos.index');
     Route::post('contact-infos', [ContactInfoController::class, 'store'])->name('contact-infos.store');

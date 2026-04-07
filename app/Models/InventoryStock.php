@@ -7,15 +7,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InventoryStock extends Model
 {
-       protected $table = 'inventory_stocks'; // Ensure this is set
+    protected $table = 'inventory_stocks';
+
     protected $fillable = [
         'product_id',
         'shop_id',
         'current_stock',
         'reserved_stock',
-       // 'available_stock',
+        // 'available_stock', // REMOVED - this is a generated column
         'average_unit_cost',
-        //'stock_value',
+        // 'stock_value', // REMOVED - this is a generated column
         'days_supply',
         'monthly_usage',
         'reorder_quantity',
@@ -34,9 +35,9 @@ class InventoryStock extends Model
     protected $casts = [
         'current_stock' => 'decimal:3',
         'reserved_stock' => 'decimal:3',
-        'available_stock' => 'decimal:3',
+        'available_stock' => 'decimal:3', // Keep for reading, not writing
         'average_unit_cost' => 'decimal:2',
-        'stock_value' => 'decimal:2',
+        'stock_value' => 'decimal:2', // Keep for reading, not writing
         'monthly_usage' => 'decimal:3',
         'reorder_quantity' => 'decimal:3',
         'last_movement_at' => 'datetime',
@@ -49,6 +50,18 @@ class InventoryStock extends Model
         'earliest_expiry_date' => 'date',
         'days_supply' => 'integer',
     ];
+
+    // Accessor to ensure available_stock is always calculated
+    public function getAvailableStockAttribute()
+    {
+        return $this->current_stock - $this->reserved_stock;
+    }
+
+    // Accessor for stock_value
+    public function getStockValueAttribute()
+    {
+        return $this->current_stock * ($this->average_unit_cost ?? 0);
+    }
 
     // Relationships
     public function product(): BelongsTo

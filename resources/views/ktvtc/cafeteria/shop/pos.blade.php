@@ -878,8 +878,8 @@
         showLoading(true);
 
         $.ajax({
-            url: 'url: '{{ route("cafeteria.api.products.search") }}',',
-            method: 'GET',
+    url: '{{ route("cafeteria.api.products.search") }}',  // ✅ CORRECT
+    method: 'GET',
             dataType: 'json',
             timeout: 10000,
             data: {

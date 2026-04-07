@@ -1,6 +1,5 @@
 @extends('ktvtc.cafeteria.layout.cafeterialayout')
 
-
 @section('title', 'Inventory Management')
 @section('page-title', 'Inventory Management')
 @section('page-description', 'Track stock levels and movements')
@@ -28,7 +27,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">In Stock</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ $stocks->where('available_stock', '>', 0)->count() }}</p>
+                    <p class="text-2xl font-bold text-gray-800">{{ $stocks->where('current_stock', '>', 0)->count() }}</p>
                 </div>
             </div>
         </div>
@@ -52,7 +51,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-600">Out of Stock</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ $stocks->where('out_of_stock_alert', true)->count() }}</p>
+                    <p class="text-2xl font-bold text-gray-800">{{ $stocks->where('current_stock', '<=', 0)->count() }}</p>
                 </div>
             </div>
         </div>
@@ -100,18 +99,18 @@
                     <select id="stock-shop-filter" class="border border-gray-300 rounded-lg py-2 px-3 w-full">
                         <option value="">All Shops</option>
                         @foreach($shops as $shop)
-                        <option value="{{ $shop->id }}">{{ $shop->shop_name }}</option>
+                        <option value="{{ $shop->id }}" {{ request('shop_id') == $shop->id ? 'selected' : '' }}>{{ $shop->shop_name }}</option>
                         @endforeach
                     </select>
 
                     <select id="stock-product-filter" class="border border-gray-300 rounded-lg py-2 px-3 w-full">
                         <option value="">All Products</option>
                         @foreach($products as $product)
-                        <option value="{{ $product->id }}">{{ $product->product_name }}</option>
+                        <option value="{{ $product->id }}" {{ request('product_id') == $product->id ? 'selected' : '' }}>{{ $product->product_name }}</option>
                         @endforeach
                     </select>
 
-                    <input type="text" id="stock-search" placeholder="Search products..."
+                    <input type="text" id="stock-search" placeholder="Search products..." value="{{ request('search') }}"
                            class="border border-gray-300 rounded-lg py-2 px-3 w-full">
 
                     <button onclick="applyStockFilters()"
@@ -126,21 +125,21 @@
                     <select id="movement-shop-filter" class="border border-gray-300 rounded-lg py-2 px-3 w-full">
                         <option value="">All Shops</option>
                         @foreach($shops as $shop)
-                        <option value="{{ $shop->id }}">{{ $shop->shop_name }}</option>
+                        <option value="{{ $shop->id }}" {{ request('movement_shop_id') == $shop->id ? 'selected' : '' }}>{{ $shop->shop_name }}</option>
                         @endforeach
                     </select>
 
                     <select id="movement-type-filter" class="border border-gray-300 rounded-lg py-2 px-3 w-full">
                         <option value="">All Types</option>
                         @foreach($movementTypes as $key => $label)
-                        <option value="{{ $key }}">{{ $label }}</option>
+                        <option value="{{ $key }}" {{ request('movement_type') == $key ? 'selected' : '' }}>{{ $label }}</option>
                         @endforeach
                     </select>
 
                     <div class="grid grid-cols-2 gap-2">
-                        <input type="date" id="movement-start-date"
+                        <input type="date" id="movement-start-date" value="{{ request('movement_start_date') }}"
                                class="border border-gray-300 rounded-lg py-2 px-3 w-full">
-                        <input type="date" id="movement-end-date"
+                        <input type="date" id="movement-end-date" value="{{ request('movement_end_date') }}"
                                class="border border-gray-300 rounded-lg py-2 px-3 w-full">
                     </div>
 
@@ -171,6 +170,12 @@
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200" id="stocks-table-body">
                             @foreach($stocks as $stock)
+                            @php
+                                $availableStock = $stock->current_stock - ($stock->reserved_stock ?? 0);
+                                $stockValue = $stock->current_stock * ($stock->average_unit_cost ?? 0);
+                                $isOutOfStock = $stock->current_stock <= 0;
+                                $isLowStock = !$isOutOfStock && $stock->low_stock_alert;
+                            @endphp
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center">
@@ -180,32 +185,32 @@
                                             </div>
                                         </div>
                                         <div class="ml-4">
-                                            <div class="text-sm font-medium text-gray-900">{{ $stock->product->product_name }}</div>
-                                            <div class="text-sm text-gray-500">{{ $stock->product->product_code }}</div>
+                                            <div class="text-sm font-medium text-gray-900">{{ $stock->product->product_name ?? 'Product Deleted' }}</div>
+                                            <div class="text-sm text-gray-500">{{ $stock->product->product_code ?? 'N/A' }}</div>
                                         </div>
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">{{ $stock->shop->shop_name }}</div>
-                                    <div class="text-sm text-gray-500">{{ $stock->shop->shop_code }}</div>
+                                    <div class="text-sm text-gray-900">{{ $stock->shop->shop_name ?? 'N/A' }}</div>
+                                    <div class="text-sm text-gray-500">{{ $stock->shop->shop_code ?? '' }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">{{ $stock->current_stock }} {{ $stock->product->unit }}</div>
+                                    <div class="text-sm text-gray-900">{{ number_format($stock->current_stock, 2) }} {{ $stock->product->unit ?? '' }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm font-medium {{ $stock->available_stock > 0 ? 'text-green-600' : 'text-red-600' }}">
-                                        {{ $stock->available_stock }} {{ $stock->product->unit }}
+                                    <div class="text-sm font-medium {{ $availableStock > 0 ? 'text-green-600' : 'text-red-600' }}">
+                                        {{ number_format($availableStock, 2) }} {{ $stock->product->unit ?? '' }}
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">KES {{ number_format($stock->stock_value, 2) }}</div>
+                                    <div class="text-sm text-gray-900">KES {{ number_format($stockValue, 2) }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    @if($stock->out_of_stock_alert)
+                                    @if($isOutOfStock)
                                     <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
                                         Out of Stock
                                     </span>
-                                    @elseif($stock->low_stock_alert)
+                                    @elseif($isLowStock)
                                     <span class="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
                                         Low Stock
                                     </span>
@@ -256,11 +261,16 @@
                                     <div class="text-xs text-gray-500">{{ $movement->movement_date->format('H:i') }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm font-medium text-gray-900">{{ $movement->product->product_name }}</div>
-                                    <div class="text-sm text-gray-500">{{ $movement->product->product_code }}</div>
+                                    @if($movement->product)
+                                        <div class="text-sm font-medium text-gray-900">{{ $movement->product->product_name }}</div>
+                                        <div class="text-sm text-gray-500">{{ $movement->product->product_code }}</div>
+                                    @else
+                                        <div class="text-sm text-gray-500 italic">Product Deleted</div>
+                                        <div class="text-xs text-gray-400">ID: {{ $movement->product_id }}</div>
+                                    @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">{{ $movement->shop->shop_name }}</div>
+                                    <div class="text-sm text-gray-900">{{ $movement->shop->shop_name ?? 'N/A' }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     @php
@@ -287,19 +297,19 @@
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm font-medium {{ in_array($movement->movement_type, ['purchase', 'transfer_in', 'adjustment_in', 'production_in', 'return_in']) ? 'text-green-600' : 'text-red-600' }}">
                                         {{ in_array($movement->movement_type, ['purchase', 'transfer_in', 'adjustment_in', 'production_in', 'return_in']) ? '+' : '-' }}
-                                        {{ $movement->quantity }} {{ $movement->product->unit }}
+                                        {{ number_format($movement->quantity, 2) }} {{ $movement->unit }}
                                     </div>
                                     <div class="text-xs text-gray-500">
-                                        {{ $movement->previous_stock }} → {{ $movement->new_stock }}
+                                        {{ number_format($movement->previous_stock, 2) }} → {{ number_format($movement->new_stock, 2) }}
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-900">KES {{ number_format($movement->total_cost, 2) }}</div>
-                                    <div class="text-xs text-gray-500">KES {{ number_format($movement->unit_cost, 2) }}/unit</div>
+                                    <div class="text-sm text-gray-900">KES {{ number_format($movement->total_cost ?? 0, 2) }}</div>
+                                    <div class="text-xs text-gray-500">KES {{ number_format($movement->unit_cost ?? 0, 2) }}/unit</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm text-gray-900">{{ $movement->reference_number }}</div>
-                                    <div class="text-xs text-gray-500">{{ $movement->reason }}</div>
+                                    <div class="text-xs text-gray-500">{{ Str::limit($movement->reason, 50) }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm text-gray-900">{{ $movement->recorder->name ?? 'System' }}</div>
@@ -491,6 +501,7 @@
 @endsection
 
 @section('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     // CSRF Token
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -499,12 +510,26 @@
     // Initialize date fields
     document.addEventListener('DOMContentLoaded', function() {
         const today = new Date().toISOString().split('T')[0];
-        document.getElementById('adjustment_date').value = today;
-        document.getElementById('transfer_date').value = today;
+        if (!document.getElementById('adjustment_date').value) {
+            document.getElementById('adjustment_date').value = today;
+        }
+        if (!document.getElementById('transfer_date').value) {
+            document.getElementById('transfer_date').value = today;
+        }
 
         // Set default end date for movements filter
-        document.getElementById('movement-start-date').value = today;
-        document.getElementById('movement-end-date').value = today;
+        if (!document.getElementById('movement-start-date').value) {
+            document.getElementById('movement-start-date').value = today;
+        }
+        if (!document.getElementById('movement-end-date').value) {
+            document.getElementById('movement-end-date').value = today;
+        }
+
+        // Check URL params for active tab
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('movement_shop_id') || urlParams.has('movement_type')) {
+            switchTab('movements');
+        }
     });
 
     // Tab switching
@@ -531,42 +556,56 @@
     }
 
     // Filter functions
-    async function applyStockFilters() {
+    function applyStockFilters() {
         const shopId = document.getElementById('stock-shop-filter').value;
         const productId = document.getElementById('stock-product-filter').value;
         const search = document.getElementById('stock-search').value;
 
-        try {
-            const response = await fetch(`/cafeteria/inventory?shop_id=${shopId}&product_id=${productId}&search=${search}`);
-            window.location.href = `/cafeteria/inventory?shop_id=${shopId}&product_id=${productId}&search=${search}`;
-        } catch (error) {
-            console.error('Error:', error);
+        let url = '{{ route("cafeteria.inventory.index") }}';
+        const params = [];
+        if (shopId) params.push(`shop_id=${shopId}`);
+        if (productId) params.push(`product_id=${productId}`);
+        if (search) params.push(`search=${encodeURIComponent(search)}`);
+
+        if (params.length) {
+            url += '?' + params.join('&');
         }
+        window.location.href = url;
     }
 
-    async function applyMovementFilters() {
+    function applyMovementFilters() {
         const shopId = document.getElementById('movement-shop-filter').value;
         const type = document.getElementById('movement-type-filter').value;
         const startDate = document.getElementById('movement-start-date').value;
         const endDate = document.getElementById('movement-end-date').value;
 
-        try {
-            window.location.href = `/cafeteria/inventory?movement_shop_id=${shopId}&movement_type=${type}&movement_start_date=${startDate}&movement_end_date=${endDate}`;
-        } catch (error) {
-            console.error('Error:', error);
+        let url = '{{ route("cafeteria.inventory.index") }}';
+        const params = [];
+        if (shopId) params.push(`movement_shop_id=${shopId}`);
+        if (type) params.push(`movement_type=${type}`);
+        if (startDate) params.push(`movement_start_date=${startDate}`);
+        if (endDate) params.push(`movement_end_date=${endDate}`);
+
+        if (params.length) {
+            url += '?' + params.join('&');
         }
+        window.location.href = url;
     }
 
     // Modal functions
     function showAdjustmentModal() {
         document.getElementById('adjustmentModal').classList.remove('hidden');
         document.body.classList.add('overflow-hidden');
+        // Clear existing items
+        document.getElementById('adjustmentItemsContainer').innerHTML = '';
         addAdjustmentItem();
     }
 
     function showTransferModal() {
         document.getElementById('transferModal').classList.remove('hidden');
         document.body.classList.add('overflow-hidden');
+        // Clear existing items
+        document.getElementById('transferItemsContainer').innerHTML = '';
         addTransferItem();
     }
 
@@ -595,8 +634,9 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">
                             Product <span class="text-red-500">*</span>
                         </label>
-                        <select name="items[${index}][product_id]"
-                                class="w-full border border-gray-300 rounded-lg py-2 px-3" required>
+                        <select name="items[${index}][product_id]" data-unit-field="unit_${index}"
+                                class="product-select w-full border border-gray-300 rounded-lg py-2 px-3" required
+                                onchange="updateProductUnit(this)">
                             <option value="">Select Product</option>
                             ${productOptions}
                         </select>
@@ -621,13 +661,13 @@
                         </label>
                         <select name="items[${index}][adjustment_direction]"
                                 class="w-full border border-gray-300 rounded-lg py-2 px-3" required>
-                            <option value="in">Add to Stock</option>
-                            <option value="out">Remove from Stock</option>
+                            <option value="in">Add to Stock (+)</option>
+                            <option value="out">Remove from Stock (-)</option>
                         </select>
                     </div>
                 </div>
                 <div class="mt-3">
-                    <input type="hidden" name="items[${index}][unit]" value="">
+                    <input type="hidden" name="items[${index}][unit]" id="unit_${index}" value="">
                 </div>
             </div>
         `;
@@ -652,8 +692,9 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">
                             Product <span class="text-red-500">*</span>
                         </label>
-                        <select name="items[${index}][product_id]"
-                                class="w-full border border-gray-300 rounded-lg py-2 px-3" required>
+                        <select name="items[${index}][product_id]" data-unit-field="transfer_unit_${index}"
+                                class="product-select w-full border border-gray-300 rounded-lg py-2 px-3" required
+                                onchange="updateTransferProductUnit(this)">
                             <option value="">Select Product</option>
                             ${productOptions}
                         </select>
@@ -674,67 +715,49 @@
                     </div>
                 </div>
                 <div class="mt-3">
-                    <input type="hidden" name="items[${index}][unit]" value="">
+                    <input type="hidden" name="items[${index}][unit]" id="transfer_unit_${index}" value="">
                 </div>
             </div>
         `;
     }
 
     // Item management functions
+    let adjustmentItemCounter = 0;
+    let transferItemCounter = 0;
+
     function addAdjustmentItem() {
         const container = document.getElementById('adjustmentItemsContainer');
-        const index = container.children.length;
+        const index = adjustmentItemCounter++;
         container.insertAdjacentHTML('beforeend', getAdjustmentItemTemplate(index));
     }
 
     function addTransferItem() {
         const container = document.getElementById('transferItemsContainer');
-        const index = container.children.length;
+        const index = transferItemCounter++;
         container.insertAdjacentHTML('beforeend', getTransferItemTemplate(index));
     }
 
     function removeAdjustmentItem(index) {
         const item = document.querySelector(`.adjustment-item[data-index="${index}"]`);
         if (item) item.remove();
-        reindexAdjustmentItems();
     }
 
     function removeTransferItem(index) {
         const item = document.querySelector(`.transfer-item[data-index="${index}"]`);
         if (item) item.remove();
-        reindexTransferItems();
     }
 
-    function reindexAdjustmentItems() {
-        const items = document.querySelectorAll('.adjustment-item');
-        items.forEach((item, index) => {
-            item.setAttribute('data-index', index);
-            item.querySelector('h5').textContent = `Item #${index + 1}`;
-
-            // Update input names
-            const inputs = item.querySelectorAll('[name]');
-            inputs.forEach(input => {
-                const name = input.getAttribute('name');
-                const newName = name.replace(/\[\d+\]/, `[${index}]`);
-                input.setAttribute('name', newName);
-            });
-        });
+    function updateProductUnit(select) {
+        const productId = select.value;
+        const unitFieldId = select.getAttribute('data-unit-field');
+        const product = products.find(p => p.id == productId);
+        if (product && unitFieldId) {
+            document.getElementById(unitFieldId).value = product.unit;
+        }
     }
 
-    function reindexTransferItems() {
-        const items = document.querySelectorAll('.transfer-item');
-        items.forEach((item, index) => {
-            item.setAttribute('data-index', index);
-            item.querySelector('h5').textContent = `Item #${index + 1}`;
-
-            // Update input names
-            const inputs = item.querySelectorAll('[name]');
-            inputs.forEach(input => {
-                const name = input.getAttribute('name');
-                const newName = name.replace(/\[\d+\]/, `[${index}]`);
-                input.setAttribute('name', newName);
-            });
-        });
+    function updateTransferProductUnit(select) {
+        updateProductUnit(select);
     }
 
     // Form submission
@@ -742,6 +765,17 @@
         const form = document.getElementById('adjustmentForm');
         const formData = new FormData(form);
 
+        // Validate at least one item
+        const items = document.querySelectorAll('.adjustment-item');
+        if (items.length === 0) {
+            await Swal.fire({
+                icon: 'error',
+                title: 'Validation Error',
+                text: 'Please add at least one item to adjust'
+            });
+            return;
+        }
+
         // Convert to JSON
         const data = {};
         for (let [key, value] of formData.entries()) {
@@ -761,6 +795,16 @@
         if (data.items) {
             data.items = Object.values(data.items);
         }
+
+        // Show loading
+        Swal.fire({
+            title: 'Processing...',
+            text: 'Please wait',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
 
         try {
             const response = await fetch('{{ route("cafeteria.inventory.adjustment.store") }}', {
@@ -768,6 +812,7 @@
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json'
                 },
                 body: JSON.stringify(data)
             });
@@ -775,20 +820,58 @@
             const result = await response.json();
 
             if (result.success) {
-                alert('Adjustment saved successfully!');
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: 'Adjustment saved successfully!',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
                 closeModal('#adjustmentModal');
                 window.location.reload();
             } else {
-                alert('Error: ' + result.message);
+                await Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: result.message || 'Failed to save adjustment'
+                });
             }
         } catch (error) {
-            alert('An error occurred: ' + error.message);
+            console.error('Error:', error);
+            await Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'An error occurred: ' + error.message
+            });
         }
     }
 
     async function submitTransfer() {
         const form = document.getElementById('transferForm');
         const formData = new FormData(form);
+
+        // Validate at least one item
+        const items = document.querySelectorAll('.transfer-item');
+        if (items.length === 0) {
+            await Swal.fire({
+                icon: 'error',
+                title: 'Validation Error',
+                text: 'Please add at least one item to transfer'
+            });
+            return;
+        }
+
+        // Validate from and to shops are different
+        const fromShop = document.getElementById('from_shop_id').value;
+        const toShop = document.getElementById('to_shop_id').value;
+        if (fromShop && toShop && fromShop === toShop) {
+            await Swal.fire({
+                icon: 'error',
+                title: 'Validation Error',
+                text: 'From Shop and To Shop must be different'
+            });
+            return;
+        }
 
         // Convert to JSON
         const data = {};
@@ -810,12 +893,23 @@
             data.items = Object.values(data.items);
         }
 
+        // Show loading
+        Swal.fire({
+            title: 'Processing...',
+            text: 'Please wait',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
         try {
             const response = await fetch('{{ route("cafeteria.inventory.transfer.store") }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json'
                 },
                 body: JSON.stringify(data)
             });
@@ -823,20 +917,40 @@
             const result = await response.json();
 
             if (result.success) {
-                alert('Transfer completed successfully!');
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: 'Transfer completed successfully!',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
                 closeModal('#transferModal');
                 window.location.reload();
             } else {
-                alert('Error: ' + result.message);
+                await Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: result.message || 'Failed to complete transfer'
+                });
             }
         } catch (error) {
-            alert('An error occurred: ' + error.message);
+            console.error('Error:', error);
+            await Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'An error occurred: ' + error.message
+            });
         }
     }
 
     // Export function
-    function exportData() {
-        alert('Export functionality will be implemented soon!');
+    async function exportData() {
+        await Swal.fire({
+            icon: 'info',
+            title: 'Coming Soon',
+            text: 'Export functionality will be implemented soon!',
+            confirmButtonColor: '#e74c3c'
+        });
     }
 </script>
 @endsection

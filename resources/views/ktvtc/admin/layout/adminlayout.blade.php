@@ -3,13 +3,14 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title', 'KTVTC Admin Dashboard')</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>@yield('title', 'Kenswed College Admin')</title>
 
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -43,6 +44,7 @@
                         'fade-in': 'fadeIn 0.3s ease-in-out',
                         'slide-in': 'slideIn 0.3s ease-out',
                         'pulse-slow': 'pulse 3s ease-in-out infinite',
+                        'spin-slow': 'spin 1.5s linear infinite',
                     },
                     keyframes: {
                         fadeIn: {
@@ -68,9 +70,9 @@
 
         /* Sidebar */
         .admin-sidebar {
-            background: linear-gradient(180deg, #B91C1C 0%, #BF1F30 100%);
-            box-shadow: 4px 0 15px rgba(185, 28, 28, 0.2);
-            transition: all 0.3s ease;
+            background: linear-gradient(180deg, #B91C1C 0%, #991B1B 100%);
+            box-shadow: 4px 0 20px rgba(185, 28, 28, 0.25);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .admin-sidebar.collapsed {
@@ -120,44 +122,18 @@
             border-radius: 0 2px 2px 0;
         }
 
-        /* Submenu */
-        .admin-submenu {
-            background: rgba(0, 0, 0, 0.1);
-            border-radius: 0.5rem;
-        }
-
-        .admin-submenu-link {
-            color: rgba(255, 255, 255, 0.8);
-            transition: all 0.2s ease;
-            display: block;
-            padding: 0.5rem 1rem;
-            font-size: 0.875rem;
-            border-radius: 0.5rem;
-        }
-
-        .admin-submenu-link:hover {
-            color: white;
-            background: rgba(255, 255, 255, 0.15);
-        }
-
-        .admin-submenu-link.active {
-            color: white;
-            background: rgba(255, 255, 255, 0.2);
-            font-weight: 500;
-        }
-
         /* Card Styles */
         .admin-card {
             background: white;
             border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(185, 28, 28, 0.08);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
             transition: all 0.3s ease;
-            border: 1px solid rgba(185, 28, 28, 0.1);
+            border: 1px solid #eef2f0;
         }
 
         .admin-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 30px rgba(185, 28, 28, 0.15);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(185, 28, 28, 0.1);
         }
 
         /* Table Styles */
@@ -167,7 +143,7 @@
         }
 
         .admin-table thead th {
-            background: linear-gradient(135deg, #B91C1C 0%, #BF1F30 100%);
+            background: linear-gradient(135deg, #B91C1C 0%, #991B1B 100%);
             color: white;
             font-weight: 600;
             border: none;
@@ -179,8 +155,7 @@
         }
 
         .admin-table tbody tr:hover {
-            background: linear-gradient(90deg, rgba(185, 28, 28, 0.05) 0%, transparent 100%);
-            transform: scale(1.005);
+            background: rgba(185, 28, 28, 0.03);
         }
 
         /* Status Badges */
@@ -194,25 +169,11 @@
             gap: 0.25rem;
         }
 
-        .status-pending {
-            background: #FEF3C7;
-            color: #92400E;
-        }
-
-        .status-active {
-            background: #D1FAE5;
-            color: #065F46;
-        }
-
-        .status-inactive {
-            background: #F3F4F6;
-            color: #374151;
-        }
-
-        .status-warning {
-            background: #FEE2E2;
-            color: #B91C1C;
-        }
+        .status-pending { background: #FEF3C7; color: #92400E; }
+        .status-active { background: #D1FAE5; color: #065F46; }
+        .status-inactive { background: #F3F4F6; color: #374151; }
+        .status-warning { background: #FEE2E2; color: #B91C1C; }
+        .status-success { background: #D1FAE5; color: #065F46; }
 
         /* Custom Scrollbar */
         .admin-scrollbar::-webkit-scrollbar {
@@ -236,7 +197,7 @@
 
         /* Modal Styles */
         .modal-overlay {
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.6);
             backdrop-filter: blur(4px);
         }
 
@@ -246,7 +207,7 @@
             overflow-y: auto;
         }
 
-        /* Loading Spinner */
+        /* Loading States */
         .loading-spinner {
             border: 3px solid #F3F4F6;
             border-top: 3px solid #B91C1C;
@@ -256,9 +217,41 @@
             animation: spin 1s linear infinite;
         }
 
+        .loading-spinner-sm {
+            border: 2px solid #F3F4F6;
+            border-top: 2px solid #B91C1C;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+
+        /* Button Loading State */
+        .btn-loading {
+            opacity: 0.7;
+            cursor: wait;
+        }
+
+        .btn-loading i {
+            animation: spin 1s linear infinite;
+        }
+
+        /* Skeleton Loading */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite;
+            border-radius: 4px;
+        }
+
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
         }
 
         /* Responsive Design */
@@ -301,30 +294,38 @@
     <!-- Mobile Overlay -->
     <div id="mobileOverlay" class="mobile-overlay"></div>
 
+    <!-- Global Loading Overlay -->
+    <div id="globalLoadingOverlay" class="fixed inset-0 bg-black/70 z-[100] hidden flex items-center justify-center">
+        <div class="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center min-w-[280px]">
+            <div class="loading-spinner mb-4"></div>
+            <p id="loadingMessage" class="text-gray-800 font-semibold text-lg">Processing...</p>
+            <p class="text-gray-500 text-sm mt-2">Please wait</p>
+        </div>
+    </div>
+
     <!-- Top Navigation -->
     <nav class="fixed top-0 left-0 right-0 h-16 bg-white shadow-lg z-40 border-b border-gray-200">
         <div class="flex items-center justify-between h-full px-4 lg:px-6">
             <!-- Left Section -->
             <div class="flex items-center space-x-4">
                 <!-- Mobile Menu Toggle -->
-                <button id="mobileMenuToggle" class="lg:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100">
+                <button id="mobileMenuToggle" class="lg:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors">
                     <i class="fas fa-bars text-lg"></i>
                 </button>
 
                 <!-- Sidebar Toggle (Desktop) -->
-                <button id="sidebarToggle" class="hidden lg:block p-2 rounded-lg text-gray-600 hover:bg-gray-100">
+                <button id="sidebarToggle" class="hidden lg:block p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors">
                     <i class="fas fa-bars text-lg"></i>
                 </button>
 
                 <!-- Logo -->
                 <div class="flex items-center">
-                    <img src="{{ asset('Assets/images/Kenswed_logo.png') }}"
-                         alt="Kenswed College"
-                         class="w-10 h-10 object-contain mr-3"
-                         onerror="this.onerror=null; this.src='https://placehold.co/40x40/B91C1C/ffffff?text=K';">
+                    <div class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center mr-3 shadow-md">
+                        <i class="fas fa-graduation-cap text-white text-lg"></i>
+                    </div>
                     <div>
-                        <h1 class="font-bold text-gray-800 text-lg">KTVTC <span class="text-primary">Admin</span></h1>
-                        <p class="text-xs text-gray-500">Management Portal</p>
+                        <h1 class="font-bold text-gray-800 text-lg">Kenswed <span class="text-primary">College</span></h1>
+                        <p class="text-xs text-gray-500">Administration Portal</p>
                     </div>
                 </div>
             </div>
@@ -333,16 +334,16 @@
             <div class="hidden lg:flex items-center space-x-6">
                 <div class="flex items-center space-x-2">
                     <div class="w-2 h-2 rounded-full bg-success animate-pulse"></div>
-                    <span class="text-sm text-gray-600">System: <span class="font-semibold text-success">Online</span></span>
+                    <span class="text-sm text-gray-600">System: <span class="font-semibold text-success">Operational</span></span>
                 </div>
                 <div class="h-6 w-px bg-gray-300"></div>
                 <div class="text-sm text-gray-600">
-                    <i class="fas fa-users mr-1"></i>
-                    <span class="font-semibold">{{ \App\Models\Student::count() ?? 0 }}</span> Students
+                    <i class="fas fa-users mr-1 text-primary"></i>
+                    <span class="font-semibold">{{ number_format(\App\Models\Student::count() ?? 0) }}</span> Students
                 </div>
                 <div class="h-6 w-px bg-gray-300"></div>
                 <div class="text-sm text-gray-600">
-                    <i class="fas fa-clock mr-1"></i>
+                    <i class="fas fa-clock mr-1 text-primary"></i>
                     <span class="font-semibold">{{ now()->format('d M Y') }}</span>
                 </div>
             </div>
@@ -356,12 +357,12 @@
                         <span class="hidden sm:inline">Quick Actions</span>
                     </button>
 
-                    <div id="quickActionsDropdown" class="hidden absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 z-50">
+                    <div id="quickActionsDropdown" class="hidden absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-50">
                         <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-primary/5 to-transparent">
                             <h3 class="font-bold text-gray-800">Quick Actions</h3>
                         </div>
                         <div class="p-2">
-                            <a href="{{ route('admin.students.create') }}" class="flex items-center p-3 rounded-lg hover:bg-gray-50 mb-1">
+                            <a href="{{ route('admin.students.create') }}" class="flex items-center p-3 rounded-lg hover:bg-gray-50 mb-1 transition-colors">
                                 <div class="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center mr-3">
                                     <i class="fas fa-user-graduate text-success"></i>
                                 </div>
@@ -371,7 +372,7 @@
                                 </div>
                             </a>
 
-                            <a href="{{ route('admin.enrollments.create') }}" class="flex items-center p-3 rounded-lg hover:bg-gray-50 mb-1">
+                            <a href="{{ route('admin.enrollments.create') }}" class="flex items-center p-3 rounded-lg hover:bg-gray-50 mb-1 transition-colors">
                                 <div class="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center mr-3">
                                     <i class="fas fa-book-open text-info"></i>
                                 </div>
@@ -381,7 +382,7 @@
                                 </div>
                             </a>
 
-                            <a href="{{ route('admin.fee-payments.create') }}" class="flex items-center p-3 rounded-lg hover:bg-gray-50">
+                            <a href="{{ route('admin.fee-payments.create') }}" class="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors">
                                 <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mr-3">
                                     <i class="fas fa-credit-card text-primary"></i>
                                 </div>
@@ -396,19 +397,18 @@
 
                 <!-- Notifications -->
                 <div class="relative">
-                    <button id="notificationBtn" class="relative p-2 rounded-lg text-gray-600 hover:bg-gray-100">
+                    <button id="notificationBtn" class="relative p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors">
                         <i class="fas fa-bell text-lg"></i>
                         @php
                             $notificationCount = \App\Models\Message::where('status', '!=', 'viewed')->count();
                         @endphp
                         @if($notificationCount > 0)
-                            <span class="absolute -top-1 -right-1 w-5 h-5 bg-danger text-white text-xs rounded-full flex items-center justify-center font-bold animate-pulse">
+                            <span class="absolute -top-1 -right-1 min-w-[20px] h-5 bg-danger text-white text-xs rounded-full flex items-center justify-center font-bold animate-pulse px-1">
                                 {{ $notificationCount > 9 ? '9+' : $notificationCount }}
                             </span>
                         @endif
                     </button>
 
-                    <!-- Notification Dropdown -->
                     <div id="notificationDropdown" class="hidden absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50">
                         <div class="p-4 border-b border-gray-200">
                             <div class="flex items-center justify-between">
@@ -421,7 +421,7 @@
                                 $recentNotifications = \App\Models\Message::orderBy('created_at', 'desc')->limit(5)->get();
                             @endphp
                             @forelse($recentNotifications as $notification)
-                                <a href="#" class="block p-4 hover:bg-gray-50 border-b border-gray-100">
+                                <a href="#" class="block p-4 hover:bg-gray-50 border-b border-gray-100 transition-colors">
                                     <div class="flex items-start">
                                         <div class="w-8 h-8 rounded-full bg-primary-light flex items-center justify-center mr-3 flex-shrink-0">
                                             <i class="fas {{ $notification->icon ?? 'fa-bell' }} text-primary"></i>
@@ -444,7 +444,7 @@
                             @endforelse
                         </div>
                         <div class="p-4 border-t border-gray-200 bg-gray-50">
-                            <a href="{{ route('admin.messages.index') }}" class="block text-center text-primary hover:text-primary-dark font-medium text-sm">
+                            <a href="{{ route('admin.messages.index') }}" class="block text-center text-primary hover:text-primary-dark font-medium text-sm transition-colors">
                                 View all notifications
                             </a>
                         </div>
@@ -453,9 +453,9 @@
 
                 <!-- User Profile -->
                 <div class="relative">
-                    <button id="userDropdownBtn" class="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100">
-                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-lg">
-                            <i class="fas fa-user-tie text-white"></i>
+                    <button id="userDropdownBtn" class="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-md">
+                            <i class="fas fa-user-tie text-white text-sm"></i>
                         </div>
                         <div class="text-left hidden lg:block">
                             <p class="text-sm font-bold text-gray-800">{{ Auth::user()->name ?? 'Admin User' }}</p>
@@ -469,24 +469,24 @@
                     <div id="userDropdown" class="hidden absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-200 z-50">
                         <div class="p-4 border-b border-gray-200">
                             <div class="flex items-center">
-                                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center mr-3">
+                                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center mr-3 shadow-md">
                                     <i class="fas fa-user-tie text-white text-xl"></i>
                                 </div>
                                 <div>
                                     <p class="font-bold text-gray-800">{{ Auth::user()->name ?? 'Admin User' }}</p>
-                                    <p class="text-sm text-gray-500">{{ Auth::user()->email ?? 'admin@ktvtc.ac.ke' }}</p>
+                                    <p class="text-sm text-gray-500">{{ Auth::user()->email ?? 'admin@kenswed.ac.ke' }}</p>
                                 </div>
                             </div>
                         </div>
                         <div class="p-2">
-                            <a href="{{ route('profile.edit') }}" class="flex items-center p-3 rounded-lg hover:bg-gray-50 mb-1">
+                            <a href="{{ route('profile.edit') }}" class="flex items-center p-3 rounded-lg hover:bg-gray-50 mb-1 transition-colors">
                                 <i class="fas fa-user-cog text-primary w-5 mr-3"></i>
                                 <span class="font-medium text-gray-700">Profile Settings</span>
                             </a>
                             <div class="border-t border-gray-200 my-2"></div>
-                            <form method="POST" action="{{ route('logout') }}" class="w-full">
+                            <form method="POST" action="{{ route('logout') }}" class="w-full" id="logoutForm">
                                 @csrf
-                                <button type="submit" class="flex items-center w-full p-3 rounded-lg hover:bg-red-50 text-danger font-semibold">
+                                <button type="submit" class="flex items-center w-full p-3 rounded-lg hover:bg-red-50 text-danger font-semibold transition-colors">
                                     <i class="fas fa-sign-out-alt mr-3"></i>
                                     <span>Logout</span>
                                 </button>
@@ -507,7 +507,7 @@
                     <input type="text"
                            id="sidebarSearch"
                            placeholder="Search modules..."
-                           class="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 text-sm">
+                           class="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 text-sm transition-all">
                     <i class="fas fa-search absolute left-3 top-3 text-white/60 text-sm"></i>
                 </div>
             </div>
@@ -653,39 +653,6 @@
                     <i class="fas fa-chart-pie mr-3 text-lg"></i>
                     <span class="nav-text">Analytics</span>
                 </a>
-
-                <!-- SYSTEM SECTION -->
-                <div class="mt-6 mb-2">
-                    <p class="px-4 py-2 text-xs font-bold text-white/60 uppercase tracking-wider group-title">
-                        <i class="fas fa-cogs mr-2"></i>System
-                    </p>
-                </div>
-
-                <!-- Settings -->
-                <a href="{{ route('admin.settings.general') }}"
-                   class="admin-nav-link flex items-center px-4 py-3 rounded-xl {{ request()->routeIs('admin.settings.*') ? 'active' : '' }}">
-                    <i class="fas fa-cog mr-3 text-lg"></i>
-                    <span class="nav-text">Settings</span>
-                </a>
-
-                <!-- SUPPORT SECTION -->
-                <div class="mt-6 mb-2">
-                    <p class="px-4 py-2 text-xs font-bold text-white/60 uppercase tracking-wider group-title">
-                        <i class="fas fa-life-ring mr-2"></i>Support
-                    </p>
-                </div>
-
-                <!-- Help & Support -->
-                <a href="#" class="admin-nav-link flex items-center px-4 py-3 rounded-xl">
-                    <i class="fas fa-question-circle mr-3 text-lg"></i>
-                    <span class="nav-text">Help & Support</span>
-                </a>
-
-                <!-- Documentation -->
-                <a href="#" class="admin-nav-link flex items-center px-4 py-3 rounded-xl">
-                    <i class="fas fa-file-alt mr-3 text-lg"></i>
-                    <span class="nav-text">Documentation</span>
-                </a>
             </nav>
 
             <!-- System Status -->
@@ -695,11 +662,11 @@
                         <span class="text-xs text-white/60">System Status</span>
                         <span class="text-xs text-success flex items-center">
                             <i class="fas fa-circle mr-1 text-xs animate-pulse"></i>
-                            Online
+                            Operational
                         </span>
                     </div>
                     <div class="text-xs text-white/40">
-                        <p>KTVTC Admin v3.0.0</p>
+                        <p>Kenswed College v3.0.0</p>
                         <p class="mt-1">{{ now()->format('d M Y, H:i') }}</p>
                     </div>
                 </div>
@@ -710,15 +677,15 @@
     <!-- Main Content -->
     <main id="mainContent" class="ml-0 lg:ml-64 pt-16 min-h-screen bg-gray-50 transition-all duration-300">
         <!-- Breadcrumb -->
-        <div class="bg-gradient-to-r from-primary/5 to-transparent border-b border-gray-200 px-6 py-4">
+        <div class="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between">
                 <div>
                     <nav class="flex" aria-label="Breadcrumb">
                         <ol class="inline-flex items-center space-x-1 md:space-x-3">
                             <li class="inline-flex items-center">
-                                <a href="{{ route('admin.dashboard') }}" class="inline-flex items-center text-sm font-medium text-primary hover:text-primary-dark">
+                                <a href="{{ route('admin.dashboard') }}" class="inline-flex items-center text-sm font-medium text-primary hover:text-primary-dark transition-colors">
                                     <i class="fas fa-home mr-2"></i>
-                                    Admin
+                                    Home
                                 </a>
                             </li>
                             @yield('breadcrumb')
@@ -736,16 +703,16 @@
         <!-- Flash Messages -->
         <div class="px-6 pt-6">
             @if(session('success'))
-                <div class="mb-6 p-4 bg-gradient-to-r from-success/10 to-success/5 border-l-4 border-success rounded-r-lg animate-fade-in">
+                <div class="mb-6 p-4 bg-green-50 border-l-4 border-green-500 rounded-r-lg animate-fade-in shadow-sm">
                     <div class="flex items-center">
-                        <div class="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center mr-3">
-                            <i class="fas fa-check-circle text-success"></i>
+                        <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                            <i class="fas fa-check-circle text-green-600"></i>
                         </div>
-                        <div>
-                            <p class="font-semibold text-gray-800">Success!</p>
-                            <p class="text-gray-700">{{ session('success') }}</p>
+                        <div class="flex-1">
+                            <p class="font-semibold text-green-800">Success!</p>
+                            <p class="text-green-700">{{ session('success') }}</p>
                         </div>
-                        <button onclick="this.parentElement.parentElement.remove()" class="ml-auto text-gray-400 hover:text-gray-600">
+                        <button onclick="this.closest('.animate-fade-in').remove()" class="text-gray-400 hover:text-gray-600 transition-colors">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -753,16 +720,16 @@
             @endif
 
             @if(session('error'))
-                <div class="mb-6 p-4 bg-gradient-to-r from-danger/10 to-danger/5 border-l-4 border-danger rounded-r-lg animate-fade-in">
+                <div class="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg animate-fade-in shadow-sm">
                     <div class="flex items-center">
-                        <div class="w-10 h-10 rounded-full bg-danger/20 flex items-center justify-center mr-3">
-                            <i class="fas fa-exclamation-circle text-danger"></i>
+                        <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mr-3">
+                            <i class="fas fa-exclamation-circle text-red-600"></i>
                         </div>
-                        <div>
-                            <p class="font-semibold text-gray-800">Error!</p>
-                            <p class="text-gray-700">{{ session('error') }}</p>
+                        <div class="flex-1">
+                            <p class="font-semibold text-red-800">Error!</p>
+                            <p class="text-red-700">{{ session('error') }}</p>
                         </div>
-                        <button onclick="this.parentElement.parentElement.remove()" class="ml-auto text-gray-400 hover:text-gray-600">
+                        <button onclick="this.closest('.animate-fade-in').remove()" class="text-gray-400 hover:text-gray-600 transition-colors">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -770,16 +737,16 @@
             @endif
 
             @if(session('warning'))
-                <div class="mb-6 p-4 bg-gradient-to-r from-warning/10 to-warning/5 border-l-4 border-warning rounded-r-lg animate-fade-in">
+                <div class="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded-r-lg animate-fade-in shadow-sm">
                     <div class="flex items-center">
-                        <div class="w-10 h-10 rounded-full bg-warning/20 flex items-center justify-center mr-3">
-                            <i class="fas fa-exclamation-triangle text-warning"></i>
+                        <div class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center mr-3">
+                            <i class="fas fa-exclamation-triangle text-yellow-600"></i>
                         </div>
-                        <div>
-                            <p class="font-semibold text-gray-800">Warning!</p>
-                            <p class="text-gray-700">{{ session('warning') }}</p>
+                        <div class="flex-1">
+                            <p class="font-semibold text-yellow-800">Warning!</p>
+                            <p class="text-yellow-700">{{ session('warning') }}</p>
                         </div>
-                        <button onclick="this.parentElement.parentElement.remove()" class="ml-auto text-gray-400 hover:text-gray-600">
+                        <button onclick="this.closest('.animate-fade-in').remove()" class="text-gray-400 hover:text-gray-600 transition-colors">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -787,20 +754,20 @@
             @endif
 
             @if($errors->any())
-                <div class="mb-6 p-4 bg-gradient-to-r from-warning/10 to-warning/5 border-l-4 border-warning rounded-r-lg">
+                <div class="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-500 rounded-r-lg shadow-sm">
                     <div class="flex items-center">
-                        <div class="w-10 h-10 rounded-full bg-warning/20 flex items-center justify-center mr-3">
-                            <i class="fas fa-exclamation-triangle text-warning"></i>
+                        <div class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center mr-3">
+                            <i class="fas fa-exclamation-triangle text-yellow-600"></i>
                         </div>
                         <div class="flex-1">
-                            <p class="font-semibold text-gray-800">Please fix the following errors:</p>
-                            <ul class="mt-2 list-disc list-inside text-gray-700">
+                            <p class="font-semibold text-yellow-800">Please fix the following errors:</p>
+                            <ul class="mt-2 list-disc list-inside text-yellow-700">
                                 @foreach($errors->all() as $error)
                                     <li>{{ $error }}</li>
                                 @endforeach
                             </ul>
                         </div>
-                        <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-gray-400 hover:text-gray-600">
+                        <button onclick="this.closest('.bg-yellow-50').remove()" class="text-gray-400 hover:text-gray-600 transition-colors">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -814,19 +781,19 @@
         </div>
 
         <!-- Footer -->
-        <footer class="border-t border-gray-200 bg-white px-6 py-4 mt-8">
+        <footer class="border-t border-gray-200 bg-white px-6 py-4 mt-8 shadow-inner">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between">
                 <div class="text-gray-600 text-sm">
                     <p class="font-medium">
                         <i class="fas fa-shield-alt text-primary mr-1"></i>
-                        KTVTC Admin Portal v3.0.0
+                        Kenswed College Admin Portal v3.0.0
                     </p>
                     <p class="text-gray-500 mt-1">© {{ date('Y') }} Kenswed Technical and Vocational Training College. All rights reserved.</p>
                 </div>
                 <div class="mt-2 md:mt-0">
                     <div class="flex items-center space-x-4">
                         <div class="text-sm text-gray-600">
-                            <i class="fas fa-clock mr-1"></i>
+                            <i class="fas fa-clock mr-1 text-primary"></i>
                             {{ now()->format('l, F j, Y H:i:s') }}
                         </div>
                         <div class="w-2 h-2 rounded-full bg-success animate-pulse"></div>
@@ -842,14 +809,6 @@
 
     <!-- Toast Container -->
     <div id="toastContainer" class="fixed bottom-4 right-4 z-50 space-y-2 w-96"></div>
-
-    <!-- Loading Overlay -->
-    <div id="loadingOverlay" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center">
-        <div class="bg-white rounded-xl p-8 shadow-2xl">
-            <div class="loading-spinner mx-auto mb-4"></div>
-            <p class="text-gray-700 font-semibold">Processing...</p>
-        </div>
-    </div>
 
     <!-- JavaScript Libraries -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -901,7 +860,6 @@
                     }
                 });
 
-                // Check localStorage
                 if (localStorage.getItem('sidebarCollapsed') === 'true') {
                     sidebar.classList.add('collapsed');
                     mainContent.classList.remove('lg:ml-64');
@@ -923,11 +881,8 @@
                 if (button && dropdown) {
                     button.addEventListener('click', function(e) {
                         e.stopPropagation();
-
-                        // For dropdown buttons
                         dropdown.classList.toggle('hidden');
 
-                        // Close other dropdowns
                         Object.keys(dropdowns).forEach(otherId => {
                             if (otherId !== buttonId) {
                                 const otherDropdown = document.getElementById(dropdowns[otherId]);
@@ -974,50 +929,122 @@
                     document.querySelectorAll('[id$="Modal"]:not(.hidden), [id$="Dropdown"]:not(.hidden)').forEach(element => {
                         element.classList.add('hidden');
                     });
+                    hideGlobalLoading();
                 }
             });
         });
 
-        // Modal System
-        window.openModal = function(modalId, size = 'lg') {
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                modal.classList.remove('hidden');
+        // ============ GLOBAL LOADING FUNCTIONS ============
+        window.showGlobalLoading = function(message = 'Processing...') {
+            const overlay = document.getElementById('globalLoadingOverlay');
+            const messageEl = document.getElementById('loadingMessage');
+            if (overlay) {
+                if (messageEl) messageEl.textContent = message;
+                overlay.classList.remove('hidden');
                 document.body.style.overflow = 'hidden';
+            }
+        };
 
-                const modalContent = modal.querySelector('.modal-content');
-                if (modalContent) {
-                    modalContent.classList.remove('max-w-sm', 'max-w-md', 'max-w-lg', 'max-w-xl', 'max-w-2xl', 'max-w-3xl', 'max-w-4xl', 'max-w-5xl', 'max-w-6xl', 'max-w-7xl');
-                    modalContent.classList.add(`max-w-${size}`);
+        window.hideGlobalLoading = function() {
+            const overlay = document.getElementById('globalLoadingOverlay');
+            if (overlay) {
+                overlay.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+        };
+
+        // ============ BUTTON LOADING STATE ============
+        window.setButtonLoading = function(button, isLoading = true, loadingText = 'Processing...') {
+            if (!button) return;
+
+            if (isLoading) {
+                button.dataset.originalText = button.innerHTML;
+                button.disabled = true;
+                button.classList.add('btn-loading');
+                button.innerHTML = `<i class="fas fa-spinner mr-2"></i>${loadingText}`;
+            } else {
+                button.disabled = false;
+                button.classList.remove('btn-loading');
+                if (button.dataset.originalText) {
+                    button.innerHTML = button.dataset.originalText;
                 }
             }
         };
 
-        window.closeModal = function(modalId) {
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                modal.classList.add('hidden');
-                document.body.style.overflow = 'auto';
+        // ============ FORM SUBMIT WITH LOADING ============
+        window.submitFormWithLoading = function(formId, options = {}) {
+            const form = document.getElementById(formId);
+            if (!form) return;
+
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const loadingMessage = options.loadingMessage || 'Submitting...';
+            const buttonText = options.buttonText || 'Processing...';
+
+            if (submitBtn) {
+                setButtonLoading(submitBtn, true, buttonText);
+            }
+
+            showGlobalLoading(loadingMessage);
+
+            // Set timeout to prevent infinite loading
+            setTimeout(() => {
+                setButtonLoading(submitBtn, false);
+                hideGlobalLoading();
+            }, 30000);
+
+            form.submit();
+        };
+
+        // ============ AJAX REQUEST WITH LOADING ============
+        window.ajaxWithLoading = async function(url, options = {}) {
+            const showLoader = options.showLoader !== false;
+            const loadingMessage = options.loadingMessage || 'Loading...';
+
+            if (showLoader) showGlobalLoading(loadingMessage);
+
+            try {
+                const response = await fetch(url, {
+                    method: options.method || 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                        ...options.headers
+                    },
+                    body: options.body || null
+                });
+
+                if (showLoader) hideGlobalLoading();
+                return await response.json();
+            } catch (error) {
+                if (showLoader) hideGlobalLoading();
+                throw error;
             }
         };
 
-        // Close modal on overlay click
-        document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('modal-overlay')) {
-                window.closeModal(e.target.closest('[id$="Modal"]')?.id);
-            }
-        });
+        // ============ TABLE ROW SELECTION ============
+        window.selectAllRows = function(tableId) {
+            const selectAll = document.querySelector(`#${tableId} .select-all`);
+            const checkboxes = document.querySelectorAll(`#${tableId} .row-checkbox`);
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectAll?.checked || false;
+            });
+        };
 
-        // Toast System
+        window.getSelectedRows = function(tableId) {
+            const checkboxes = document.querySelectorAll(`#${tableId} .row-checkbox:checked`);
+            return Array.from(checkboxes).map(cb => cb.value);
+        };
+
+        // ============ TOAST SYSTEM ============
         window.showToast = function(message, type = 'success', duration = 5000) {
             const toastContainer = document.getElementById('toastContainer');
             const toastId = 'toast-' + Date.now();
 
             const colors = {
-                success: { bg: 'bg-success/10', border: 'border-success', icon: 'fa-check-circle', text: 'text-success' },
-                error: { bg: 'bg-danger/10', border: 'border-danger', icon: 'fa-exclamation-circle', text: 'text-danger' },
-                warning: { bg: 'bg-warning/10', border: 'border-warning', icon: 'fa-exclamation-triangle', text: 'text-warning' },
-                info: { bg: 'bg-info/10', border: 'border-info', icon: 'fa-info-circle', text: 'text-info' }
+                success: { bg: 'bg-green-50', border: 'border-green-500', icon: 'fa-check-circle', text: 'text-green-600' },
+                error: { bg: 'bg-red-50', border: 'border-red-500', icon: 'fa-exclamation-circle', text: 'text-red-600' },
+                warning: { bg: 'bg-yellow-50', border: 'border-yellow-500', icon: 'fa-exclamation-triangle', text: 'text-yellow-600' },
+                info: { bg: 'bg-blue-50', border: 'border-blue-500', icon: 'fa-info-circle', text: 'text-blue-600' }
             };
 
             const color = colors[type] || colors.info;
@@ -1031,7 +1058,7 @@
                     <div class="flex-1">
                         <p class="font-semibold text-gray-800">${message}</p>
                     </div>
-                    <button onclick="removeToast('${toastId}')" class="ml-4 text-gray-400 hover:text-gray-600">
+                    <button onclick="removeToast('${toastId}')" class="text-gray-400 hover:text-gray-600 transition-colors">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -1039,7 +1066,6 @@
 
             toastContainer.appendChild(toast);
 
-            // Auto remove
             setTimeout(() => {
                 removeToast(toastId);
             }, duration);
@@ -1055,87 +1081,43 @@
             }
         };
 
-        // Loading Overlay
-        window.showLoading = function(message = 'Processing...') {
-            const overlay = document.getElementById('loadingOverlay');
-            if (overlay) {
-                overlay.querySelector('p').textContent = message;
-                overlay.classList.remove('hidden');
+        // ============ MODAL SYSTEM ============
+        window.openModal = function(modalId, size = 'lg') {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+
+                const modalContent = modal.querySelector('.modal-content');
+                if (modalContent) {
+                    const sizeClasses = {
+                        'sm': 'max-w-md',
+                        'md': 'max-w-lg',
+                        'lg': 'max-w-2xl',
+                        'xl': 'max-w-4xl',
+                        '2xl': 'max-w-6xl'
+                    };
+                    modalContent.classList.remove('max-w-md', 'max-w-lg', 'max-w-2xl', 'max-w-4xl', 'max-w-6xl');
+                    modalContent.classList.add(sizeClasses[size] || 'max-w-2xl');
+                }
             }
         };
 
-        window.hideLoading = function() {
-            const overlay = document.getElementById('loadingOverlay');
-            if (overlay) overlay.classList.add('hidden');
-        };
-
-        // Form Submission with Loading
-        window.submitForm = function(formId, options = {}) {
-            const form = document.getElementById(formId);
-            if (!form) return;
-
-            const submitBtn = form.querySelector('button[type="submit"]');
-            const originalText = submitBtn ? submitBtn.innerHTML : '';
-            const buttonText = options.buttonText || 'Processing...';
-
-            if (submitBtn) {
-                submitBtn.innerHTML = `
-                    <i class="fas fa-spinner fa-spin mr-2"></i>
-                    ${buttonText}
-                `;
-                submitBtn.disabled = true;
+        window.closeModal = function(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('hidden');
+                document.body.style.overflow = 'auto';
             }
-
-            showLoading(options.loadingMessage || 'Submitting...');
-
-            // Revert after 30 seconds
-            setTimeout(() => {
-                if (submitBtn) {
-                    submitBtn.innerHTML = originalText;
-                    submitBtn.disabled = false;
-                }
-                hideLoading();
-            }, 30000);
-
-            form.submit();
         };
 
-        // DataTable Initialization
-        window.initDataTable = function(tableId, options = {}) {
-            const defaultOptions = {
-                dom: 'Bfrtip',
-                buttons: [
-                    'copy', 'csv', 'excel', 'pdf', 'print'
-                ],
-                pageLength: 25,
-                responsive: true,
-                language: {
-                    search: "_INPUT_",
-                    searchPlaceholder: "Search...",
-                    lengthMenu: "_MENU_ records per page",
-                    info: "Showing _START_ to _END_ of _TOTAL_ entries",
-                    infoEmpty: "Showing 0 to 0 of 0 entries",
-                    infoFiltered: "(filtered from _MAX_ total entries)"
-                }
-            };
-
-            const mergedOptions = { ...defaultOptions, ...options };
-            return $('#' + tableId).DataTable(mergedOptions);
-        };
-
-        // Table Row Selection
-        window.selectAllRows = function(tableId) {
-            const selectAll = document.querySelector(`#${tableId} .select-all`);
-            const checkboxes = document.querySelectorAll(`#${tableId} .row-checkbox`);
-
-            checkboxes.forEach(checkbox => {
-                checkbox.checked = selectAll.checked;
-            });
-        };
-
-        window.getSelectedRows = function(tableId) {
-            const checkboxes = document.querySelectorAll(`#${tableId} .row-checkbox:checked`);
-            return Array.from(checkboxes).map(cb => cb.value);
+        // ============ CONFIRM DIALOG ============
+        window.confirmAction = function(message, callback) {
+            if (confirm(message)) {
+                if (callback) callback();
+                return true;
+            }
+            return false;
         };
     </script>
 
