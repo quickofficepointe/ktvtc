@@ -13,7 +13,8 @@ use App\Http\Controllers\AuthorController;
 use App\Http\Controllers\BannerController;
 use App\Http\Controllers\BlogCategoryController;
 use App\Http\Controllers\BlogController;
-use Http\Controllers\BookCategoryController;
+
+use App\Http\Controllers\BookCategoryController;  // ✅ CORRECT
 use App\Http\Controllers\BookController;
 use App\Http\Controllers\BookPopularityController;
 use App\Http\Controllers\BranchController;
@@ -27,6 +28,8 @@ use App\Http\Controllers\CourseController;
 use App\Http\Controllers\CourseIntakesController;
 use App\Http\Controllers\DirectPurchaseController;
 use App\Http\Controllers\DownloadController;
+use App\Http\Controllers\EBookCategoryController;
+use App\Http\Controllers\EBookController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\EventApplicationController;
 use App\Http\Controllers\EventController;
@@ -626,8 +629,22 @@ Route::middleware(['auth', 'verified', 'role.library'])->prefix('library')->name
     Route::post('/acquisition-requests/{acquisitionRequest}/reject', [AcquisitionRequestController::class, 'reject'])->name('acquisition-requests.reject');
     Route::post('/acquisition-requests/{acquisitionRequest}/mark-ordered', [AcquisitionRequestController::class, 'markOrdered'])->name('acquisition-requests.mark-ordered');
     Route::post('/acquisition-requests/{acquisitionRequest}/mark-received', [AcquisitionRequestController::class, 'markReceived'])->name('acquisition-requests.mark-received');
-
+// E-Book Categories
+Route::get('/ebook-categories', [EBookCategoryController::class, 'index'])->name('ebook-categories.index');
+Route::post('/ebook-categories', [EBookCategoryController::class, 'store'])->name('ebook-categories.store');
+Route::put('/ebook-categories/{eBookCategory}', [EBookCategoryController::class, 'update'])->name('ebook-categories.update');
+Route::delete('/ebook-categories/{eBookCategory}', [EBookCategoryController::class, 'destroy'])->name('ebook-categories.destroy');
+Route::post('/ebook-categories/{eBookCategory}/toggle-status', [EBookCategoryController::class, 'toggleStatus'])->name('ebook-categories.toggle-status');
     // Authors
+    // EBooks
+Route::get('/ebooks', [EBookController::class, 'index'])->name('ebooks.index');
+Route::post('/ebooks', [EBookController::class, 'store'])->name('ebooks.store');
+Route::get('/ebooks/{ebook}', [EBookController::class, 'show'])->name('ebooks.show');
+Route::get('/ebooks/{ebook}/download', [EBookController::class, 'download'])->name('ebooks.download');
+Route::put('/ebooks/{ebook}', [EBookController::class, 'update'])->name('ebooks.update');
+Route::delete('/ebooks/{ebook}', [EBookController::class, 'destroy'])->name('ebooks.destroy');
+Route::post('/ebooks/{ebook}/toggle-featured', [EBookController::class, 'toggleFeatured'])->name('ebooks.toggle-featured');
+Route::post('/ebooks/{ebook}/toggle-active', [EBookController::class, 'toggleActive'])->name('ebooks.toggle-active');
     Route::get('/authors', [AuthorController::class, 'index'])->name('authors.index');
     Route::post('/authors', [AuthorController::class, 'store'])->name('authors.store');
     Route::get('/authors/{author}', [AuthorController::class, 'show'])->name('authors.show');
@@ -1336,5 +1353,10 @@ Route::prefix('application-payment')->name('application.payment.')->group(functi
     Route::post('/callback', [ApplicationPaymentController::class, 'paymentCallback'])->name('callback');
     Route::post('/status', [ApplicationPaymentController::class, 'checkPaymentStatus'])->name('status');
 });
-
+// Public Library Routes
 Route::get('/library', [LibraryController::class, 'index'])->name('library.index');
+Route::get('/library/book/{id}', [LibraryController::class, 'show'])->name('library.book.show');
+Route::get('/library/ebook/{ebook}', [LibraryController::class, 'showEBook'])->name('library.ebook.show');
+Route::get('/library/ebook/{ebook}/download', [LibraryController::class, 'downloadEBook'])->name('library.ebook.download');
+Route::get('/library/donate', [LibraryController::class, 'donationForm'])->name('library.donation-form');
+Route::post('/library/donate', [LibraryController::class, 'submitDonation'])->name('library.donation.submit');

@@ -56,37 +56,40 @@ class BookController extends Controller
             'newThisMonth'
         ));
     }
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'isbn' => 'nullable|string|max:20|unique:books,isbn',
-            'category_id' => 'required|exists:book_categories,id',
-            'publication_year' => 'nullable|integer|min:1000|max:' . date('Y'),
-            'publisher' => 'nullable|string|max:255',
-            'language' => 'nullable|string|max:50',
-            'page_count' => 'nullable|integer|min:1',
-            'price' => 'nullable|numeric|min:0',
-            'description' => 'nullable|string|max:2000',
-            'total_copies' => 'required|integer|min:1',
-            'available_copies' => 'required|integer|min:0|lte:total_copies',
-            'cover_image' => 'nullable|image|max:2048',
-            'author_ids' => 'nullable|array',
-            'author_ids.*' => 'exists:authors,id',
-        ]);
+   public function store(Request $request)
+{
+    $validated = $request->validate([
+        'title' => 'required|string|max:255',
+        'isbn' => 'nullable|string|max:20|unique:books,isbn',
+        'book_category_id' => 'required|exists:book_categories,id', // Changed from category_id
+        'publication_year' => 'nullable|integer|min:1000|max:' . date('Y'),
+        'publisher' => 'nullable|string|max:255',
+        'language' => 'nullable|string|max:50',
+        'page_count' => 'nullable|integer|min:1',
+        'price' => 'nullable|numeric|min:0',
+        'description' => 'nullable|string|max:2000',
+        'total_copies' => 'required|integer|min:1',
+        'available_copies' => 'required|integer|min:0|lte:total_copies',
+        'cover_image' => 'nullable|image|max:2048',
+        'author_ids' => 'nullable|array',
+        'author_ids.*' => 'exists:authors,id',
+    ]);
 
-        if ($request->hasFile('cover_image')) {
-            $validated['cover_image'] = $request->file('cover_image')->store('books/covers', 'public');
-        }
-        $validated['is_available'] = $validated['available_copies'] > 0;
-        $book = Book::create($validated);
-        // Attach authors
-        if ($request->has('author_ids')) {
-            $book->authors()->attach($request->author_ids);
-        }
-        return redirect()->route('books.index')
-            ->with('success', 'Book added successfully.');
+    if ($request->hasFile('cover_image')) {
+        $validated['cover_image'] = $request->file('cover_image')->store('books/covers', 'public');
     }
+
+    $validated['is_available'] = $validated['available_copies'] > 0;
+    $book = Book::create($validated);
+
+    // Attach authors
+    if ($request->has('author_ids')) {
+        $book->authors()->attach($request->author_ids);
+    }
+
+    return redirect()->route('library.books.index')
+        ->with('success', 'Book added successfully.');
+}
 
     /**
      * Display the specified resource.
@@ -97,7 +100,7 @@ class BookController extends Controller
             $query->whereNull('return_date')->latest();
         }]);
 
-        return view('books.show', compact('book'));
+        return view('ktvtc.library.book.show', compact('book'));
     }
 
     /**
@@ -139,7 +142,7 @@ class BookController extends Controller
             $book->authors()->sync($request->author_ids);
         }
 
-        return redirect()->route('books.index')
+        return redirect()->route('library.books.index')
             ->with('success', 'Book updated successfully.');
     }
     /**
@@ -148,14 +151,14 @@ class BookController extends Controller
     public function destroy(Book $book)
     {
         if ($book->items()->exists()) {
-            return redirect()->route('books.index')
+            return redirect()->route('library.books.index')
                 ->with('error', 'Cannot delete book that has items. Delete items first.');
         }
         if ($book->cover_image) {
             Storage::disk('public')->delete($book->cover_image);
         }
         $book->delete();
-        return redirect()->route('books.index')
+        return redirect()->route('library.books.index')
             ->with('success', 'Book deleted successfully.');
     }
 }

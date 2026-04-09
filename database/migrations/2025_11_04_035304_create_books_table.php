@@ -12,6 +12,7 @@ return new class extends Migration
             $table->id();
             $table->string('isbn')->unique()->nullable();
             $table->string('title');
+            $table->foreignId('branch_id')->nullable()->constrained('branches')->nullOnDelete();
             $table->text('description')->nullable();
             $table->integer('publication_year')->nullable();
             $table->string('publisher')->nullable();
@@ -20,7 +21,7 @@ return new class extends Migration
             $table->integer('page_count')->nullable();
             $table->string('cover_image')->nullable();
             $table->decimal('price', 8, 2)->nullable();
-            $table->foreignId('category_id')->constrained('book_categories');
+            $table->foreignId('book_category_id')->constrained('book_categories');
             $table->integer('total_copies')->default(1);
             $table->integer('available_copies')->default(1);
             $table->boolean('is_available')->default(true);
@@ -29,6 +30,7 @@ return new class extends Migration
 
             $table->index('title');
             $table->index('is_available');
+            $table->index('branch_id'); // Add this for better performance
         });
     }
 

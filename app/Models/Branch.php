@@ -47,7 +47,11 @@ class Branch extends Model
         return $this->hasMany(Reservation::class);
     }
 
-    // Add scopeActive method
+    public function books(): HasMany
+    {
+        return $this->hasMany(Book::class);
+    }
+
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
@@ -57,5 +61,17 @@ class Branch extends Model
     {
         return date('g:i A', strtotime($this->opening_time)) . ' - ' .
                date('g:i A', strtotime($this->closing_time));
+    }
+
+    // Helper method to get book count
+    public function getBooksCountAttribute(): int
+    {
+        return $this->books()->count();
+    }
+
+    // Helper method to get members count
+    public function getMembersCountAttribute(): int
+    {
+        return $this->members()->count();
     }
 }

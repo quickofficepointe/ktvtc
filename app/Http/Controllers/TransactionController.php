@@ -91,70 +91,78 @@ class TransactionController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'member_id' => 'required|exists:members,id',
-            'item_id' => 'required|exists:items,id',
-            'branch_id' => 'required|exists:branches,id',
-            'borrow_date' => 'required|date',
-            'due_date' => 'required|date|after:borrow_date',
-            'notes' => 'nullable|string'
-        ]);
+  /**
+ * Store a newly created resource in storage.
+ */
+public function store(Request $request)
+{
+    $validated = $request->validate([
+        'member_id' => 'required|exists:members,id',
+        'item_id' => 'required|exists:items,id',
+        'borrow_date' => 'required|date',
+        'due_date' => 'required|date|after:borrow_date',
+        'notes' => 'nullable|string'
+    ]);
 
-        // Check if member can borrow more books
-        $activeBorrows = Transaction::where('member_id', $validated['member_id'])
-            ->where('status', 'borrowed')->count();
+    // Check if member can borrow more books
+    $activeBorrows = Transaction::where('member_id', $validated['member_id'])
+        ->where('status', 'borrowed')->count();
 
-        if ($activeBorrows >= 5) { // Assuming max 5 books per member
-            return redirect()->back()->with('error', 'Member has reached maximum borrowing limit.');
-        }
-
-        // Check if item is available
-        $item = Item::find($validated['item_id']);
-        if ($item->status !== 'available') {
-            return redirect()->back()->with('error', 'Book is not available for borrowing.');
-        }
-
-        // Create transaction
-        $transaction = Transaction::create([
-            'member_id' => $validated['member_id'],
-            'item_id' => $validated['item_id'],
-            'branch_id' => $validated['branch_id'],
-            'borrow_date' => $validated['borrow_date'],
-            'due_date' => $validated['due_date'],
-            'notes' => $validated['notes'],
-            'status' => 'borrowed',
-            'created_by' => Auth::id()
-        ]);
-
-        // Update item status
-        $item->update(['status' => 'borrowed']);
-
-        return redirect()->route('transactions.index')
-            ->with('success', 'Book borrowed successfully.');
+    if ($activeBorrows >= 5) {
+        return redirect()->back()->with('error', 'Member has reached maximum borrowing limit (5 books).');
     }
+
+    // Check if item is available
+    $item = Item::find($validated['item_id']);
+    if ($item->status !== 'available') {
+        return redirect()->back()->with('error', 'Book item is not available for borrowing.');
+    }
+
+    // Get the branch_id from the item
+    $branchId = $item->branch_id;
+
+    // Create transaction - remove created_by if column doesn't exist
+    $transaction = Transaction::create([
+        'member_id' => $validated['member_id'],
+        'item_id' => $validated['item_id'],
+        'branch_id' => $branchId,
+        'borrow_date' => $validated['borrow_date'],
+        'due_date' => $validated['due_date'],
+        'notes' => $validated['notes'],
+        'status' => 'borrowed',
+        'fine_amount' => 0,
+        // 'created_by' => Auth::id(), // Comment this out if column doesn't exist
+    ]);
+
+    // Update item status
+    $item->update(['status' => 'borrowed']);
+
+    return redirect()->route('library.transactions.index')
+        ->with('success', 'Book borrowed successfully.');
+}
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Transaction $transaction)
-    {
-        $validated = $request->validate([
-            'borrow_date' => 'required|date',
-            'due_date' => 'required|date|after:borrow_date',
-            'return_date' => 'nullable|date',
-            'fine_amount' => 'nullable|numeric|min:0',
-            'notes' => 'nullable|string',
-            'status' => 'required|in:borrowed,returned,overdue,lost'
-        ]);
+   /**
+ * Update the specified resource in storage.
+ */
+public function update(Request $request, Transaction $transaction)
+{
+    $validated = $request->validate([
+        'borrow_date' => 'required|date',
+        'due_date' => 'required|date|after:borrow_date',
+        'return_date' => 'nullable|date',
+        'fine_amount' => 'nullable|numeric|min:0',
+        'notes' => 'nullable|string',
+        'status' => 'required|in:borrowed,returned,overdue,lost'
+    ]);
 
-        $transaction->update($validated);
+    $transaction->update($validated);
 
-        return redirect()->route('transactions.index')
-            ->with('success', 'Transaction updated successfully.');
-    }
-
+    return redirect()->route('library.transactions.index')
+        ->with('success', 'Transaction updated successfully.');
+}
     /**
      * Remove the specified resource from storage.
      */
@@ -162,10 +170,18 @@ class TransactionController extends Controller
     {
         $transaction->delete();
 
-        return redirect()->route('transactions.index')
+        return redirect()->route('library.transactions.index')
             ->with('success', 'Transaction deleted successfully.');
     }
+/**
+ * Display the specified resource.
+ */
+public function show(Transaction $transaction)
+{
+    $transaction->load(['member', 'item.book', 'branch']);
 
+    return view('ktvtc.library.transactions.show', compact('transaction'));
+}
     /**
      * Return a book
      */

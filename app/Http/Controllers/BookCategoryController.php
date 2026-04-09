@@ -13,7 +13,7 @@ class BookCategoryController extends Controller
         $categories = BookCategory::withCount('books')->orderBy('name')->get();
         $totalBooks = DB::table('books')->count();
 
-        return view('book-categories.index', compact('categories', 'totalBooks'));
+        return view('ktvtc.library.book.category.index', compact('categories', 'totalBooks'));
     }
 
     public function store(Request $request)

@@ -417,7 +417,7 @@
     }
 
     function clearFilters() {
-        window.location.href = '{{ route('reservations.index') }}';
+        window.location.href = '{{ route('library.reservations.index') }}';
     }
 
     function fulfillReservation(reservationId) {

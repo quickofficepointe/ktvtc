@@ -4,8 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-
 
 class BookCategory extends Model
 {
@@ -15,25 +13,15 @@ class BookCategory extends Model
         'name',
         'description',
         'color',
-        'is_active',
+        'is_active'
     ];
 
-    protected $casts = [
-        'is_active' => 'boolean',
-    ];
-
-    public function books(): HasMany
-    {
-        return $this->hasMany(Book::class);
-    }
-
-    public function getTotalBooksAttribute(): int
-    {
-        return $this->books()->count();
-    }
-
-    public function getAvailableBooksAttribute(): int
-    {
-        return $this->books()->where('is_available', true)->count();
-    }
+    /**
+     * Get the books for this category.
+     * Specify BOTH foreign key and local key
+     */
+   public function books()
+{
+    return $this->hasMany(Book::class, 'book_category_id');
+}
 }

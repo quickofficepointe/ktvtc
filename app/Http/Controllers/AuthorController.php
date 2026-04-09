@@ -48,7 +48,7 @@ class AuthorController extends Controller
 
         Author::create($validated);
 
-        return redirect()->route('authors.index')
+        return redirect()->route('library.authors.index')
             ->with('success', 'Author added successfully.');
     }
 
@@ -61,7 +61,7 @@ class AuthorController extends Controller
             $query->with('category')->orderBy('title');
         }]);
 
-        return view('authors.show', compact('author'));
+        return view('ktvtc.library.authors.show', compact('author'));
     }
 
     /**
@@ -92,7 +92,7 @@ class AuthorController extends Controller
 
         $author->update($validated);
 
-        return redirect()->route('authors.index')
+        return redirect()->route('library.authors.index')
             ->with('success', 'Author updated successfully.');
     }
 
@@ -107,7 +107,7 @@ class AuthorController extends Controller
 
         $author->delete();
 
-        return redirect()->route('authors.index')
+        return redirect()->route('library.authors.index')
             ->with('success', 'Author deleted successfully.');
     }
 }

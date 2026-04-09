@@ -14,7 +14,7 @@ class FineRuleController extends Controller
     {
         $rules = FineRule::orderBy('name')->get();
 
-        return view('fine-rules.index', compact('rules'));
+        return view('ktvtc.library.finerules.index', compact('rules'));
     }
 
     /**

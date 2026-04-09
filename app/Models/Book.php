@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Book extends Model
 {
@@ -24,7 +25,8 @@ class Book extends Model
         'page_count',
         'cover_image',
         'price',
-        'category_id',
+        'book_category_id',
+        'branch_id',  // Added branch_id
         'total_copies',
         'available_copies',
         'is_available',
@@ -42,7 +44,12 @@ class Book extends Model
 
     public function category(): BelongsTo
     {
-        return $this->belongsTo(BookCategory::class);
+        return $this->belongsTo(BookCategory::class, 'book_category_id');
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     public function authors(): BelongsToMany
@@ -102,6 +109,11 @@ class Book extends Model
 
     public function scopeByCategory($query, $categoryId)
     {
-        return $query->where('category_id', $categoryId);
+        return $query->where('book_category_id', $categoryId);
+    }
+
+    public function scopeByBranch($query, $branchId)
+    {
+        return $query->where('branch_id', $branchId);
     }
 }

@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('member_id')->constrained();
             $table->foreignId('item_id')->constrained();
-          
+            $table->foreignId('branch_id')->nullable()->constrained('branches')->nullOnDelete();
             $table->date('borrow_date');
             $table->date('due_date');
             $table->date('return_date')->nullable();
@@ -23,6 +23,7 @@ return new class extends Migration
 
             $table->index('status');
             $table->index('due_date');
+            $table->index('branch_id');
         });
     }
 

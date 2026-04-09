@@ -149,7 +149,19 @@
                         <i class="fas fa-tags mr-3"></i> Categories
                     </a>
                 </li>
-
+<li class="mt-2">
+    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">DIGITAL COLLECTION</p>
+</li>
+<li>
+    <a href="{{ route('library.ebook-categories.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('ebook-categories.*') ? 'active' : '' }}">
+        <i class="fas fa-folder mr-3"></i> E-Book Categories
+    </a>
+</li>
+<li>
+    <a href="{{ route('library.ebooks.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('ebooks.*') ? 'active' : '' }}">
+        <i class="fas fa-tablet-alt mr-3"></i> E-Books
+    </a>
+</li>
                 <!-- MEMBER MANAGEMENT -->
                 <li class="mt-4">
                     <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">MEMBER MANAGEMENT</p>

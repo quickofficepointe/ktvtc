@@ -80,7 +80,7 @@ class MemberController extends Controller
 
         Member::create($validated);
 
-        return redirect()->route('members.index')
+        return redirect()->route('library.members.index')
             ->with('success', 'Member added successfully.');
     }
 
@@ -99,7 +99,7 @@ class MemberController extends Controller
             }
         ]);
 
-        return view('members.show', compact('member'));
+        return view('ktvtc.library.members.show', compact('member'));
     }
 
     /**

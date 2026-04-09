@@ -12,31 +12,11 @@ class ItemController extends Controller
     /**
      * Display a listing of the resource.
      */
+  
     public function index(Request $request)
     {
-        $query = Item::with(['book', 'branch', 'currentTransaction']);
-
-        // Search
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('barcode', 'like', "%$search%")
-                  ->orWhereHas('book', function($q) use ($search) {
-                      $q->where('title', 'like', "%$search%")
-                        ->orWhere('isbn', 'like', "%$search%");
-                  });
-            });
-        }
-
-        // Filter by status
-        if ($request->has('status')) {
-            $query->where('status', $request->status);
-        }
-
-        // Filter by condition
-        if ($request->has('condition')) {
-            $query->where('condition', $request->condition);
-        }
+        // Remove 'currentTransaction' from with() - it's not a relationship
+        $query = Item::with(['book', 'branch']);
 
         // Filter by branch
         if ($request->has('branch')) {
@@ -85,7 +65,7 @@ class ItemController extends Controller
             $item->book->increment('available_copies');
         }
 
-        return redirect()->route('items.index')
+        return redirect()->route('library.items.index')
             ->with('success', 'Item added successfully.');
     }
 
@@ -114,7 +94,7 @@ class ItemController extends Controller
 
         $item->update($validated);
 
-        return redirect()->route('items.index')
+        return redirect()->route('library.items.index')
             ->with('success', 'Item updated successfully.');
     }
 
@@ -124,7 +104,7 @@ class ItemController extends Controller
     public function destroy(Item $item)
     {
         if ($item->status === 'borrowed') {
-            return redirect()->route('items.index')
+            return redirect()->route('library.items.index')
                 ->with('error', 'Cannot delete item that is currently borrowed.');
         }
 
@@ -135,7 +115,7 @@ class ItemController extends Controller
 
         $item->delete();
 
-        return redirect()->route('items.index')
+        return redirect()->route('library.items.index')
             ->with('success', 'Item deleted successfully.');
     }
 }
