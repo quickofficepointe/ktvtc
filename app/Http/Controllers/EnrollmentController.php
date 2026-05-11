@@ -7,12 +7,264 @@ use App\Models\Student;
 use App\Models\Course;
 use App\Models\Campus;
 use Illuminate\Http\Request;
+use App\Services\SmsService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
 
 class EnrollmentController extends Controller
 {
+    public function sendFeeReminders(Request $request)
+{
+    $request->validate([
+        'enrollment_ids' => 'required|array',
+        'enrollment_ids.*' => 'exists:enrollments,id',
+        'template' => 'required|in:standard,urgent,friendly,custom',
+        'custom_message' => 'required_if:template,custom|nullable|string'
+    ]);
+
+    $enrollments = Enrollment::with('student')
+        ->whereIn('id', $request->enrollment_ids)
+        ->get();
+
+    $smsService = new SmsService();
+    $successCount = 0;
+    $failed = [];
+    $results = [];
+
+    foreach ($enrollments as $enrollment) {
+        // Check if student has phone number
+        if (!$enrollment->student || !$enrollment->student->phone) {
+            $failed[] = [
+                'id' => $enrollment->id,
+                'name' => $enrollment->student_name,
+                'reason' => 'No phone number on file'
+            ];
+            continue;
+        }
+
+        // Check if there's a balance
+        if ($enrollment->balance <= 0) {
+            $failed[] = [
+                'id' => $enrollment->id,
+                'name' => $enrollment->student_name,
+                'reason' => 'No balance owing (Fully paid: KES ' . number_format($enrollment->amount_paid, 2) . ')'
+            ];
+            continue;
+        }
+
+        // Generate personalized message
+        $message = $this->generateFeeReminderMessage($enrollment, $request->template, $request->custom_message);
+
+        // Send SMS
+        $result = $smsService->sendSingleSms($enrollment->student->phone, $message);
+
+        if ($result['success']) {
+            $successCount++;
+            $results[] = [
+                'name' => $enrollment->student_name,
+                'phone' => $enrollment->student->phone,
+                'balance' => $enrollment->balance,
+                'status' => 'sent'
+            ];
+        } else {
+            $failed[] = [
+                'id' => $enrollment->id,
+                'name' => $enrollment->student_name,
+                'reason' => $result['message'] ?? 'SMS sending failed'
+            ];
+        }
+
+        // Optional: Add small delay to avoid rate limiting
+        usleep(100000); // 0.1 second delay between messages
+    }
+
+    return response()->json([
+        'success' => $successCount > 0,
+        'sent_count' => $successCount,
+        'total_count' => $enrollments->count(),
+        'failed_count' => count($failed),
+        'failed' => $failed,
+        'results' => $results,
+        'message' => "Sent {$successCount} of {$enrollments->count()} fee reminders"
+    ]);
+}
+
+/**
+ * Send single fee reminder to one student
+ */
+public function sendSingleFeeReminder(Enrollment $enrollment)
+{
+    if (!$enrollment->student) {
+        return redirect()->back()->with('error', 'Student record not found');
+    }
+
+    if (!$enrollment->student->phone) {
+        return redirect()->back()->with('error', 'Student has no phone number on file');
+    }
+
+    if ($enrollment->balance <= 0) {
+        return redirect()->back()->with('error', 'This student has no outstanding balance (Balance: KES ' . number_format($enrollment->balance, 2) . ')');
+    }
+
+    $smsService = new SmsService();
+    $message = $this->generateFeeReminderMessage($enrollment, 'standard');
+
+    $result = $smsService->sendSingleSms($enrollment->student->phone, $message);
+
+    if ($result['success']) {
+        return redirect()->back()->with('success', 'Fee reminder sent successfully to ' . $enrollment->student_name);
+    }
+
+    return redirect()->back()->with('error', 'Failed to send reminder: ' . ($result['message'] ?? 'Unknown error'));
+}
+
+/**
+ * Generate fee reminder message based on template
+ */
+private function generateFeeReminderMessage($enrollment, $template, $customMessage = null)
+{
+    $studentName = $enrollment->student_name;
+    $balance = number_format($enrollment->balance, 2);
+    $paymentLink = 'www.ktvtc.ac.ke/pay';
+    $courseName = $enrollment->course_name;
+    $studentNumber = $enrollment->student_number;
+    $totalFees = number_format($enrollment->total_fees, 2);
+    $amountPaid = number_format($enrollment->amount_paid, 2);
+
+    // For custom template
+    if ($template === 'custom' && $customMessage) {
+        $message = str_replace(
+            ['{name}', '{balance}', '{link}', '{course}', '{student_number}', '{total_fees}', '{paid}'],
+            [$studentName, $balance, $paymentLink, $courseName, $studentNumber, $totalFees, $amountPaid],
+            $customMessage
+        );
+        // Ensure message isn't too long (max 1600 chars for SMS)
+        return substr($message, 0, 1600);
+    }
+
+    // Pre-defined templates
+   // Pre-defined templates with M-Pesa Paybill
+switch ($template) {
+    case 'urgent':
+        return "URGENT: Dear {$studentName}, your fee balance of KES {$balance} for {$courseName} is now overdue. Kindly clear the balance immediately. M-Pesa Paybill: 522533, Account Number: 7664166. Forward payment confirmation to +254790148509. KTVTC Admin.";
+
+    case 'friendly':
+        return "Hello {$studentName}! Friendly reminder: Your outstanding balance for {$courseName} is KES {$balance}. You've paid KES {$amountPaid} of KES {$totalFees}. M-Pesa Paybill: 522533, Account: 7664166. Forward confirmation to +254790148509. Thank you for choosing KTVTC.";
+
+    case 'standard':
+    default:
+        return "Dear {$studentName}, this is a reminder that you have an outstanding fee balance of KES {$balance} for {$courseName}. Kindly clear the balance on or before Friday, 1st May 2026. M-Pesa Paybill: 522533, Account Number: 7664166. Please forward your payment confirmation to +254790148509 once done. Thank you. KTVTC.";
+}
+}
+
+/**
+ * Bulk send reminders to all students with balance
+ */
+public function sendBulkBalanceReminders(Request $request)
+{
+    $request->validate([
+        'status' => 'nullable|string',
+        'course_id' => 'nullable|exists:courses,id',
+        'min_balance' => 'nullable|numeric|min:0',
+        'template' => 'required|in:standard,urgent,friendly,custom',
+        'custom_message' => 'required_if:template,custom|nullable|string'
+    ]);
+
+    $query = Enrollment::with('student')
+        ->whereHas('student', function($q) {
+            $q->whereNotNull('phone');
+        })
+        ->hasBalance(); // Using the scope from your model
+
+    // Apply additional filters
+    if ($request->filled('status')) {
+        $query->where('status', $request->status);
+    }
+
+    if ($request->filled('course_id')) {
+        $query->where('course_id', $request->course_id);
+    }
+
+    if ($request->filled('min_balance') && $request->min_balance > 0) {
+        $query->whereRaw('total_fees - amount_paid >= ?', [$request->min_balance]);
+    }
+
+    $enrollments = $query->get();
+
+    if ($enrollments->isEmpty()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'No students found with outstanding balances'
+        ]);
+    }
+
+    $smsService = new SmsService();
+    $successCount = 0;
+    $failed = [];
+
+    foreach ($enrollments as $enrollment) {
+        $message = $this->generateFeeReminderMessage($enrollment, $request->template, $request->custom_message);
+        $result = $smsService->sendSingleSms($enrollment->student->phone, $message);
+
+        if ($result['success']) {
+            $successCount++;
+        } else {
+            $failed[] = [
+                'name' => $enrollment->student_name,
+                'reason' => $result['message'] ?? 'Failed'
+            ];
+        }
+
+        usleep(100000); // 0.1 second delay
+    }
+
+    return response()->json([
+        'success' => $successCount > 0,
+        'sent_count' => $successCount,
+        'total_count' => $enrollments->count(),
+        'failed_count' => count($failed),
+        'failed' => $failed,
+        'message' => "Bulk reminder sent to {$successCount} students"
+    ]);
+}
+
+/**
+ * Get students eligible for fee reminders (for AJAX)
+ */
+public function getEligibleForReminder(Request $request)
+{
+    $query = Enrollment::with('student')
+        ->hasBalance()
+        ->whereHas('student', function($q) {
+            $q->whereNotNull('phone');
+        });
+
+    if ($request->filled('search')) {
+        $search = $request->search;
+        $query->where(function($q) use ($search) {
+            $q->where('student_name', 'like', "%{$search}%")
+              ->orWhere('student_number', 'like', "%{$search}%");
+        });
+    }
+
+    $enrollments = $query->limit(50)->get();
+
+    return response()->json([
+        'success' => true,
+        'count' => $enrollments->count(),
+        'students' => $enrollments->map(function($e) {
+            return [
+                'id' => $e->id,
+                'name' => $e->student_name,
+                'student_number' => $e->student_number,
+                'balance' => $e->balance,
+                'course' => $e->course_name,
+                'phone' => $e->student->phone
+            ];
+        })
+    ]);
+}
     /**
      * ============ INDEX ============
      */

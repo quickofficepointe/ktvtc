@@ -498,38 +498,45 @@ Route::middleware(['auth', 'verified', 'role.admin'])
     });
 
     // ==================== SIMPLIFIED ENROLLMENT MANAGEMENT ====================
-    Route::prefix('enrollments')->name('enrollments.')->group(function () {
-        Route::get('/', [EnrollmentController::class, 'index'])->name('index');
-        Route::get('/create', [EnrollmentController::class, 'create'])->name('create');
-        Route::post('/', [EnrollmentController::class, 'store'])->name('store');
-        Route::get('/{enrollment}', [EnrollmentController::class, 'show'])->name('show');
-        Route::get('/{enrollment}/edit', [EnrollmentController::class, 'edit'])->name('edit');
-        Route::put('/{enrollment}', [EnrollmentController::class, 'update'])->name('update');
-        Route::delete('/{enrollment}', [EnrollmentController::class, 'destroy'])->name('destroy');
+  // ==================== SIMPLIFIED ENROLLMENT MANAGEMENT ====================
+Route::prefix('enrollments')->name('enrollments.')->group(function () {
+    Route::get('/', [EnrollmentController::class, 'index'])->name('index');
+    Route::get('/create', [EnrollmentController::class, 'create'])->name('create');
+    Route::post('/', [EnrollmentController::class, 'store'])->name('store');
+    Route::get('/{enrollment}', [EnrollmentController::class, 'show'])->name('show');
+    Route::get('/{enrollment}/edit', [EnrollmentController::class, 'edit'])->name('edit');
+    Route::put('/{enrollment}', [EnrollmentController::class, 'update'])->name('update');
+    Route::delete('/{enrollment}', [EnrollmentController::class, 'destroy'])->name('destroy');
 
-        // Status actions
-        Route::post('/{enrollment}/activate', [EnrollmentController::class, 'activate'])->name('activate');
-        Route::post('/{enrollment}/suspend', [EnrollmentController::class, 'suspend'])->name('suspend');
-        Route::post('/{enrollment}/complete', [EnrollmentController::class, 'complete'])->name('complete');
-        Route::post('/{enrollment}/defer', [EnrollmentController::class, 'defer'])->name('defer');
+    // ============ SMS FEE REMINDER ROUTES - ADD THESE ============
+    Route::post('/send-fee-reminders', [EnrollmentController::class, 'sendFeeReminders'])->name('send-fee-reminders');
+    Route::post('/send-single-reminder/{enrollment}', [EnrollmentController::class, 'sendSingleFeeReminder'])->name('send-single-reminder');
+    Route::post('/bulk-balance-reminders', [EnrollmentController::class, 'sendBulkBalanceReminders'])->name('bulk-balance-reminders');
+    Route::get('/eligible-for-reminder', [EnrollmentController::class, 'getEligibleForReminder'])->name('eligible-for-reminder');
 
-        // Exam registration
-        Route::post('/{enrollment}/register-exam', [EnrollmentController::class, 'registerExam'])->name('register-exam');
+    // Status actions
+    Route::post('/{enrollment}/activate', [EnrollmentController::class, 'activate'])->name('activate');
+    Route::post('/{enrollment}/suspend', [EnrollmentController::class, 'suspend'])->name('suspend');
+    Route::post('/{enrollment}/complete', [EnrollmentController::class, 'complete'])->name('complete');
+    Route::post('/{enrollment}/defer', [EnrollmentController::class, 'defer'])->name('defer');
 
-        // Bulk actions
-        Route::post('/bulk/activate', [EnrollmentController::class, 'bulkActivate'])->name('bulk.activate');
-        Route::post('/bulk/complete', [EnrollmentController::class, 'bulkComplete'])->name('bulk.complete');
-        Route::post('/bulk/delete', [EnrollmentController::class, 'bulkDelete'])->name('bulk.delete');
+    // Exam registration
+    Route::post('/{enrollment}/register-exam', [EnrollmentController::class, 'registerExam'])->name('register-exam');
 
-        // Export & Reports
-        Route::get('/export', [EnrollmentController::class, 'export'])->name('export');
-        Route::get('/reports/enrollment', [EnrollmentController::class, 'enrollmentReport'])->name('reports.enrollment');
-        Route::get('/reports/financial', [EnrollmentController::class, 'financialReport'])->name('reports.financial');
+    // Bulk actions
+    Route::post('/bulk/activate', [EnrollmentController::class, 'bulkActivate'])->name('bulk.activate');
+    Route::post('/bulk/complete', [EnrollmentController::class, 'bulkComplete'])->name('bulk.complete');
+    Route::post('/bulk/delete', [EnrollmentController::class, 'bulkDelete'])->name('bulk.delete');
 
-        // API Endpoints
-        Route::get('/api/by-student', [EnrollmentController::class, 'getByStudent'])->name('api.by-student');
-        Route::get('/api/stats', [EnrollmentController::class, 'getStats'])->name('api.stats');
-    });
+    // Export & Reports
+    Route::get('/export', [EnrollmentController::class, 'export'])->name('export');
+    Route::get('/reports/enrollment', [EnrollmentController::class, 'enrollmentReport'])->name('reports.enrollment');
+    Route::get('/reports/financial', [EnrollmentController::class, 'financialReport'])->name('reports.financial');
+
+    // API Endpoints
+    Route::get('/api/by-student', [EnrollmentController::class, 'getByStudent'])->name('api.by-student');
+    Route::get('/api/stats', [EnrollmentController::class, 'getStats'])->name('api.stats');
+});
 
     // ==================== SIMPLIFIED FEE PAYMENT MANAGEMENT ====================
     Route::prefix('fee-payments')->name('fee-payments.')->group(function () {
@@ -859,7 +866,7 @@ Route::prefix('sales')->name('sales.')->group(function () {
     Route::get('/', [SaleController::class, 'pos'])->name('index');
     Route::get('/create', [SaleController::class, 'create'])->name('create');
     Route::post('/', [SaleController::class, 'store'])->name('store');
-    Route::get('/{sale}', [SaleController::class, 'show'])->name('show');  // ← ADD THIS
+  // ← ADD THIS
     Route::get('/{sale}/edit', [SaleController::class, 'edit'])->name('edit');
     Route::put('/{sale}', [SaleController::class, 'update'])->name('update');
     Route::delete('/{sale}', [SaleController::class, 'destroy'])->name('destroy');
@@ -876,6 +883,7 @@ Route::prefix('sales')->name('sales.')->group(function () {
     Route::get('/{sale}/print-receipt', [SaleController::class, 'printReceipt'])->name('print-receipt');
     Route::get('/{sale}/email-receipt', [SaleController::class, 'emailReceipt'])->name('email-receipt');
     Route::get('/pos', [SaleController::class, 'pos'])->name('pos');
+      Route::get('/{sale}', [SaleController::class, 'show'])->name('show');
     Route::post('/pos/quick-sale', [SaleController::class, 'quickSale'])->name('pos.quick-sale');
     Route::post('/pos/initiate-mpesa', [SaleController::class, 'initiateMpesa'])->name('pos.initiate-mpesa');
     Route::post('/pos/check-mpesa-status', [SaleController::class, 'checkMpesaStatus'])->name('pos.check-mpesa-status');
@@ -1360,3 +1368,12 @@ Route::get('/library/ebook/{ebook}', [LibraryController::class, 'showEBook'])->n
 Route::get('/library/ebook/{ebook}/download', [LibraryController::class, 'downloadEBook'])->name('library.ebook.download');
 Route::get('/library/donate', [LibraryController::class, 'donationForm'])->name('library.donation-form');
 Route::post('/library/donate', [LibraryController::class, 'submitDonation'])->name('library.donation.submit');
+Route::prefix('api/kcb/ipn')->name('kcb.ipn.')->group(function () {
+    // Main IPN endpoint - receives notifications from KCB
+    Route::post('/payment-notification', [App\Http\Controllers\KcbIpnController::class, 'handlePaymentNotification'])
+        ->name('payment-notification');
+
+    // Optional: Status check endpoint (if needed for debugging)
+    Route::get('/status/{transactionId}', [App\Http\Controllers\KcbIpnController::class, 'checkStatus'])
+        ->name('status');
+});

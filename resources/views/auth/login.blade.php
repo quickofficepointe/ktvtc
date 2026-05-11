@@ -3,14 +3,11 @@
 @section('title', 'Login | Student Portal - Kenswed Technical College')
 @section('meta_description', 'Access your Kenswed College student portal account. Login to manage courses, events, and academic information.')
 @section('meta_keywords', 'Kenswed login, student portal, college login, technical college portal, student account')
-
 @section('og_title', 'Student Login | Kenswed College')
 @section('og_description', 'Access your student portal at Kenswed Technical and Vocational Training College')
 @section('og_url', url()->current())
 @section('og_image', asset('Assets/images/Kenswed_logo.png'))
-
 @section('canonical', url()->current())
-
 @section('robots')
     <meta name="robots" content="noindex, nofollow">
 @endsection
@@ -62,9 +59,7 @@
 
                 <!-- Email -->
                 <div>
-                    <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
-                        Email Address
-                    </label>
+                    <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <i class="fas fa-envelope text-gray-400"></i>
@@ -78,14 +73,9 @@
                 <!-- Password -->
                 <div>
                     <div class="flex items-center justify-between mb-2">
-                        <label for="password" class="block text-sm font-medium text-gray-700">
-                            Password
-                        </label>
+                        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
                         @if (Route::has('password.request'))
-                            <a href="{{ route('password.request') }}"
-                               class="text-sm font-medium text-red-600 hover:text-red-700 hover:underline">
-                                Forgot Password?
-                            </a>
+                            <a href="{{ route('password.request') }}" class="text-sm font-medium text-red-600 hover:text-red-700 hover:underline">Forgot Password?</a>
                         @endif
                     </div>
                     <div class="relative">
@@ -107,9 +97,7 @@
                     <input type="checkbox" name="remember" id="remember"
                            class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
                            {{ old('remember') ? 'checked' : '' }}>
-                    <label for="remember" class="ml-2 block text-sm text-gray-700">
-                        Keep me signed in
-                    </label>
+                    <label for="remember" class="ml-2 block text-sm text-gray-700">Keep me signed in</label>
                 </div>
 
                 <!-- Submit Button -->
@@ -122,10 +110,7 @@
                 <div class="text-center pt-4 border-t border-gray-200">
                     <p class="text-gray-600">
                         New student?
-                        <a href="{{ route('register') }}"
-                           class="font-semibold text-red-600 hover:text-red-700 hover:underline">
-                            Create an account
-                        </a>
+                        <a href="{{ route('register') }}" class="font-semibold text-red-600 hover:text-red-700 hover:underline">Create an account</a>
                     </p>
                 </div>
             </form>
@@ -142,24 +127,20 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function(){
-    // Password toggle functionality
-    document.querySelectorAll('.password-toggle').forEach(function(btn){
-        btn.addEventListener('click', function(){
-            const targetId = this.getAttribute('data-target');
-            const input = document.getElementById(targetId);
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.password-toggle').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const input = document.getElementById(this.getAttribute('data-target'));
             const icon = this.querySelector('i');
 
             if (input.type === 'password') {
                 input.type = 'text';
                 icon.classList.remove('fa-eye');
                 icon.classList.add('fa-eye-slash');
-                this.setAttribute('aria-label', 'Hide password');
             } else {
                 input.type = 'password';
                 icon.classList.remove('fa-eye-slash');
                 icon.classList.add('fa-eye');
-                this.setAttribute('aria-label', 'Show password');
             }
         });
     });

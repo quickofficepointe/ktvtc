@@ -68,6 +68,39 @@
       transform: rotate(180deg);
     }
 
+    /* DESKTOP DROPDOWN FIX - Stays open while hovering */
+    .desktop-dropdown {
+      position: relative;
+    }
+    .desktop-dropdown .dropdown-content {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      margin-top: 0.5rem;
+      width: 12rem;
+      background-color: white;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+      border-radius: 0.5rem;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+      z-index: 100;
+    }
+    .desktop-dropdown:hover .dropdown-content {
+      opacity: 1;
+      visibility: visible;
+    }
+    .desktop-dropdown .dropdown-content a {
+      display: block;
+      padding: 0.5rem 1rem;
+      color: #374151;
+      transition: background-color 0.2s;
+    }
+    .desktop-dropdown .dropdown-content a:hover {
+      background-color: #fef2f2;
+      color: #b91c1c;
+    }
+
     /* Marquee Styles */
     .marquee-container {
         width: 100%;
@@ -145,32 +178,50 @@
                     onerror="this.onerror=null; this.src='https://placehold.co/48x48/B91C1C/ffffff?text=Logo';">
             </div>
 
-            <!-- Desktop Nav Links -->
+            <!-- Desktop Nav Links WITH FIXED DROPDOWNS (stay open when hovering) -->
             <div class="hidden md:flex items-center space-x-6">
                 <a href="/" class="text-black hover:text-red-700">Home</a>
                 <a href="{{ route('aboutus.index') }}" class="text-black hover:text-red-700">About Us</a>
-                <div class="relative group">
+
+                <!-- Departments Dropdown - FIXED -->
+                <div class="desktop-dropdown">
                     <button class="flex items-center gap-1 text-black hover:text-red-700">
                         Departments <span class="text-xs">▼</span>
                     </button>
-                    <div class="absolute left-0 mt-2 w-44 bg-white shadow-lg rounded-md hidden group-hover:block">
+                    <div class="dropdown-content">
                         @foreach($departments ?? [] as $department)
-                            <a href="{{ route('departments.show', $department->slug) }}" class="block px-4 py-2 hover:bg-gray-100">{{ $department->name }}</a>
+                            <a href="{{ route('departments.show', $department->slug) }}">{{ $department->name }}</a>
                         @endforeach
                     </div>
                 </div>
-                <div class="relative group">
+
+                <!-- Student Life Dropdown - FIXED -->
+                <div class="desktop-dropdown">
                     <button class="flex items-center gap-1 text-black hover:text-red-700">
                         Student Life <span class="text-xs">▼</span>
                     </button>
-                    <div class="absolute left-0 mt-2 w-44 bg-white shadow-lg rounded-md hidden group-hover:block">
-                        <a href="{{ route('public.cafeteria.index') }}" class="block px-4 py-2 hover:bg-gray-100">Cafeteria</a>
-                        <a href="{{ route('library.index') }}" class="block px-4 py-2 hover:bg-gray-100">Library</a>
+                    <div class="dropdown-content">
+                        <a href="{{ route('public.cafeteria.index') }}">Cafeteria</a>
+                        <a href="{{ route('library.index') }}">Library</a>
+                        <a href="{{ route('gallerie.index') }}">Galleries</a>
                     </div>
                 </div>
+
                 <a href="{{ route('event.index') }}" class="text-black hover:text-red-700">Events</a>
                 <a href="{{ route('blog.index') }}" class="text-black hover:text-red-700">News</a>
                 <a href="{{ route('contact') }}" class="text-black hover:text-red-700">Contact Us</a>
+            </div>
+
+            <!-- STUDENT PORTAL & eLEARNING BUTTONS (Updated names) -->
+            <div class="hidden md:flex items-center gap-4">
+                <a href="{{ route('login') }}"
+                   class="bg-[#BF1F30] hover:bg-red-800 text-white font-semibold py-2 px-5 rounded-lg transition-all duration-200 shadow-md text-center">
+                    Student Portal
+                </a>
+                <a href="http://ekenswed.kenswed.org" target="_blank"
+                   class="bg-gray-800 hover:bg-gray-900 text-white font-semibold py-2 px-5 rounded-lg transition-all duration-200 shadow-md text-center">
+                    eLearning
+                </a>
             </div>
 
             <!-- Desktop Social Media -->
@@ -193,11 +244,21 @@
         </div>
     </nav>
 
-    <!-- Side Drawer Menu (Mobile) - FIXED DROPDOWNS -->
+    <!-- Side Drawer Menu (Mobile) - WITH PORTAL & eLEARNING BUTTONS INSIDE -->
     <div id="side-drawer" class="fixed top-0 left-0 w-64 h-full bg-white shadow-lg transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
         <div class="flex items-center p-4 border-b">
             <img src="{{ asset('Assets/images/Kenswed_logo.png') }}" alt="Logo" class="w-10 h-10 rounded-full">
             <button id="close-btn" class="ml-auto text-[#BF1F30] hover:text-red-700 text-2xl">&times;</button>
+        </div>
+
+        <!-- Mobile Portal & eLearning Buttons -->
+        <div class="p-4 border-b border-gray-200">
+            <a href="{{ route('login') }}" class="block bg-[#BF1F30] hover:bg-red-800 text-white font-semibold py-2 px-4 rounded-lg text-center mb-3 transition">
+                Student Portal
+            </a>
+            <a href="http://ekenswed.kenswed.org" target="_blank" class="block bg-gray-800 hover:bg-gray-900 text-white font-semibold py-2 px-4 rounded-lg text-center transition">
+                eLearning
+            </a>
         </div>
 
         <ul class="p-4 space-y-1 flex-1 overflow-y-auto">
@@ -234,6 +295,7 @@
                 <ul class="dropdown-menu ml-6 mt-1 space-y-1">
                     <li><a href="{{ route('public.cafeteria.index') }}" class="block px-3 py-1.5 rounded text-gray-600 hover:bg-gray-100">Cafeteria</a></li>
                     <li><a href="{{ route('library.index') }}" class="block px-3 py-1.5 rounded text-gray-600 hover:bg-gray-100">Library</a></li>
+                    <li><a href="{{ route('gallerie.index') }}" class="block px-3 py-1.5 rounded text-gray-600 hover:bg-gray-100">Galleries</a></li>
                 </ul>
             </li>
 
@@ -259,7 +321,17 @@
     <main>
         @yield('content')
     </main>
+<!-- Floating WhatsApp Button - Added just before closing body tag -->
+<a href="https://wa.me/254790148509" target="_blank"
+   class="fixed bottom-6 right-6 bg-[#25D366] hover:bg-[#20b859] text-white rounded-full p-4 shadow-xl transition-all duration-300 z-50 flex items-center justify-center group"
+   aria-label="Chat with us on WhatsApp">
+    <i class="fab fa-whatsapp text-3xl group-hover:scale-110 transition-transform"></i>
+    <span class="absolute right-full mr-3 bg-gray-800 text-white text-sm font-medium py-1 px-3 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none">
+        Chat with us
+    </span>
+</a>
 
+<!-- Add Font Awesome if not already present (already in your head) -->
     <!-- Footer -->
     <footer class="bg-red-700 text-white py-12">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -317,20 +389,19 @@
 
             // Close drawer when clicking outside
             document.addEventListener('click', function(event) {
-                if (drawer && !drawer.contains(event.target) && !menuBtn.contains(event.target)) {
+                if (drawer && !drawer.contains(event.target) && menuBtn && !menuBtn.contains(event.target)) {
                     if (drawer.classList.contains('translate-x-0')) {
                         closeDrawer();
                     }
                 }
             });
 
-            // Dropdown toggle functionality - FIXED
+            // Mobile dropdown toggle functionality
             dropdownBtns.forEach(btn => {
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();
                     const parentLi = this.closest('li');
                     const dropdownMenu = parentLi.querySelector('.dropdown-menu');
-                    const chevron = this.querySelector('.fa-chevron-down');
 
                     // Close all other dropdowns
                     document.querySelectorAll('.dropdown-menu').forEach(menu => {

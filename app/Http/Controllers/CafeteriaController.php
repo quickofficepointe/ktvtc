@@ -111,14 +111,14 @@ class CafeteriaController extends Controller
     }
 
     /**
-     * Get today's detailed statistics
+     * Get today's detailed statistics - ONLY COUNT PAID/COMPLETED SALES
      */
     private function getTodayStats($shopId, $date)
     {
-        // Sales data
+        // Sales data - EXCLUDE cancelled, failed, and pending payments
         $sales = Sale::where('shop_id', $shopId)
             ->whereDate('sale_date', $date)
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->select(
                 DB::raw('SUM(total_amount) as total_sales'),
                 DB::raw('COUNT(*) as transaction_count'),
@@ -126,10 +126,10 @@ class CafeteriaController extends Controller
                 DB::raw('AVG(total_amount) as average_sale')
             )->first();
 
-        // Peak hour analysis
+        // Peak hour analysis - EXCLUDE failed payments
         $peakHour = Sale::where('shop_id', $shopId)
             ->whereDate('sale_date', $date)
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->select(
                 DB::raw('HOUR(created_at) as hour'),
                 DB::raw('COUNT(*) as transaction_count'),
@@ -139,7 +139,7 @@ class CafeteriaController extends Controller
             ->orderBy('total_sales', 'desc')
             ->first();
 
-        // Product categories breakdown
+        // Product categories breakdown - EXCLUDE failed payments
         $categoryBreakdown = DB::table('sale_items')
             ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
             ->join('products', 'sale_items.product_id', '=', 'products.id')
@@ -151,22 +151,22 @@ class CafeteriaController extends Controller
             )
             ->where('sales.shop_id', $shopId)
             ->whereDate('sales.sale_date', $date)
-            ->where('sales.payment_status', '!=', 'cancelled')
+            ->whereIn('sales.payment_status', ['paid', 'completed'])
             ->groupBy('product_categories.category_name')
             ->orderBy('total_revenue', 'desc')
             ->get();
 
-        // Customer count
+        // Customer count - EXCLUDE failed payments
         $uniqueCustomers = Sale::where('shop_id', $shopId)
             ->whereDate('sale_date', $date)
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->distinct('customer_phone')
             ->count('customer_phone');
 
-        // Payment method breakdown
+        // Payment method breakdown - EXCLUDE failed payments
         $paymentMethods = Sale::where('shop_id', $shopId)
             ->whereDate('sale_date', $date)
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->select(
                 'payment_method',
                 DB::raw('COUNT(*) as count'),
@@ -175,6 +175,24 @@ class CafeteriaController extends Controller
             ->groupBy('payment_method')
             ->get();
 
+        // PENDING payments count (for monitoring)
+        $pendingPayments = Sale::where('shop_id', $shopId)
+            ->whereDate('sale_date', $date)
+            ->where('payment_status', 'pending')
+            ->count();
+
+        // FAILED payments count (for monitoring)
+        $failedPayments = Sale::where('shop_id', $shopId)
+            ->whereDate('sale_date', $date)
+            ->where('payment_status', 'failed')
+            ->count();
+
+        // CANCELLED payments count (for monitoring)
+        $cancelledPayments = Sale::where('shop_id', $shopId)
+            ->whereDate('sale_date', $date)
+            ->where('payment_status', 'cancelled')
+            ->count();
+
         return [
             'date' => $date,
             'total_sales' => $sales->total_sales ?? 0,
@@ -182,6 +200,9 @@ class CafeteriaController extends Controller
             'total_items' => $sales->total_items ?? 0,
             'average_sale' => $sales->average_sale ?? 0,
             'unique_customers' => $uniqueCustomers,
+            'pending_payments' => $pendingPayments,
+            'failed_payments' => $failedPayments,
+            'cancelled_payments' => $cancelledPayments,
             'peak_hour' => $peakHour ? [
                 'hour' => $peakHour->hour,
                 'transactions' => $peakHour->transaction_count,
@@ -193,7 +214,7 @@ class CafeteriaController extends Controller
     }
 
     /**
-     * Get week statistics
+     * Get week statistics - ONLY COUNT PAID/COMPLETED SALES
      */
     private function getWeekStats($shopId)
     {
@@ -207,12 +228,12 @@ class CafeteriaController extends Controller
         while ($current <= $endDate) {
             $sales = Sale::where('shop_id', $shopId)
                 ->whereDate('sale_date', $current)
-                ->where('payment_status', '!=', 'cancelled')
+                ->whereIn('payment_status', ['paid', 'completed'])
                 ->sum('total_amount');
 
             $transactions = Sale::where('shop_id', $shopId)
                 ->whereDate('sale_date', $current)
-                ->where('payment_status', '!=', 'cancelled')
+                ->whereIn('payment_status', ['paid', 'completed'])
                 ->count();
 
             $dailyBreakdown[] = [
@@ -231,13 +252,13 @@ class CafeteriaController extends Controller
         $totalTransactions = array_sum(array_column($dailyBreakdown, 'transactions'));
         $averageDailySales = count($dailyBreakdown) > 0 ? $totalSales / count($dailyBreakdown) : 0;
 
-        // Comparison with last week
+        // Comparison with last week - ONLY PAID/COMPLETED
         $lastWeekStart = $startDate->copy()->subWeek();
         $lastWeekEnd = $endDate->copy()->subWeek();
 
         $lastWeekSales = Sale::where('shop_id', $shopId)
             ->whereBetween('sale_date', [$lastWeekStart, $lastWeekEnd])
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->sum('total_amount');
 
         $growthRate = $lastWeekSales > 0
@@ -256,7 +277,7 @@ class CafeteriaController extends Controller
     }
 
     /**
-     * Get month statistics
+     * Get month statistics - ONLY COUNT PAID/COMPLETED SALES
      */
     private function getMonthStats($shopId, $month)
     {
@@ -270,7 +291,7 @@ class CafeteriaController extends Controller
         while ($current <= $endDate) {
             $sales = Sale::where('shop_id', $shopId)
                 ->whereDate('sale_date', $current)
-                ->where('payment_status', '!=', 'cancelled')
+                ->whereIn('payment_status', ['paid', 'completed'])
                 ->sum('total_amount');
 
             $dailyBreakdown[] = [
@@ -286,12 +307,12 @@ class CafeteriaController extends Controller
         $totalSales = array_sum(array_column($dailyBreakdown, 'sales'));
         $totalTransactions = Sale::where('shop_id', $shopId)
             ->whereBetween('sale_date', [$startDate, $endDate])
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->count();
 
         $averageDailySales = count($dailyBreakdown) > 0 ? $totalSales / count($dailyBreakdown) : 0;
 
-        // Top products for the month
+        // Top products for the month - ONLY PAID/COMPLETED
         $topProducts = DB::table('sale_items')
             ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
             ->join('products', 'sale_items.product_id', '=', 'products.id')
@@ -304,13 +325,13 @@ class CafeteriaController extends Controller
             )
             ->where('sales.shop_id', $shopId)
             ->whereBetween('sales.sale_date', [$startDate, $endDate])
-            ->where('sales.payment_status', '!=', 'cancelled')
+            ->whereIn('sales.payment_status', ['paid', 'completed'])
             ->groupBy('products.id', 'products.product_name', 'products.product_code')
             ->orderBy('total_revenue', 'desc')
             ->limit(5)
             ->get();
 
-        // Category breakdown
+        // Category breakdown - ONLY PAID/COMPLETED
         $categoryBreakdown = DB::table('sale_items')
             ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
             ->join('products', 'sale_items.product_id', '=', 'products.id')
@@ -322,7 +343,7 @@ class CafeteriaController extends Controller
             )
             ->where('sales.shop_id', $shopId)
             ->whereBetween('sales.sale_date', [$startDate, $endDate])
-            ->where('sales.payment_status', '!=', 'cancelled')
+            ->whereIn('sales.payment_status', ['paid', 'completed'])
             ->groupBy('product_categories.category_name')
             ->get();
 
@@ -338,7 +359,7 @@ class CafeteriaController extends Controller
     }
 
     /**
-     * Get year statistics
+     * Get year statistics - ONLY COUNT PAID/COMPLETED SALES
      */
     private function getYearStats($shopId, $year)
     {
@@ -354,12 +375,12 @@ class CafeteriaController extends Controller
 
             $sales = Sale::where('shop_id', $shopId)
                 ->whereBetween('sale_date', [$monthStart, $monthEnd])
-                ->where('payment_status', '!=', 'cancelled')
+                ->whereIn('payment_status', ['paid', 'completed'])
                 ->sum('total_amount');
 
             $transactions = Sale::where('shop_id', $shopId)
                 ->whereBetween('sale_date', [$monthStart, $monthEnd])
-                ->where('payment_status', '!=', 'cancelled')
+                ->whereIn('payment_status', ['paid', 'completed'])
                 ->count();
 
             $monthlyBreakdown[] = [
@@ -386,7 +407,7 @@ class CafeteriaController extends Controller
 
         $lastYearSales = Sale::where('shop_id', $shopId)
             ->whereBetween('sale_date', [$lastYearStart, $lastYearEnd])
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->sum('total_amount');
 
         $growthRate = $lastYearSales > 0
@@ -407,7 +428,7 @@ class CafeteriaController extends Controller
     }
 
     /**
-     * Get top performing products
+     * Get top performing products - ONLY COUNT PAID/COMPLETED SALES
      */
     private function getTopProducts($shopId, $limit = 10)
     {
@@ -433,7 +454,7 @@ class CafeteriaController extends Controller
             )
             ->where('sales.shop_id', $shopId)
             ->whereBetween('sales.sale_date', [$startDate, $endDate])
-            ->where('sales.payment_status', '!=', 'cancelled')
+            ->whereIn('sales.payment_status', ['paid', 'completed'])
             ->groupBy('products.id', 'products.product_name', 'products.product_code', 'product_categories.category_name', 'products.selling_price', 'products.cost_price')
             ->orderBy('total_revenue', 'desc')
             ->limit($limit)
@@ -441,7 +462,7 @@ class CafeteriaController extends Controller
     }
 
     /**
-     * Get worst performing products
+     * Get worst performing products - ONLY COUNT PAID/COMPLETED SALES
      */
     private function getWorstProducts($shopId, $limit = 10)
     {
@@ -464,7 +485,7 @@ class CafeteriaController extends Controller
             )
             ->where('sales.shop_id', $shopId)
             ->whereBetween('sales.sale_date', [$startDate, $endDate])
-            ->where('sales.payment_status', '!=', 'cancelled')
+            ->whereIn('sales.payment_status', ['paid', 'completed'])
             ->groupBy('products.id', 'products.product_name', 'products.product_code', 'product_categories.category_name', 'products.selling_price', 'products.cost_price')
             ->orderBy('total_revenue', 'asc')
             ->limit($limit)
@@ -472,7 +493,7 @@ class CafeteriaController extends Controller
     }
 
     /**
-     * Get category performance analysis
+     * Get category performance - ONLY COUNT PAID/COMPLETED SALES
      */
     private function getCategoryPerformance($shopId)
     {
@@ -494,14 +515,14 @@ class CafeteriaController extends Controller
             )
             ->where('sales.shop_id', $shopId)
             ->whereBetween('sales.sale_date', [$startDate, $endDate])
-            ->where('sales.payment_status', '!=', 'cancelled')
+            ->whereIn('sales.payment_status', ['paid', 'completed'])
             ->groupBy('product_categories.id', 'product_categories.category_name')
             ->orderBy('total_revenue', 'desc')
             ->get();
     }
 
     /**
-     * Get top customers
+     * Get top customers - ONLY COUNT PAID/COMPLETED SALES
      */
     private function getTopCustomers($shopId, $limit = 10)
     {
@@ -510,7 +531,7 @@ class CafeteriaController extends Controller
 
         return Sale::where('shop_id', $shopId)
             ->whereBetween('sale_date', [$startDate, $endDate])
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->whereNotNull('customer_phone')
             ->select(
                 'customer_name',
@@ -527,7 +548,7 @@ class CafeteriaController extends Controller
     }
 
     /**
-     * Get customer frequency analysis
+     * Get customer frequency analysis - ONLY COUNT PAID/COMPLETED SALES
      */
     private function getCustomerFrequency($shopId)
     {
@@ -536,7 +557,7 @@ class CafeteriaController extends Controller
 
         $customerFrequency = Sale::where('shop_id', $shopId)
             ->whereBetween('sale_date', [$startDate, $endDate])
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->whereNotNull('customer_phone')
             ->select(
                 'customer_phone',
@@ -586,7 +607,7 @@ class CafeteriaController extends Controller
             return $product->current_stock > ($product->reorder_level * 2);
         });
 
-        // Turnover analysis
+        // Turnover analysis - ONLY PAID/COMPLETED SALES
         $turnoverData = [];
         foreach ($products as $product) {
             $monthlySales = DB::table('sale_items')
@@ -594,6 +615,7 @@ class CafeteriaController extends Controller
                 ->where('sale_items.product_id', $product->id)
                 ->where('sales.shop_id', $shopId)
                 ->whereBetween('sales.sale_date', [now()->subMonth(), now()])
+                ->whereIn('sales.payment_status', ['paid', 'completed'])
                 ->sum('sale_items.quantity');
 
             $turnoverRate = $product->current_stock > 0 ? $monthlySales / $product->current_stock : 0;
@@ -635,24 +657,24 @@ class CafeteriaController extends Controller
     }
 
     /**
-     * Get hourly sales trend for today
+     * Get hourly sales trend - ONLY COUNT PAID/COMPLETED SALES
      */
     private function getHourlySalesTrend($shopId, $date)
     {
         $hourlyData = [];
 
-        for ($hour = 6; $hour <= 22; $hour++) { // 6 AM to 10 PM
+        for ($hour = 6; $hour <= 22; $hour++) {
             $startTime = Carbon::parse($date)->setHour($hour)->setMinute(0)->setSecond(0);
             $endTime = Carbon::parse($date)->setHour($hour)->setMinute(59)->setSecond(59);
 
             $sales = Sale::where('shop_id', $shopId)
                 ->whereBetween('created_at', [$startTime, $endTime])
-                ->where('payment_status', '!=', 'cancelled')
+                ->whereIn('payment_status', ['paid', 'completed'])
                 ->sum('total_amount');
 
             $transactions = Sale::where('shop_id', $shopId)
                 ->whereBetween('created_at', [$startTime, $endTime])
-                ->where('payment_status', '!=', 'cancelled')
+                ->whereIn('payment_status', ['paid', 'completed'])
                 ->count();
 
             $hourlyData[] = [
@@ -678,7 +700,7 @@ class CafeteriaController extends Controller
     }
 
     /**
-     * Get daily sales trend for last N days
+     * Get daily sales trend - ONLY COUNT PAID/COMPLETED SALES
      */
     private function getDailySalesTrend($shopId, $days = 30)
     {
@@ -691,12 +713,12 @@ class CafeteriaController extends Controller
         while ($current <= $endDate) {
             $sales = Sale::where('shop_id', $shopId)
                 ->whereDate('sale_date', $current)
-                ->where('payment_status', '!=', 'cancelled')
+                ->whereIn('payment_status', ['paid', 'completed'])
                 ->sum('total_amount');
 
             $transactions = Sale::where('shop_id', $shopId)
                 ->whereDate('sale_date', $current)
-                ->where('payment_status', '!=', 'cancelled')
+                ->whereIn('payment_status', ['paid', 'completed'])
                 ->count();
 
             $dailyData[] = [
@@ -712,7 +734,7 @@ class CafeteriaController extends Controller
 
         // Calculate moving averages
         $salesData = array_column($dailyData, 'sales');
-        $movingAverage = $this->calculateMovingAverage($salesData, 7); // 7-day moving average
+        $movingAverage = $this->calculateMovingAverage($salesData, 7);
 
         // Add moving average to data
         foreach ($dailyData as $index => &$day) {
@@ -747,7 +769,7 @@ class CafeteriaController extends Controller
     }
 
     /**
-     * Get monthly sales trend for last N months
+     * Get monthly sales trend - ONLY COUNT PAID/COMPLETED SALES
      */
     private function getMonthlySalesTrend($shopId, $months = 12)
     {
@@ -763,17 +785,17 @@ class CafeteriaController extends Controller
 
             $sales = Sale::where('shop_id', $shopId)
                 ->whereBetween('sale_date', [$monthStart, $monthEnd])
-                ->where('payment_status', '!=', 'cancelled')
+                ->whereIn('payment_status', ['paid', 'completed'])
                 ->sum('total_amount');
 
             $transactions = Sale::where('shop_id', $shopId)
                 ->whereBetween('sale_date', [$monthStart, $monthEnd])
-                ->where('payment_status', '!=', 'cancelled')
+                ->whereIn('payment_status', ['paid', 'completed'])
                 ->count();
 
             $customers = Sale::where('shop_id', $shopId)
                 ->whereBetween('sale_date', [$monthStart, $monthEnd])
-                ->where('payment_status', '!=', 'cancelled')
+                ->whereIn('payment_status', ['paid', 'completed'])
                 ->distinct('customer_phone')
                 ->count('customer_phone');
 
@@ -827,7 +849,7 @@ class CafeteriaController extends Controller
     }
 
     /**
-     * Get payment method distribution
+     * Get payment method distribution - ONLY COUNT PAID/COMPLETED SALES
      */
     private function getPaymentDistribution($shopId, $days = 30)
     {
@@ -836,7 +858,7 @@ class CafeteriaController extends Controller
 
         $distribution = Sale::where('shop_id', $shopId)
             ->whereBetween('sale_date', [$startDate, $endDate])
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->select(
                 'payment_method',
                 DB::raw('COUNT(*) as transaction_count'),
@@ -864,7 +886,7 @@ class CafeteriaController extends Controller
     }
 
     /**
-     * Get staff performance metrics
+     * Get staff performance metrics - ONLY COUNT PAID/COMPLETED SALES
      */
     private function getStaffPerformance($shopId, $days = 30)
     {
@@ -873,7 +895,7 @@ class CafeteriaController extends Controller
 
         $performance = Sale::where('shop_id', $shopId)
             ->whereBetween('sale_date', [$startDate, $endDate])
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->whereNotNull('cashier_id')
             ->with('cashier')
             ->select(
@@ -891,7 +913,7 @@ class CafeteriaController extends Controller
 
         // Add efficiency metrics
         $performance->each(function($staff) use ($days) {
-            $workingDays = $days; // Simplified - in reality should check staff schedule
+            $workingDays = $days;
             $staff->sales_per_day = $workingDays > 0 ? $staff->total_sales / $workingDays : 0;
             $staff->transactions_per_day = $workingDays > 0 ? $staff->transaction_count / $workingDays : 0;
             $staff->items_per_transaction = $staff->transaction_count > 0 ? $staff->total_items / $staff->transaction_count : 0;
@@ -909,13 +931,12 @@ class CafeteriaController extends Controller
     }
 
     /**
-     * Get recent sales for dashboard
+     * Get recent sales for dashboard - SHOW ALL BUT INDICATE STATUS
      */
     private function getRecentSales($shopId, $limit = 10)
     {
         return Sale::with(['items', 'customer', 'paymentTransactions'])
             ->where('shop_id', $shopId)
-            ->where('payment_status', '!=', 'cancelled')
             ->orderBy('created_at', 'desc')
             ->limit($limit)
             ->get()
@@ -964,57 +985,54 @@ class CafeteriaController extends Controller
     /**
      * Get recent stock alerts
      */
-    /**
- * Get recent stock alerts
- */
-private function getRecentStockAlerts($shopId, $limit = 10)
-{
-    // Use is_resolved = false to get active alerts (not resolved)
-    $alerts = StockAlert::with(['product'])
-        ->whereHas('product', function($query) use ($shopId) {
-            $query->where('shop_id', $shopId);
-        })
-        ->where('is_resolved', false) // Use is_resolved instead of status
-        ->orderBy('created_at', 'desc')
-        ->limit($limit)
-        ->get();
+    private function getRecentStockAlerts($shopId, $limit = 10)
+    {
+        $alerts = StockAlert::with(['product'])
+            ->whereHas('product', function($query) use ($shopId) {
+                $query->where('shop_id', $shopId);
+            })
+            ->where('is_resolved', false)
+            ->orderBy('created_at', 'desc')
+            ->limit($limit)
+            ->get();
 
-    $products = Product::where('shop_id', $shopId)
-        ->where('track_inventory', true)
-        ->where('current_stock', '<=', DB::raw('min_stock_level'))
-        ->where('current_stock', '>', 0)
-        ->orderBy('current_stock', 'asc')
-        ->limit($limit)
-        ->get();
+        $products = Product::where('shop_id', $shopId)
+            ->where('track_inventory', true)
+            ->where('current_stock', '<=', DB::raw('min_stock_level'))
+            ->where('current_stock', '>', 0)
+            ->orderBy('current_stock', 'asc')
+            ->limit($limit)
+            ->get();
 
-    return [
-        'alerts' => $alerts,
-        'low_stock_products' => $products->map(function($product) {
-            return [
-                'id' => $product->id,
-                'product_name' => $product->product_name,
-                'current_stock' => $product->current_stock,
-                'min_stock_level' => $product->min_stock_level,
-                'reorder_level' => $product->reorder_level,
-                'percentage' => $product->min_stock_level > 0 ?
-                    round(($product->current_stock / $product->min_stock_level) * 100, 2) : 0,
-                'alert_type' => 'low_stock' // This matches your migration enum
-            ];
-        })
-    ];
-}
+        return [
+            'alerts' => $alerts,
+            'low_stock_products' => $products->map(function($product) {
+                return [
+                    'id' => $product->id,
+                    'product_name' => $product->product_name,
+                    'current_stock' => $product->current_stock,
+                    'min_stock_level' => $product->min_stock_level,
+                    'reorder_level' => $product->reorder_level,
+                    'percentage' => $product->min_stock_level > 0 ?
+                        round(($product->current_stock / $product->min_stock_level) * 100, 2) : 0,
+                    'alert_type' => 'low_stock'
+                ];
+            })
+        ];
+    }
+
     /**
-     * Calculate performance metrics
+     * Calculate performance metrics - ONLY COUNT PAID/COMPLETED SALES
      */
     private function calculatePerformanceMetrics($shopId)
     {
         $startDate = now()->subDays(30);
         $endDate = now();
 
-        // Sales data
+        // Sales data - ONLY PAID/COMPLETED
         $salesData = Sale::where('shop_id', $shopId)
             ->whereBetween('sale_date', [$startDate, $endDate])
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->select(
                 DB::raw('SUM(total_amount) as total_revenue'),
                 DB::raw('COUNT(*) as transaction_count'),
@@ -1022,23 +1040,23 @@ private function getRecentStockAlerts($shopId, $limit = 10)
                 DB::raw('SUM(total_items) as total_items_sold')
             )->first();
 
-        // Cost of goods sold
+        // Cost of goods sold - ONLY FROM PAID/COMPLETED SALES
         $cogs = DB::table('sale_items')
             ->join('sales', 'sale_items.sale_id', '=', 'sales.id')
             ->join('products', 'sale_items.product_id', '=', 'products.id')
             ->where('sales.shop_id', $shopId)
             ->whereBetween('sales.sale_date', [$startDate, $endDate])
-            ->where('sales.payment_status', '!=', 'cancelled')
+            ->whereIn('sales.payment_status', ['paid', 'completed'])
             ->sum(DB::raw('sale_items.quantity * products.cost_price'));
 
         // Gross profit
         $grossProfit = ($salesData->total_revenue ?? 0) - $cogs;
         $grossMargin = ($salesData->total_revenue ?? 0) > 0 ? ($grossProfit / $salesData->total_revenue) * 100 : 0;
 
-        // Customer metrics
+        // Customer metrics - ONLY FROM PAID/COMPLETED SALES
         $customerData = Sale::where('shop_id', $shopId)
             ->whereBetween('sale_date', [$startDate, $endDate])
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->whereNotNull('customer_phone')
             ->select(
                 DB::raw('COUNT(DISTINCT customer_phone) as unique_customers'),
@@ -1048,7 +1066,7 @@ private function getRecentStockAlerts($shopId, $limit = 10)
         // Return customer rate
         $allCustomers = Sale::where('shop_id', $shopId)
             ->whereBetween('sale_date', [$startDate->copy()->subDays(60), $endDate])
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->whereNotNull('customer_phone')
             ->distinct('customer_phone')
             ->pluck('customer_phone');
@@ -1057,7 +1075,7 @@ private function getRecentStockAlerts($shopId, $limit = 10)
         foreach ($allCustomers as $customerPhone) {
             $visits = Sale::where('shop_id', $shopId)
                 ->where('customer_phone', $customerPhone)
-                ->where('payment_status', '!=', 'cancelled')
+                ->whereIn('payment_status', ['paid', 'completed'])
                 ->whereBetween('sale_date', [$startDate, $endDate])
                 ->count();
             if ($visits > 1) $returnCustomers++;
@@ -1074,10 +1092,10 @@ private function getRecentStockAlerts($shopId, $limit = 10)
         $inventoryTurnover = $inventoryValue > 0 ? $cogs / $inventoryValue : 0;
         $inventoryDays = $inventoryTurnover > 0 ? 30 / $inventoryTurnover : 0;
 
-        // Staff efficiency
+        // Staff efficiency - ONLY FROM PAID/COMPLETED SALES
         $staffEfficiency = Sale::where('shop_id', $shopId)
             ->whereBetween('sale_date', [$startDate, $endDate])
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->whereNotNull('cashier_id')
             ->select(
                 'cashier_id',
@@ -1104,27 +1122,27 @@ private function getRecentStockAlerts($shopId, $limit = 10)
                 'unique_customers' => $customerData->unique_customers ?? 0,
                 'average_customer_value' => $customerData->average_customer_value ?? 0,
                 'return_customer_rate' => round($returnRate, 2),
-                'customer_acquisition_cost' => 0, // Would need marketing data
-                'customer_lifetime_value' => round(($customerData->average_customer_value ?? 0) * 3, 2) // Simplified
+                'customer_acquisition_cost' => 0,
+                'customer_lifetime_value' => round(($customerData->average_customer_value ?? 0) * 3, 2)
             ],
             'inventory' => [
                 'turnover_rate' => round($inventoryTurnover, 2),
                 'days_inventory' => round($inventoryDays, 1),
                 'stock_value' => $inventoryValue,
-                'stockout_rate' => 0, // Would need more detailed tracking
-                'carrying_cost_percentage' => 0 // Would need storage cost data
+                'stockout_rate' => 0,
+                'carrying_cost_percentage' => 0
             ],
             'operations' => [
                 'transactions_per_day' => 30 > 0 ? ($salesData->transaction_count ?? 0) / 30 : 0,
                 'sales_per_staff' => $averageStaffSales,
                 'efficiency_score' => round(($salesData->average_transaction_value ?? 0) * ($salesData->transaction_count ?? 0) / max($staffEfficiency->count(), 1), 2),
-                'peak_hour_efficiency' => 0 // Would need hour-by-hour analysis
+                'peak_hour_efficiency' => 0
             ],
             'growth_metrics' => [
                 'month_over_month_growth' => $this->calculateMOMGrowth($shopId),
                 'customer_growth_rate' => $this->calculateCustomerGrowth($shopId),
                 'revenue_growth_rate' => $this->calculateRevenueGrowth($shopId),
-                'market_share_growth' => 0 // Would need market data
+                'market_share_growth' => 0
             ]
         ];
     }
@@ -1213,7 +1231,7 @@ private function getRecentStockAlerts($shopId, $limit = 10)
                 $sales = Sale::where('shop_id', $shopId)
                     ->where('payment_method', $method)
                     ->whereBetween('sale_date', [$monthStart, $monthEnd])
-                    ->where('payment_status', '!=', 'cancelled')
+                    ->whereIn('payment_status', ['paid', 'completed'])
                     ->sum('total_amount');
 
                 $monthlyData[] = [
@@ -1231,7 +1249,7 @@ private function getRecentStockAlerts($shopId, $limit = 10)
     }
 
     /**
-     * Helper: Calculate month-over-month growth
+     * Helper: Calculate month-over-month growth - ONLY PAID/COMPLETED
      */
     private function calculateMOMGrowth($shopId)
     {
@@ -1241,13 +1259,13 @@ private function getRecentStockAlerts($shopId, $limit = 10)
         $currentSales = Sale::where('shop_id', $shopId)
             ->whereMonth('sale_date', $currentMonth->month)
             ->whereYear('sale_date', $currentMonth->year)
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->sum('total_amount');
 
         $previousSales = Sale::where('shop_id', $shopId)
             ->whereMonth('sale_date', $previousMonth->month)
             ->whereYear('sale_date', $previousMonth->year)
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->sum('total_amount');
 
         if ($previousSales > 0) {
@@ -1258,7 +1276,7 @@ private function getRecentStockAlerts($shopId, $limit = 10)
     }
 
     /**
-     * Helper: Calculate customer growth
+     * Helper: Calculate customer growth - ONLY PAID/COMPLETED
      */
     private function calculateCustomerGrowth($shopId)
     {
@@ -1268,14 +1286,14 @@ private function getRecentStockAlerts($shopId, $limit = 10)
         $currentCustomers = Sale::where('shop_id', $shopId)
             ->whereMonth('sale_date', $currentMonth->month)
             ->whereYear('sale_date', $currentMonth->year)
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->distinct('customer_phone')
             ->count('customer_phone');
 
         $previousCustomers = Sale::where('shop_id', $shopId)
             ->whereMonth('sale_date', $previousMonth->month)
             ->whereYear('sale_date', $previousMonth->year)
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->distinct('customer_phone')
             ->count('customer_phone');
 
@@ -1287,21 +1305,18 @@ private function getRecentStockAlerts($shopId, $limit = 10)
     }
 
     /**
-     * Helper: Calculate revenue growth
+     * Helper: Calculate revenue growth - ONLY PAID/COMPLETED
      */
     private function calculateRevenueGrowth($shopId)
     {
-        $startDate = now()->subDays(60);
-        $endDate = now();
-
         $recentPeriod = Sale::where('shop_id', $shopId)
-            ->whereBetween('sale_date', [now()->subDays(30), $endDate])
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereBetween('sale_date', [now()->subDays(30), now()])
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->sum('total_amount');
 
         $previousPeriod = Sale::where('shop_id', $shopId)
             ->whereBetween('sale_date', [now()->subDays(60), now()->subDays(30)])
-            ->where('payment_status', '!=', 'cancelled')
+            ->whereIn('payment_status', ['paid', 'completed'])
             ->sum('total_amount');
 
         if ($previousPeriod > 0) {
@@ -1312,7 +1327,7 @@ private function getRecentStockAlerts($shopId, $limit = 10)
     }
 
     /**
-     * Get stats API endpoint for sidebar
+     * Get stats API endpoint for sidebar - FIXED: Only count successful payments
      */
     public function getStats()
     {
@@ -1322,15 +1337,15 @@ private function getRecentStockAlerts($shopId, $limit = 10)
             $shopId = auth()->user()->shop_id ?? 1;
             $today = now()->format('Y-m-d');
 
-            // Today's sales
+            // Today's sales - ONLY successful payments
             $todaySales = Sale::where('shop_id', $shopId)
                 ->whereDate('sale_date', $today)
-                ->where('payment_status', '!=', 'cancelled')
+                ->whereIn('payment_status', ['paid', 'completed'])
                 ->sum('total_amount') ?? 0;
 
             $transactionCount = Sale::where('shop_id', $shopId)
                 ->whereDate('sale_date', $today)
-                ->where('payment_status', '!=', 'cancelled')
+                ->whereIn('payment_status', ['paid', 'completed'])
                 ->count() ?? 0;
 
             $pendingOrders = Sale::where('shop_id', $shopId)
@@ -1351,24 +1366,29 @@ private function getRecentStockAlerts($shopId, $limit = 10)
                 ->where('current_stock', '<=', 0)
                 ->count();
 
-            // Pending payments
+            // Pending payments (waiting for confirmation)
             $pendingPayments = Sale::where('shop_id', $shopId)
                 ->where('payment_status', 'pending')
+                ->count();
+
+            // Failed payments (for monitoring)
+            $failedPayments = Sale::where('shop_id', $shopId)
+                ->where('payment_status', 'failed')
                 ->count();
 
             // Average sale
             $averageSale = $transactionCount > 0 ? $todaySales / $transactionCount : 0;
 
-            // This week's sales
+            // This week's sales - ONLY successful
             $weekSales = Sale::where('shop_id', $shopId)
                 ->whereBetween('sale_date', [now()->startOfWeek(), now()->endOfWeek()])
-                ->where('payment_status', '!=', 'cancelled')
+                ->whereIn('payment_status', ['paid', 'completed'])
                 ->sum('total_amount') ?? 0;
 
-            // This month's sales
+            // This month's sales - ONLY successful
             $monthSales = Sale::where('shop_id', $shopId)
                 ->whereBetween('sale_date', [now()->startOfMonth(), now()->endOfMonth()])
-                ->where('payment_status', '!=', 'cancelled')
+                ->whereIn('payment_status', ['paid', 'completed'])
                 ->sum('total_amount') ?? 0;
 
             return response()->json([
@@ -1380,6 +1400,7 @@ private function getRecentStockAlerts($shopId, $limit = 10)
                 'low_stock_items' => (int) $lowStockItems,
                 'out_of_stock_items' => (int) $outOfStockItems,
                 'pending_payments' => (int) $pendingPayments,
+                'failed_payments' => (int) $failedPayments,
                 'week_sales' => (float) $weekSales,
                 'month_sales' => (float) $monthSales,
                 'updated_at' => now()->format('H:i:s')
@@ -1396,6 +1417,7 @@ private function getRecentStockAlerts($shopId, $limit = 10)
                 'low_stock_items' => 0,
                 'out_of_stock_items' => 0,
                 'pending_payments' => 0,
+                'failed_payments' => 0,
                 'week_sales' => 0,
                 'month_sales' => 0,
                 'error' => $e->getMessage()
@@ -1412,20 +1434,31 @@ private function getRecentStockAlerts($shopId, $limit = 10)
             $shopId = auth()->user()->shop_id ?? 1;
             $limit = 20;
 
-            // Recent sales
+            // Recent sales - show all but indicate status
             $recentSales = Sale::where('shop_id', $shopId)
                 ->orderBy('created_at', 'desc')
                 ->limit($limit)
                 ->get()
                 ->map(function($sale) {
+                    $statusColor = 'text-green-500';
+                    $statusIcon = 'fa-shopping-cart';
+
+                    if ($sale->payment_status === 'failed') {
+                        $statusColor = 'text-red-500';
+                        $statusIcon = 'fa-exclamation-triangle';
+                    } elseif ($sale->payment_status === 'pending') {
+                        $statusColor = 'text-yellow-500';
+                        $statusIcon = 'fa-clock';
+                    }
+
                     return [
                         'type' => 'sale',
                         'id' => $sale->id,
                         'title' => 'New Sale: ' . $sale->invoice_number,
-                        'description' => $sale->customer_name . ' - KES ' . number_format($sale->total_amount, 2),
+                        'description' => $sale->customer_name . ' - KES ' . number_format($sale->total_amount, 2) . ' (' . $sale->payment_status . ')',
                         'time' => $sale->created_at->diffForHumans(),
-                        'icon' => 'fa-shopping-cart',
-                        'color' => 'text-green-500'
+                        'icon' => $statusIcon,
+                        'color' => $statusColor
                     ];
                 });
 

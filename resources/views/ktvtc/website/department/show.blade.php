@@ -42,7 +42,7 @@
             <div>
                 <h1 class="text-3xl md:text-4xl font-bold mb-4">{{ $department->name }}</h1>
                 @if($department->description)
-                <p class="text-lg text-white text-opacity-90 max-w-3xl">{{ $department->description }}</p>
+                <p class="text-lg text-white text-opacity-90 max-w-3xl">{!! $department->description !!}</p>
                 @endif
             </div>
 

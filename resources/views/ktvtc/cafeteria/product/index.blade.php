@@ -190,7 +190,7 @@
                 <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden hover:shadow-md transition">
                     <!-- Product Image -->
                     <div class="h-48 bg-gray-100 flex items-center justify-center relative">
-                        @if($product->image && Storage::exists('public/' . $product->image))
+                     @if($product->image && Storage::disk('public')->exists($product->image))
                             <img src="{{ Storage::url($product->image) }}" alt="{{ $product->product_name }}" class="w-full h-full object-cover">
                         @else
                             <i class="fas fa-box text-gray-300 text-4xl"></i>

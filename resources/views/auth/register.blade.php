@@ -3,14 +3,11 @@
 @section('title', 'Register | Create Student Account - Kenswed Technical College')
 @section('meta_description', 'Create your student account for Kenswed College portal. Register to access courses, events, and academic resources.')
 @section('meta_keywords', 'Kenswed registration, create student account, college sign up, technical college registration')
-
 @section('og_title', 'Student Registration | Kenswed College')
 @section('og_description', 'Create your student account for Kenswed Technical College portal')
 @section('og_url', url()->current())
 @section('og_image', asset('Assets/images/Kenswed_logo.png'))
-
 @section('canonical', url()->current())
-
 @section('robots')
     <meta name="robots" content="noindex, nofollow">
 @endsection
@@ -39,11 +36,11 @@
                 <div class="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg">
                     <div class="flex items-center">
                         <i class="fas fa-exclamation-circle text-red-500 mr-2"></i>
-                        <span class="text-red-700 text-sm">
+                        <div class="text-red-700 text-sm">
                             @foreach($errors->all() as $error)
                                 {{ $error }}<br>
                             @endforeach
-                        </span>
+                        </div>
                     </div>
                 </div>
             @endif
@@ -53,9 +50,7 @@
 
                 <!-- Full Name -->
                 <div>
-                    <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
-                        Full Name
-                    </label>
+                    <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <i class="fas fa-user text-gray-400"></i>
@@ -68,9 +63,7 @@
 
                 <!-- Email Address -->
                 <div>
-                    <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
-                        Email Address
-                    </label>
+                    <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <i class="fas fa-envelope text-gray-400"></i>
@@ -83,9 +76,7 @@
 
                 <!-- Password -->
                 <div>
-                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
-                        Password
-                    </label>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <i class="fas fa-lock text-gray-400"></i>
@@ -103,9 +94,7 @@
 
                 <!-- Confirm Password -->
                 <div>
-                    <label for="password_confirmation" class="block text-sm font-medium text-gray-700 mb-2">
-                        Confirm Password
-                    </label>
+                    <label for="password_confirmation" class="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <i class="fas fa-lock text-gray-400"></i>
@@ -142,10 +131,7 @@
                 <div class="text-center pt-4 border-t border-gray-200">
                     <p class="text-gray-600">
                         Already have an account?
-                        <a href="{{ route('login') }}"
-                           class="font-semibold text-red-600 hover:text-red-700 hover:underline">
-                            Sign in here
-                        </a>
+                        <a href="{{ route('login') }}" class="font-semibold text-red-600 hover:text-red-700 hover:underline">Sign in here</a>
                     </p>
                 </div>
             </form>
@@ -153,32 +139,26 @@
 
         <!-- Additional Info -->
         <div class="mt-6 text-center">
-            <p class="text-sm text-gray-600">
-                After registration, you can complete your profile with additional details
-            </p>
+            <p class="text-sm text-gray-600">After registration, you can complete your profile with additional details</p>
         </div>
     </div>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function(){
-    // Password toggle functionality
-    document.querySelectorAll('.password-toggle').forEach(function(btn){
-        btn.addEventListener('click', function(){
-            const targetId = this.getAttribute('data-target');
-            const input = document.getElementById(targetId);
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.password-toggle').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const input = document.getElementById(this.getAttribute('data-target'));
             const icon = this.querySelector('i');
 
             if (input.type === 'password') {
                 input.type = 'text';
                 icon.classList.remove('fa-eye');
                 icon.classList.add('fa-eye-slash');
-                this.setAttribute('aria-label', 'Hide password');
             } else {
                 input.type = 'password';
                 icon.classList.remove('fa-eye-slash');
                 icon.classList.add('fa-eye');
-                this.setAttribute('aria-label', 'Show password');
             }
         });
     });

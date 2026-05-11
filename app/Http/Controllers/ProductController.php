@@ -18,35 +18,28 @@ class ProductController extends Controller
     {
         $query = Product::with(['businessSection', 'category', 'shop', 'creator', 'updater']);
 
-        // Filters
+        // Filters (same as your existing code - keep all)
         if ($request->has('business_section_id')) {
             $query->where('business_section_id', $request->business_section_id);
         }
-
         if ($request->has('category_id')) {
             $query->where('category_id', $request->category_id);
         }
-
         if ($request->has('shop_id')) {
             $query->where('shop_id', $request->shop_id);
         }
-
         if ($request->has('product_type')) {
             $query->where('product_type', $request->product_type);
         }
-
         if ($request->has('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
         }
-
         if ($request->has('is_production_item')) {
             $query->where('is_production_item', $request->boolean('is_production_item'));
         }
-
         if ($request->has('track_inventory')) {
             $query->where('track_inventory', $request->boolean('track_inventory'));
         }
-
         if ($request->has('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -56,264 +49,139 @@ class ProductController extends Controller
             });
         }
 
-        // Sorting
         $sortBy = $request->get('sort_by', 'created_at');
         $sortOrder = $request->get('sort_order', 'desc');
         $query->orderBy($sortBy, $sortOrder);
 
         $products = $query->paginate($request->get('per_page', 15));
 
-        // Get filter data for the view
-        $businessSections = BusinessSection::where('is_active', true)
-            ->orderBy('section_name')
-            ->get(['id', 'section_code', 'section_name', 'section_type']);
+        $businessSections = BusinessSection::where('is_active', true)->orderBy('section_name')->get(['id', 'section_code', 'section_name', 'section_type']);
+        $categories = ProductCategory::where('is_active', true)->orderBy('category_name')->get(['id', 'category_code', 'category_name', 'business_section_id']);
+        $shops = Shop::where('is_active', true)->orderBy('shop_name')->get(['id', 'shop_code', 'shop_name', 'business_section_id']);
 
-        $categories = ProductCategory::where('is_active', true)
-            ->orderBy('category_name')
-            ->get(['id', 'category_code', 'category_name', 'business_section_id']);
-
-        $shops = Shop::where('is_active', true)
-            ->orderBy('shop_name')
-            ->get(['id', 'shop_code', 'shop_name', 'business_section_id']);
-
-        // Get stats for the dashboard
         $stats = [
             'total' => Product::count(),
             'active' => Product::where('is_active', true)->count(),
-            'low_stock' => Product::where('track_inventory', true)
-                ->whereColumn('current_stock', '<=', 'reorder_level')
-                ->count(),
+            'low_stock' => Product::where('track_inventory', true)->whereColumn('current_stock', '<=', 'reorder_level')->count(),
             'featured' => Product::where('is_featured', true)->count(),
             'production' => Product::where('is_production_item', true)->count(),
         ];
 
-        // Return Blade view
         return view('ktvtc.cafeteria.product.index', [
             'products' => $products,
             'businessSections' => $businessSections,
             'categories' => $categories,
             'shops' => $shops,
             'stats' => $stats,
-            'filters' => $request->only([
-                'search', 'business_section_id', 'category_id', 'shop_id',
-                'product_type', 'is_active', 'is_production_item', 'track_inventory'
-            ])
+            'filters' => $request->only(['search', 'business_section_id', 'category_id', 'shop_id', 'product_type', 'is_active', 'is_production_item', 'track_inventory'])
         ]);
     }
-/**
- * API: Search products for POS and other quick search needs
- */
-public function search(Request $request)
-{
-    try {
-        $user = auth()->user();
-        $shopId = $user->shop_id ?? 1;
 
-        $query = Product::where('shop_id', $shopId)
-            ->where('is_active', true);
+    /**
+     * API: Search products for POS
+     */
+    public function search(Request $request)
+    {
+        try {
+            $user = auth()->user();
+            $shopId = $user->shop_id ?? 1;
 
-        // Search by name, code, or barcode
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('product_name', 'like', "%{$search}%")
-                  ->orWhere('product_code', 'like', "%{$search}%")
-                  ->orWhere('barcode', 'like', "%{$search}%");
+            $query = Product::where('shop_id', $shopId)->where('is_active', true);
+
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function($q) use ($search) {
+                    $q->where('product_name', 'like', "%{$search}%")
+                      ->orWhere('product_code', 'like', "%{$search}%")
+                      ->orWhere('barcode', 'like', "%{$search}%");
+                });
+            }
+
+            if ($request->filled('category_id')) {
+                $query->where('category_id', $request->category_id);
+            }
+
+            if ($request->filled('in_stock_only') && $request->in_stock_only == 'true') {
+                $query->where(function($q) {
+                    $q->where('track_inventory', false)->orWhere('current_stock', '>', 0);
+                });
+            }
+
+            if ($request->filled('business_section_id')) {
+                $query->where('business_section_id', $request->business_section_id);
+            }
+
+            $perPage = $request->get('per_page', 20);
+            $products = $query->orderBy('product_name')->paginate($perPage);
+
+            $products->getCollection()->transform(function($product) {
+                return [
+                    'id' => $product->id,
+                    'product_code' => $product->product_code,
+                    'product_name' => $product->product_name,
+                    'selling_price' => (float) $product->selling_price,
+                    'cost_price' => (float) $product->cost_price,
+                    'current_stock' => (int) $product->current_stock,
+                    'track_inventory' => (bool) $product->track_inventory,
+                    'unit' => $product->unit,
+                    'image' => $product->image ? Storage::url($product->image) : null,
+                    'product_type' => $product->product_type,
+                    'category_name' => $product->category ? $product->category->category_name : null,
+                ];
             });
+
+            return response()->json([
+                'success' => true,
+                'data' => $products->items(),
+                'total' => $products->total(),
+                'current_page' => $products->currentPage(),
+                'last_page' => $products->lastPage(),
+                'per_page' => $products->perPage()
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Product search error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'error' => 'Failed to search products'], 500);
         }
-
-        // Filter by category
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
-        }
-
-        // Filter by stock availability
-        if ($request->filled('in_stock_only') && $request->in_stock_only == 'true') {
-            $query->where(function($q) {
-                $q->where('track_inventory', false)
-                  ->orWhere('current_stock', '>', 0);
-            });
-        }
-
-        // Filter by business section
-        if ($request->filled('business_section_id')) {
-            $query->where('business_section_id', $request->business_section_id);
-        }
-
-        // Get paginated results
-        $perPage = $request->get('per_page', 20);
-        $products = $query->orderBy('product_name')->paginate($perPage);
-
-        // Transform products for POS display
-        $products->getCollection()->transform(function($product) {
-            return [
-                'id' => $product->id,
-                'product_code' => $product->product_code,
-                'product_name' => $product->product_name,
-                'selling_price' => (float) $product->selling_price,
-                'cost_price' => (float) $product->cost_price,
-                'current_stock' => (int) $product->current_stock,
-                'track_inventory' => (bool) $product->track_inventory,
-                'unit' => $product->unit,
-                'image' => $product->image,
-                'product_type' => $product->product_type,
-                'category_name' => $product->category ? $product->category->category_name : null,
-            ];
-        });
-
-        return response()->json([
-            'success' => true,
-            'data' => $products->items(),
-            'total' => $products->total(),
-            'current_page' => $products->currentPage(),
-            'last_page' => $products->lastPage(),
-            'per_page' => $products->perPage()
-        ]);
-
-    } catch (\Exception $e) {
-        \Log::error('Product search error: ' . $e->getMessage(), [
-            'trace' => $e->getTraceAsString()
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'error' => 'Failed to search products: ' . $e->getMessage()
-        ], 500);
     }
-}
-/**
- * Quick search for POS - returns limited fields
- */
-public function quickSearch(Request $request)
-{
-    try {
-        $user = auth()->user();
-        $shopId = $user->shop_id ?? 1;
-        $search = $request->get('q', '');
 
-        if (strlen($search) < 2) {
-            return response()->json([]);
-        }
-
-        $products = Product::where('shop_id', $shopId)
-            ->where('is_active', true)
-            ->where(function($q) use ($search) {
-                $q->where('product_name', 'like', "%{$search}%")
-                  ->orWhere('product_code', 'like', "%{$search}%")
-                  ->orWhere('barcode', 'like', "%{$search}%");
-            })
-            ->limit(10)
-            ->get(['id', 'product_code', 'product_name', 'selling_price', 'current_stock', 'unit']);
-
-        return response()->json($products);
-
-    } catch (\Exception $e) {
-        \Log::error('Quick product search error: ' . $e->getMessage());
-        return response()->json([], 500);
-    }
-}
-    // API Index - For AJAX calls
-    public function apiIndex(Request $request)
+    /**
+     * Quick search for POS - returns limited fields
+     */
+    public function quickSearch(Request $request)
     {
-        $query = Product::with(['businessSection', 'category', 'shop', 'creator', 'updater']);
+        try {
+            $user = auth()->user();
+            $shopId = $user->shop_id ?? 1;
+            $search = $request->get('q', '');
 
-        // Filters
-        if ($request->has('business_section_id')) {
-            $query->where('business_section_id', $request->business_section_id);
+            if (strlen($search) < 2) {
+                return response()->json([]);
+            }
+
+            $products = Product::where('shop_id', $shopId)
+                ->where('is_active', true)
+                ->where(function($q) use ($search) {
+                    $q->where('product_name', 'like', "%{$search}%")
+                      ->orWhere('product_code', 'like', "%{$search}%")
+                      ->orWhere('barcode', 'like', "%{$search}%");
+                })
+                ->limit(10)
+                ->get(['id', 'product_code', 'product_name', 'selling_price', 'current_stock', 'unit']);
+
+            return response()->json($products);
+
+        } catch (\Exception $e) {
+            \Log::error('Quick product search error: ' . $e->getMessage());
+            return response()->json([], 500);
         }
-
-        if ($request->has('category_id')) {
-            $query->where('category_id', $request->category_id);
-        }
-
-        if ($request->has('shop_id')) {
-            $query->where('shop_id', $request->shop_id);
-        }
-
-        if ($request->has('product_type')) {
-            $query->where('product_type', $request->product_type);
-        }
-
-        if ($request->has('is_active')) {
-            $query->where('is_active', $request->boolean('is_active'));
-        }
-
-        if ($request->has('is_production_item')) {
-            $query->where('is_production_item', $request->boolean('is_production_item'));
-        }
-
-        if ($request->has('track_inventory')) {
-            $query->where('track_inventory', $request->boolean('track_inventory'));
-        }
-
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('product_code', 'like', "%{$search}%")
-                  ->orWhere('product_name', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
-            });
-        }
-
-        // Sorting
-        $sortBy = $request->get('sort_by', 'created_at');
-        $sortOrder = $request->get('sort_order', 'desc');
-        $query->orderBy($sortBy, $sortOrder);
-
-        $products = $query->paginate($request->get('per_page', 15));
-
-        return response()->json($products);
     }
 
-    // Get product types for filter
-    public function productTypes()
-    {
-        $types = [
-            'food' => 'Food',
-            'beverage' => 'Beverage',
-            'gift' => 'Gift',
-            'raw_material' => 'Raw Material',
-            'stationery' => 'Stationery',
-            'uniform' => 'Uniform',
-            'other' => 'Other'
-        ];
-
-        return response()->json($types);
-    }
-
-    // Get units for product form
-    public function units()
-    {
-        $units = [
-            'piece' => 'Piece',
-            'plate' => 'Plate',
-            'bowl' => 'Bowl',
-            'cup' => 'Cup',
-            'bottle' => 'Bottle',
-            'packet' => 'Packet',
-            'kg' => 'Kilogram (kg)',
-            'gram' => 'Gram (g)',
-            'liter' => 'Liter (L)',
-            'dozen' => 'Dozen'
-        ];
-
-        return response()->json($units);
-    }
-
-    // Get products by section for dropdown
-    public function bySection($sectionId)
-    {
-        $products = Product::where('business_section_id', $sectionId)
-            ->where('is_active', true)
-            ->orderBy('product_name')
-            ->get(['id', 'product_code', 'product_name', 'unit']);
-
-        return response()->json($products);
-    }
-
+    /**
+     * STORE - Create new product with proper image handling
+     */
     public function store(Request $request)
     {
-        // First validate all fields except image
         $validator = Validator::make($request->all(), [
             'product_code' => 'required|string|unique:products|max:50',
             'product_name' => 'required|string|max:255',
@@ -329,95 +197,69 @@ public function quickSearch(Request $request)
             'reorder_level' => 'nullable|numeric|min:0',
             'track_inventory' => 'boolean',
             'is_production_item' => 'boolean',
-            'recipe_details' => 'nullable|json',
             'shop_id' => 'nullable|exists:shops,id',
             'is_active' => 'boolean',
             'is_featured' => 'boolean',
             'sort_order' => 'nullable|integer',
-            'existing_image' => 'nullable|string|max:255' // For keeping existing image when editing
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        // Handle image validation separately if a file is uploaded
         if ($request->hasFile('image')) {
             $imageValidator = Validator::make($request->all(), [
-                'image' => 'image|mimes:jpeg,png,jpg,gif,webp|max:2048', // 2MB = 2048KB
+                'image' => 'image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             ]);
-
             if ($imageValidator->fails()) {
                 return response()->json(['errors' => $imageValidator->errors()], 422);
             }
         }
 
-        $data = $request->except(['image', 'existing_image']); // Exclude file fields initially
+        $data = $request->except(['image']);
         $data['slug'] = Str::slug($data['product_name']);
         $data['created_by'] = auth()->id();
 
-        // Handle image upload
+        // Handle image upload - FIXED: Store properly for Storage::url()
         if ($request->hasFile('image')) {
             $image = $request->file('image');
-            $imageName = time() . '_' . $image->getClientOriginalName();
-            $imagePath = $image->storeAs('public/products', $imageName);
-            $data['image'] = str_replace('public/', '', $imagePath); // Store as 'products/filename.jpg'
-        } elseif ($request->has('existing_image') && !empty($request->existing_image)) {
-            // Keep existing image (for when editing without changing image)
-            $data['image'] = $request->existing_image;
-        } else {
-            // No image provided
-            $data['image'] = null;
+            $imageName = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $image->getClientOriginalName());
+            $imagePath = $image->storeAs('products', $imageName, 'public');
+            $data['image'] = $imagePath; // Stores as 'products/filename.jpg'
         }
 
-        // Set default values
+        // Set defaults
         $data['current_stock'] = $data['current_stock'] ?? 0;
         $data['track_inventory'] = $data['track_inventory'] ?? true;
         $data['is_active'] = $data['is_active'] ?? true;
+        $data['reorder_level'] = $data['reorder_level'] ?? ($data['current_stock'] * 0.2);
+        $data['min_stock_level'] = $data['min_stock_level'] ?? ($data['current_stock'] * 0.1);
 
         $product = Product::create($data);
-
-        // If track_inventory is true, create inventory stock record
-      // In ProductController@store and @update methods, remove this section:
-
-// If track_inventory is true, create inventory stock record
-if ($product->track_inventory && $product->shop_id) {
-    DB::table('inventory_stocks')->insert([
-        'product_id' => $product->id,
-        'shop_id' => $product->shop_id,
-        'current_stock' => $product->current_stock,
-        'average_unit_cost' => $product->cost_price,
-        'stock_value' => $product->current_stock * $product->cost_price,
-        'created_at' => now(),
-        'updated_at' => now()
-    ]);
-}
-
-// And replace with nothing (it will be handled by the model observer)
 
         return response()->json($product->load(['businessSection', 'category', 'shop', 'creator']), 201);
     }
 
+    /**
+     * SHOW - Get single product
+     */
     public function show($id)
     {
-        $product = Product::with([
-            'businessSection',
-            'category',
-            'shop',
-            'creator',
-            'updater',
-            'inventoryStocks',
-            'recipe'
-        ])->findOrFail($id);
+        $product = Product::with(['businessSection', 'category', 'shop', 'creator', 'updater'])->findOrFail($id);
+
+        // Add full image URL for frontend
+        $product->image_url = $product->image ? Storage::url($product->image) : null;
 
         return response()->json($product);
     }
 
+    /**
+     * UPDATE - Update existing product with proper image handling
+     */
     public function update(Request $request, $id)
     {
         $product = Product::findOrFail($id);
 
-        // First validate all fields except image
         $validator = Validator::make($request->all(), [
             'product_code' => 'sometimes|string|unique:products,product_code,' . $id . '|max:50',
             'product_name' => 'sometimes|string|max:255',
@@ -433,109 +275,87 @@ if ($product->track_inventory && $product->shop_id) {
             'reorder_level' => 'nullable|numeric|min:0',
             'track_inventory' => 'boolean',
             'is_production_item' => 'boolean',
-            'recipe_details' => 'nullable|json',
             'shop_id' => 'nullable|exists:shops,id',
             'is_active' => 'boolean',
             'is_featured' => 'boolean',
             'sort_order' => 'nullable|integer',
-            'existing_image' => 'nullable|string|max:255' // For keeping existing image
+            'remove_image' => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        // Handle image validation separately if a file is uploaded
         if ($request->hasFile('image')) {
             $imageValidator = Validator::make($request->all(), [
-                'image' => 'image|mimes:jpeg,png,jpg,gif,webp|max:2048', // 2MB = 2048KB
+                'image' => 'image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             ]);
-
             if ($imageValidator->fails()) {
                 return response()->json(['errors' => $imageValidator->errors()], 422);
             }
         }
 
-        $data = $request->except(['image', 'existing_image']); // Exclude file fields initially
+        $data = $request->except(['image', 'existing_image', 'remove_image']);
 
         if ($request->has('product_name')) {
             $data['slug'] = Str::slug($data['product_name']);
         }
-
         $data['updated_by'] = auth()->id();
 
-        // Handle image upload
+        // Handle image - FIXED logic
         if ($request->hasFile('image')) {
-            // Delete old image if exists
-            if ($product->image && Storage::exists('public/' . $product->image)) {
-                Storage::delete('public/' . $product->image);
+            // Delete old image
+            if ($product->image && Storage::disk('public')->exists($product->image)) {
+                Storage::disk('public')->delete($product->image);
             }
-
             $image = $request->file('image');
-            $imageName = time() . '_' . $image->getClientOriginalName();
-            $imagePath = $image->storeAs('public/products', $imageName);
-            $data['image'] = str_replace('public/', '', $imagePath);
-        } elseif ($request->has('existing_image') && !empty($request->existing_image)) {
-            // Keep existing image
-            $data['image'] = $request->existing_image;
-        } elseif ($request->has('remove_image') && $request->remove_image == 'true') {
-            // Remove image (when user clears it)
-            if ($product->image && Storage::exists('public/' . $product->image)) {
-                Storage::delete('public/' . $product->image);
+            $imageName = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $image->getClientOriginalName());
+            $imagePath = $image->storeAs('products', $imageName, 'public');
+            $data['image'] = $imagePath;
+        } elseif ($request->boolean('remove_image')) {
+            // Remove image completely
+            if ($product->image && Storage::disk('public')->exists($product->image)) {
+                Storage::disk('public')->delete($product->image);
             }
             $data['image'] = null;
-        } else {
-            // Keep current image if no changes
-            $data['image'] = $product->image;
         }
+        // else: keep existing image (no change)
 
         $product->update($data);
-
-        // Update inventory stock if stock changed
-        if ($product->track_inventory && $product->shop_id && $request->has('current_stock')) {
-            DB::table('inventory_stocks')
-                ->where('product_id', $product->id)
-                ->where('shop_id', $product->shop_id)
-                ->update([
-                    'current_stock' => $product->current_stock,
-                    'average_unit_cost' => $product->cost_price,
-                    'stock_value' => $product->current_stock * $product->cost_price,
-                    'updated_at' => now()
-                ]);
-        }
 
         return response()->json($product->fresh()->load(['businessSection', 'category', 'shop', 'creator', 'updater']));
     }
 
+    /**
+     * DELETE - Soft delete product
+     */
     public function destroy($id)
     {
         $product = Product::findOrFail($id);
-
-        // Delete image if exists
-        if ($product->image && Storage::exists('public/' . $product->image)) {
-            Storage::delete('public/' . $product->image);
-        }
-
         $product->delete();
-
         return response()->json(['message' => 'Product deleted successfully']);
     }
 
+    /**
+     * RESTORE - Restore soft deleted product
+     */
     public function restore($id)
     {
         $product = Product::withTrashed()->findOrFail($id);
         $product->restore();
-
         return response()->json(['message' => 'Product restored successfully']);
     }
 
+    /**
+     * UPDATE STOCK - Update product stock with movement tracking
+     */
     public function updateStock(Request $request, $id)
     {
         $product = Product::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
             'shop_id' => 'required|exists:shops,id',
-            'quantity' => 'required|numeric',
+            'quantity' => 'required|numeric|min:0.001',
             'movement_type' => 'required|in:adjustment_in,adjustment_out',
             'reason' => 'nullable|string',
             'notes' => 'nullable|string'
@@ -545,79 +365,195 @@ if ($product->track_inventory && $product->shop_id) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        // Get current stock
-        $stock = DB::table('inventory_stocks')
-            ->where('product_id', $product->id)
-            ->where('shop_id', $request->shop_id)
-            ->first();
+        DB::beginTransaction();
 
-        $previousStock = $stock ? $stock->current_stock : 0;
-        $newStock = $previousStock + $request->quantity;
-
-        // Create inventory movement
-        $movementNumber = 'MOV-' . date('Ymd') . '-' . strtoupper(uniqid());
-
-        $movement = DB::table('inventory_movements')->insertGetId([
-            'movement_number' => $movementNumber,
-            'product_id' => $product->id,
-            'shop_id' => $request->shop_id,
-            'movement_type' => $request->movement_type,
-            'quantity' => abs($request->quantity),
-            'unit' => $product->unit,
-            'unit_cost' => $product->cost_price,
-            'total_cost' => abs($request->quantity) * $product->cost_price,
-            'previous_stock' => $previousStock,
-            'new_stock' => $newStock,
-            'reason' => $request->reason,
-            'adjustment_category' => 'stock_take',
-            'recorded_by' => auth()->id(),
-            'movement_date' => now(),
-            'notes' => $request->notes,
-            'created_at' => now(),
-            'updated_at' => now()
-        ]);
-
-        // Update inventory stock
-        if ($stock) {
-            DB::table('inventory_stocks')
+        try {
+            // Get current stock
+            $stock = DB::table('inventory_stocks')
                 ->where('product_id', $product->id)
                 ->where('shop_id', $request->shop_id)
-                ->update([
-                    'current_stock' => $newStock,
-                    'available_stock' => $newStock - ($stock->reserved_stock ?? 0),
-                    'stock_value' => $newStock * $product->cost_price,
-                    'last_movement_at' => now(),
-                    'last_movement_id' => $movement,
-                    'last_adjusted_date' => now(),
-                    'updated_at' => now()
-                ]);
-        } else {
-            DB::table('inventory_stocks')->insert([
+                ->first();
+
+            $previousStock = $stock ? $stock->current_stock : 0;
+            $quantityChange = $request->movement_type === 'adjustment_in' ? $request->quantity : -$request->quantity;
+            $newStock = $previousStock + $quantityChange;
+
+            if ($newStock < 0) {
+                throw new \Exception('Stock cannot go below zero');
+            }
+
+            // Create inventory movement
+            $movementNumber = 'MOV-' . date('Ymd') . '-' . strtoupper(uniqid());
+
+            DB::table('inventory_movements')->insert([
+                'movement_number' => $movementNumber,
                 'product_id' => $product->id,
                 'shop_id' => $request->shop_id,
-                'current_stock' => $newStock,
-                'available_stock' => $newStock,
-                'average_unit_cost' => $product->cost_price,
-                'stock_value' => $newStock * $product->cost_price,
-                'last_movement_at' => now(),
-                'last_movement_id' => $movement,
-                'last_adjusted_date' => now(),
+                'movement_type' => $request->movement_type,
+                'quantity' => $request->quantity,
+                'unit' => $product->unit,
+                'unit_cost' => $product->cost_price,
+                'total_cost' => $request->quantity * ($product->cost_price ?? 0),
+                'previous_stock' => $previousStock,
+                'new_stock' => $newStock,
+                'reason' => $request->reason,
+                'adjustment_category' => 'stock_take',
+                'recorded_by' => auth()->id(),
+                'movement_date' => now(),
+                'notes' => $request->notes,
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
+
+            // Update or create inventory stock
+            if ($stock) {
+                DB::table('inventory_stocks')
+                    ->where('product_id', $product->id)
+                    ->where('shop_id', $request->shop_id)
+                    ->update([
+                        'current_stock' => $newStock,
+                        'available_stock' => $newStock - ($stock->reserved_stock ?? 0),
+                        'stock_value' => $newStock * ($product->cost_price ?? 0),
+                        'last_movement_at' => now(),
+                        'last_adjusted_date' => now(),
+                        'updated_at' => now()
+                    ]);
+            } else {
+                DB::table('inventory_stocks')->insert([
+                    'product_id' => $product->id,
+                    'shop_id' => $request->shop_id,
+                    'current_stock' => $newStock,
+                    'available_stock' => $newStock,
+                    'average_unit_cost' => $product->cost_price,
+                    'stock_value' => $newStock * ($product->cost_price ?? 0),
+                    'last_movement_at' => now(),
+                    'last_adjusted_date' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+            }
+
+            // Update product current stock if this is the primary shop
+            if ($product->shop_id == $request->shop_id) {
+                $product->current_stock = $newStock;
+                $product->save();
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Stock updated successfully',
+                'previous_stock' => $previousStock,
+                'new_stock' => $newStock,
+                'movement_number' => $movementNumber
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 400);
+        }
+    }
+
+    /**
+     * Get product types for filter
+     */
+    public function productTypes()
+    {
+        return response()->json([
+            'food' => 'Food', 'beverage' => 'Beverage', 'gift' => 'Gift',
+            'raw_material' => 'Raw Material', 'stationery' => 'Stationery',
+            'uniform' => 'Uniform', 'other' => 'Other'
+        ]);
+    }
+
+    /**
+     * Get units for product form
+     */
+    public function units()
+    {
+        return response()->json([
+            'piece' => 'Piece', 'plate' => 'Plate', 'bowl' => 'Bowl', 'cup' => 'Cup',
+            'bottle' => 'Bottle', 'packet' => 'Packet', 'kg' => 'Kilogram (kg)',
+            'gram' => 'Gram (g)', 'liter' => 'Liter (L)', 'dozen' => 'Dozen'
+        ]);
+    }
+
+    /**
+     * Get products by section for dropdown
+     */
+    public function bySection($sectionId)
+    {
+        $products = Product::where('business_section_id', $sectionId)
+            ->where('is_active', true)
+            ->orderBy('product_name')
+            ->get(['id', 'product_code', 'product_name', 'unit']);
+
+        return response()->json($products);
+    }
+
+    /**
+     * API Index - For AJAX calls
+     */
+    public function apiIndex(Request $request)
+    {
+        $query = Product::with(['businessSection', 'category', 'shop', 'creator', 'updater']);
+
+        if ($request->has('business_section_id')) {
+            $query->where('business_section_id', $request->business_section_id);
+        }
+        if ($request->has('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+        if ($request->has('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('product_name', 'like', "%{$search}%")
+                  ->orWhere('product_code', 'like', "%{$search}%");
+            });
         }
 
-        // Update product current stock if this is the primary shop
-        if ($product->shop_id == $request->shop_id) {
-            $product->current_stock = $newStock;
-            $product->save();
-        }
+        $products = $query->paginate($request->get('per_page', 15));
+        return response()->json($products);
+    }
+
+    /**
+     * Low stock products for alerts
+     */
+    public function lowStock()
+    {
+        $lowStockProducts = Product::where('track_inventory', true)
+            ->whereColumn('current_stock', '<=', 'reorder_level')
+            ->with(['businessSection', 'category', 'shop'])
+            ->orderBy('current_stock', 'asc')
+            ->get();
 
         return response()->json([
-            'message' => 'Stock updated successfully',
-            'previous_stock' => $previousStock,
-            'new_stock' => $newStock,
-            'movement_number' => $movementNumber
+            'count' => $lowStockProducts->count(),
+            'products' => $lowStockProducts
+        ]);
+    }
+
+    /**
+     * Expiring soon products (for raw materials)
+     */
+    public function expiringSoon()
+    {
+        $expiringProducts = Product::where('track_inventory', true)
+            ->where('product_type', 'raw_material')
+            ->whereNotNull('expiry_date')
+            ->where('expiry_date', '<=', now()->addDays(30))
+            ->where('expiry_date', '>=', now())
+            ->with(['businessSection', 'category', 'shop'])
+            ->orderBy('expiry_date', 'asc')
+            ->get();
+
+        return response()->json([
+            'count' => $expiringProducts->count(),
+            'products' => $expiringProducts
         ]);
     }
 }

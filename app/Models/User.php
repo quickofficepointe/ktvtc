@@ -2,191 +2,307 @@
 
 namespace App\Models;
 
-use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
     use HasFactory, Notifiable, SoftDeletes;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'name',
+        'username',
         'email',
+        'phone',
         'password',
-        'role',
-        'phone_number',
+        'avatar',
         'bio',
-        'profile_picture',
-        'status',
-        'campus_id',    // Add this if you have campus_id
-        'shop_id',      // Add this if you have shop_id
-        'is_active',    // Add this if you have is_active
-        'is_approved',  // Add this if you have is_approved
+        'role',
+        'is_verified',
+        'is_active',
+        'requested_role',
+        'role_approval_status',
+        'role_approval_notes',
+        'role_approved_at',
+        'role_approved_by',
+        'preferences',
+        'last_login_at',
+        'last_login_ip',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * The accessors to append to the model's array form.
-     *
-     * @var array
-     */
-    protected $appends = ['role_name', 'role_badge', 'profile_picture_url'];
-
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
+            'phone_verified_at' => 'datetime',
+            'last_login_at' => 'datetime',
+            'role_approved_at' => 'datetime',
             'password' => 'hashed',
-            'is_active' => 'boolean',    // Add this
-            'is_approved' => 'boolean',  // Add this
+            'is_verified' => 'boolean',
+            'is_active' => 'boolean',
+            'preferences' => 'array',
         ];
     }
 
-    public function accessibleShopIds()
+    // Role Constants
+    const ROLE_SUPER_ADMIN = 1;
+    const ROLE_ADMIN = 2;
+    const ROLE_DEALER = 3;
+    const ROLE_GARAGE = 4;
+    const ROLE_BUYER = 5;
+    const ROLE_PRIVATE_SELLER = 6;
+    const ROLE_INSPECTOR = 7;
+    const ROLE_DRIVING_SCHOOL = 8;
+    const ROLE_INSURANCE = 9;
+    const ROLE_FINANCING = 10;
+
+    // Role Approval Status Constants
+    const ROLE_APPROVAL_NONE = 'none';
+    const ROLE_APPROVAL_PENDING = 'pending';
+    const ROLE_APPROVAL_APPROVED = 'approved';
+    const ROLE_APPROVAL_REJECTED = 'rejected';
+
+    public static function getRoles(): array
     {
-        // Admin users (role 2) can access all shops
-        if ($this->role == 6) {
-            return Shop::pluck('id')->toArray();
+        return [
+            self::ROLE_SUPER_ADMIN => 'Super Admin',
+            self::ROLE_ADMIN => 'Admin',
+            self::ROLE_DEALER => 'Dealer',
+            self::ROLE_GARAGE => 'Garage',
+            self::ROLE_BUYER => 'Buyer',
+            self::ROLE_PRIVATE_SELLER => 'Private Seller',
+            self::ROLE_INSPECTOR => 'Inspector',
+            self::ROLE_DRIVING_SCHOOL => 'Driving School',
+            self::ROLE_INSURANCE => 'Insurance Provider',
+            self::ROLE_FINANCING => 'Financing Provider',
+        ];
+    }
+
+    public static function getRoleApprovalStatuses(): array
+    {
+        return [
+            self::ROLE_APPROVAL_NONE => 'None',
+            self::ROLE_APPROVAL_PENDING => 'Pending Approval',
+            self::ROLE_APPROVAL_APPROVED => 'Approved',
+            self::ROLE_APPROVAL_REJECTED => 'Rejected',
+        ];
+    }
+
+    public function getRoleNameAttribute(): string
+    {
+        return self::getRoles()[$this->role] ?? 'Unknown';
+    }
+
+    public function hasRole(int $role): bool
+    {
+        return $this->role === $role;
+    }
+
+    public function isAdmin(): bool
+    {
+        return in_array($this->role, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN]);
+    }
+
+    public function isDealer(): bool
+    {
+        return $this->role === self::ROLE_DEALER;
+    }
+
+    public function isBuyer(): bool
+    {
+        return $this->role === self::ROLE_BUYER;
+    }
+
+    public function isPrivateSeller(): bool
+    {
+        return $this->role === self::ROLE_PRIVATE_SELLER;
+    }
+
+    public function hasPendingRoleRequest(): bool
+    {
+        return $this->role_approval_status === self::ROLE_APPROVAL_PENDING;
+    }
+
+    public function approveRoleChange(int $approvedBy): void
+    {
+        if ($this->requested_role) {
+            $this->role = $this->requested_role;
+            $this->requested_role = null;
         }
-
-        // For cafeteria users (role 6) and other roles, return their assigned shop
-        return [$this->shop_id ?? 1];
+        $this->role_approval_status = self::ROLE_APPROVAL_APPROVED;
+        $this->role_approved_at = now();
+        $this->role_approved_by = $approvedBy;
+        $this->save();
     }
 
-    public function campus()
+    public function rejectRoleChange(string $reason, int $rejectedBy): void
     {
-        return $this->belongsTo(Campus::class);
+        $this->requested_role = null;
+        $this->role_approval_status = self::ROLE_APPROVAL_REJECTED;
+        $this->role_approval_notes = $reason;
+        $this->role_approved_by = $rejectedBy;
+        $this->role_approved_at = now();
+        $this->save();
     }
 
-    public function shop()
-    {
-        return $this->belongsTo(Shop::class);
-    }
-
-    /**
-     * Accessor for role badge Tailwind classes
-     */
-    public function getRoleBadgeAttribute()
+    public function getRoleProfile()
     {
         return match($this->role) {
-            0 => 'bg-red-100 text-red-800',      // Super Admin (ADD THIS)
-            1 => 'bg-purple-100 text-purple-800', // Main School
-            2 => 'bg-blue-100 text-blue-800',    // Admin
-            3 => 'bg-green-100 text-green-800',  // Scholarship
-            4 => 'bg-indigo-100 text-indigo-800', // Library
-            5 => 'bg-gray-100 text-gray-800',    // Student
-            6 => 'bg-yellow-100 text-yellow-800', // Cafeteria
-            7 => 'bg-pink-100 text-pink-800',    // Finance
-            8 => 'bg-teal-100 text-teal-800',    // Trainers
-            9 => 'bg-orange-100 text-orange-800', // Website
-            default => 'bg-gray-100 text-gray-800'
+            self::ROLE_DEALER => $this->dealerProfile,
+            self::ROLE_PRIVATE_SELLER => $this->privateSellerProfile,
+            self::ROLE_BUYER => $this->buyerProfile,
+            self::ROLE_GARAGE => $this->garageProfile,
+            self::ROLE_INSPECTOR => $this->inspectorProfile,
+            self::ROLE_DRIVING_SCHOOL => $this->drivingSchoolProfile,
+            self::ROLE_INSURANCE => $this->insuranceProfile,
+            self::ROLE_FINANCING => $this->financingProfile,
+            default => $this->profile,
         };
     }
 
-    /**
-     * Accessor for role name
-     */
-    public function getRoleNameAttribute()
+    public function canCreatePosts(): bool
     {
-        return match($this->role) {
-            0 => 'Super Admin',     // ADD THIS
-            1 => 'Main School',
-            2 => 'Admin',
-            3 => 'Scholarship',
-            4 => 'Library',
-            5 => 'Student',
-            6 => 'Cafeteria',
-            7 => 'Finance',
-            8 => 'Trainers',
-            9 => 'Website',
-            default => 'Unknown'
-        };
-    }
-
-    /**
-     * Accessor for profile picture URL
-     */
-    public function getProfilePictureUrlAttribute()
-    {
-        if ($this->profile_picture) {
-            return asset('storage/' . $this->profile_picture);
+        if (!in_array($this->role, [self::ROLE_DEALER, self::ROLE_PRIVATE_SELLER])) {
+            return false;
         }
 
-        // Return default avatar
-        return 'https://ui-avatars.com/api/?name=' . urlencode($this->name) . '&color=7F9CF5&background=EBF4FF';
+        if (!$this->is_active || !$this->is_verified) {
+            return false;
+        }
+
+        if ($this->isDealer()) {
+            $dealerProfile = $this->dealerProfile;
+            return $dealerProfile && $dealerProfile->verification_status === 'approved';
+        }
+
+        if ($this->isPrivateSeller()) {
+            $sellerProfile = $this->privateSellerProfile;
+            return $sellerProfile && $sellerProfile->verification_status === 'fully_verified';
+        }
+
+        return false;
     }
 
-    /**
-     * Accessor for status badge color
-     */
-    public function getStatusBadgeAttribute()
+    public function getPostCreationRoute(): ?string
     {
-        return match($this->status) {
-            'active' => 'success',
-            'inactive' => 'secondary',
-            'suspended' => 'danger',
-            'pending' => 'warning',
-            default => 'secondary'
-        };
+        if (!$this->canCreatePosts()) {
+            return null;
+        }
+
+        if ($this->isDealer()) {
+            return route('dealer.vehicles.create');
+        }
+
+        if ($this->isPrivateSeller()) {
+            return route('seller.vehicles.create');
+        }
+
+        return null;
     }
 
-    /**
-     * Check if user is super admin
-     */
-    public function isSuperAdmin()
+    public function getAvatarUrlAttribute(): string
     {
-        return $this->role == 0; // Assuming 0 is super admin role
+        if ($this->avatar) {
+            return asset('storage/' . $this->avatar);
+        }
+        if ($this->profile && $this->profile->avatar) {
+            return asset('storage/' . $this->profile->avatar);
+        }
+        return 'https://ui-avatars.com/api/?name=' . urlencode($this->name) . '&background=EE3131&color=fff';
     }
 
-    /**
-     * Check if user is admin
-     */
-    public function isAdmin()
+    // ============================================
+    // RELATIONSHIPS
+    // ============================================
+
+    public function profile(): HasOne
     {
-        return $this->role == 2; // Assuming 2 is admin role
+        return $this->hasOne(Profile::class);
     }
 
-    /**
-     * Check if user can be impersonated
-     */
-    public function canBeImpersonated()
+    public function dealerProfile(): HasOne
     {
-        // Don't allow impersonating super admin
-        return !$this->isSuperAdmin();
+        return $this->hasOne(DealerProfile::class);
     }
 
-    public function scopeStudents($query)
+    public function privateSellerProfile(): HasOne
     {
-        return $query->where('role', 5);
+        return $this->hasOne(PrivateSellerProfile::class);
     }
 
-    /**
-     * Check if user is active
-     */
-    public function isActive()
+    public function buyerProfile(): HasOne
     {
-        return $this->status === 'active' || $this->is_active === true;
+        return $this->hasOne(BuyerProfile::class);
+    }
+
+    public function garageProfile(): HasOne
+    {
+        return $this->hasOne(GarageProfile::class);
+    }
+
+    public function inspectorProfile(): HasOne
+    {
+        return $this->hasOne(InspectorProfile::class);
+    }
+
+    public function drivingSchoolProfile(): HasOne
+    {
+        return $this->hasOne(DrivingSchoolProfile::class);
+    }
+
+    public function insuranceProfile(): HasOne
+    {
+        return $this->hasOne(InsuranceProfile::class);
+    }
+
+    public function financingProfile(): HasOne
+    {
+        return $this->hasOne(FinancingProfile::class);
+    }
+
+    public function kycDocuments(): HasMany
+    {
+        return $this->hasMany(KycDocument::class);
+    }
+
+    public function vehicles(): HasMany
+    {
+        return $this->hasMany(Vehicle::class);
+    }
+
+    public function blogs(): HasMany
+    {
+        return $this->hasMany(Blog::class);
+    }
+
+    public function contactMessages(): HasMany
+    {
+        return $this->hasMany(ContactMessage::class);
+    }
+
+    public function verifiedKycDocuments(): HasMany
+    {
+        return $this->hasMany(KycDocument::class, 'verified_by');
+    }
+
+    public function verifiedDealerProfiles(): HasMany
+    {
+        return $this->hasMany(DealerProfile::class, 'verified_by');
+    }
+
+    public function approvedRoleRequests(): HasMany
+    {
+        return $this->hasMany(User::class, 'role_approved_by');
     }
 }
