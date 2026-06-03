@@ -36,7 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
             // Cafeteria payment routes
             '/ktvtc/cafeteria/check-payment-status',
             'ktvtc/cafeteria/check-payment-status',
-            
+
             // KCB sales callback
             '/api/kcb/sales/callback',
             'api/kcb/sales/callback',
@@ -45,6 +45,9 @@ return Application::configure(basePath: dirname(__DIR__))
             '/mpesa/callback',
             'mpesa/callback',
 
+    // ✅ ADD KCB IPN ENDPOINT HERE
+    '/api/kcb/ipn/payment-notification',
+    'api/kcb/ipn/payment-notification',
             // NEW: Application payment routes
             '/application-payment/callback',
             'application-payment/callback',

@@ -36,7 +36,8 @@ class FeePayment extends Model
         'is_verified',
         'verified_by',
         'verified_at',
-
+'kcb_transaction_id',    // ADD THIS
+    'bill_reference_number', // ADD THIS
         // METADATA
         'notes',
         'recorded_by',
