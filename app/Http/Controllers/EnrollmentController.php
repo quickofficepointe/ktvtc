@@ -514,7 +514,7 @@ public function getEligibleForReminder(Request $request)
 
             DB::commit();
 
-            return redirect()->route('enrollments.show', $enrollment)
+            return redirect()->route('admin.enrollments.show', $enrollment)
                 ->with('success', 'Enrollment created successfully.');
 
         } catch (\Exception $e) {

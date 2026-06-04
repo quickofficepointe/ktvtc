@@ -260,11 +260,12 @@
                                    id="total_fees"
                                    value="{{ old('total_fees') }}"
                                    min="0"
-                                   step="100"
+                                   step="1"
                                    required
                                    class="w-full pl-12 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('total_fees') border-red-500 @enderror"
                                    placeholder="0.00">
                         </div>
+                        <p class="mt-1 text-xs text-gray-500">Any fee amount is accepted (e.g., 10000, 10001, 15050, 255.50)</p>
                         @error('total_fees')
                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                         @enderror
@@ -280,7 +281,7 @@
                                    id="amount_paid"
                                    value="{{ old('amount_paid', 0) }}"
                                    min="0"
-                                   step="100"
+                                   step="1"
                                    class="w-full pl-12 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('amount_paid') border-red-500 @enderror"
                                    placeholder="0.00">
                         </div>
@@ -454,6 +455,7 @@
                             <li><i class="fas fa-check-circle mr-1 text-green-500"></i> You can record payments later from the enrollment detail page</li>
                             <li><i class="fas fa-check-circle mr-1 text-green-500"></i> If the student has already paid some fees, enter the amount in "Amount Paid"</li>
                             <li><i class="fas fa-check-circle mr-1 text-green-500"></i> For CSV imports, you can enter the original legacy code for tracking</li>
+                            <li><i class="fas fa-check-circle mr-1 text-green-500"></i> Any fee amount is accepted (doesn't need to end with 00)</li>
                         </ul>
                     </div>
                 </div>
