@@ -88,7 +88,15 @@ class Enrollment extends Model
     {
         return $this->belongsTo(Campus::class);
     }
+protected static function boot()
+{
+    parent::boot();
 
+    // Auto-calculate balance before saving
+    static::saving(function ($model) {
+        $model->balance = $model->total_fees - $model->amount_paid;
+    });
+}
     public function payments()
     {
         return $this->hasMany(FeePayment::class);

@@ -47,7 +47,7 @@
         <div class="mt-4">
             <div class="flex items-center text-sm text-gray-500">
                 <i class="fas fa-arrow-up text-success mr-1"></i>
-                <span>+12% from last month</span>
+                <span>Increase from previous period</span>
             </div>
         </div>
     </div>
@@ -129,50 +129,48 @@
     </div>
 
     <div class="overflow-x-auto">
-        <table class="w-full" id="usersTable">
-            <thead>
-                <tr class="bg-gray-50 border-b border-gray-200">
-                    <th class="py-3 px-6 text-left">
-                        <label class="flex items-center">
-                            <input type="checkbox" id="selectAll" class="rounded border-gray-300 text-primary focus:ring-primary">
-                        </label>
-                    </th>
-                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profile</th>
-                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registered</th>
-                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+        <table class="min-w-full divide-y divide-gray-200" id="usersTable">
+            <thead class="bg-gray-50">
                 <tr>
+                    <th class="w-10 px-4 py-3 text-left">
+                        <input type="checkbox" id="selectAll" class="rounded border-gray-300 text-primary focus:ring-primary">
+                    </th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profile</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registered</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
             </thead>
-            <tbody class="divide-y divide-gray-200" id="usersTableBody">
+            <tbody class="divide-y divide-gray-200 bg-white">
                 @foreach($users as $user)
-                <tr class="hover:bg-gray-50 transition-colors" data-user-id="{{ $user->id }}">
-                    <td class="py-3 px-6">
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3 whitespace-nowrap">
                         <input type="checkbox" class="row-checkbox rounded border-gray-300 text-primary focus:ring-primary" value="{{ $user->id }}">
                     </td>
-                    <td class="py-3 px-6">
+                    <td class="px-4 py-3 whitespace-nowrap">
                         <span class="text-sm font-mono text-gray-600">#{{ str_pad($user->id, 5, '0', STR_PAD_LEFT) }}</span>
                     </td>
-                    <td class="py-3 px-6">
+                    <td class="px-4 py-3 whitespace-nowrap">
                         <div class="flex items-center">
                             <img src="{{ $user->profile_picture ? asset('storage/'.$user->profile_picture) : 'https://ui-avatars.com/api/?name=' . urlencode($user->name) . '&background=B91C1C&color=fff' }}"
-                                 class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm">
+                                 class="w-8 h-8 rounded-full object-cover border border-gray-200">
                         </div>
                     </td>
-                    <td class="py-3 px-6">
+                    <td class="px-4 py-3">
                         <div>
                             <p class="font-medium text-gray-800">{{ $user->name }}</p>
                             @if($user->bio)
-                            <p class="text-xs text-gray-500 mt-1 truncate max-w-xs">{{ Str::limit($user->bio, 40) }}</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ Str::limit($user->bio, 50) }}</p>
                             @endif
                         </div>
                     </td>
-                    <td class="py-3 px-6">
+                    <td class="px-4 py-3">
                         <div>
-                            <a href="mailto:{{ $user->email }}" class="text-primary hover:text-primary-dark font-medium">
+                            <a href="mailto:{{ $user->email }}" class="text-primary hover:text-primary-dark text-sm">
                                 {{ $user->email }}
                             </a>
                             <div class="flex items-center mt-1">
@@ -190,7 +188,7 @@
                             </div>
                         </div>
                     </td>
-                    <td class="py-3 px-6">
+                    <td class="px-4 py-3 whitespace-nowrap">
                         @php
                             $roleColors = [
                                 1 => 'bg-purple-100 text-purple-800',
@@ -215,24 +213,24 @@
                                 9 => 'Website'
                             ];
                         @endphp
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium {{ $roleColors[$user->role] ?? 'bg-gray-100 text-gray-800' }}">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $roleColors[$user->role] ?? 'bg-gray-100 text-gray-800' }}">
                             {{ $roleNames[$user->role] ?? 'Unknown' }}
                         </span>
                     </td>
-                    <td class="py-3 px-6">
+                    <td class="px-4 py-3 whitespace-nowrap">
                         @if($user->is_approved)
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             <i class="fas fa-check-circle mr-1"></i>
                             Active
                         </span>
                         @else
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                             <i class="fas fa-clock mr-1"></i>
                             Pending
                         </span>
                         @endif
                     </td>
-                    <td class="py-3 px-6">
+                    <td class="px-4 py-3 whitespace-nowrap">
                         <div class="text-sm text-gray-600">
                             {{ $user->created_at->format('M j, Y') }}
                         </div>
@@ -240,29 +238,28 @@
                             {{ $user->created_at->format('g:i A') }}
                         </div>
                     </td>
-                    <td class="py-3 px-6">
-                        <div class="flex items-center space-x-2">
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <div class="flex items-center space-x-1">
                             <button onclick="viewUser({{ $user->id }})"
-                                    class="p-2 text-gray-600 hover:text-primary hover:bg-gray-100 rounded-lg transition-colors view-user-btn"
-                                    data-tooltip="View Details"
-                                    data-user-id="{{ $user->id }}">
+                                    class="p-1.5 text-gray-600 hover:text-primary hover:bg-gray-100 rounded-lg transition-colors"
+                                    title="View Details">
                                 <i class="fas fa-eye"></i>
                             </button>
                             <button onclick="editUser({{ $user->id }})"
-                                    class="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded-lg transition-colors edit-user-btn"
-                                    data-tooltip="Edit User"
-                                    data-user-id="{{ $user->id }}">
+                                    class="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                    title="Edit User">
                                 <i class="fas fa-edit"></i>
                             </button>
                             <div class="relative">
                                 <button onclick="toggleActionMenu('{{ $user->id }}')"
-                                        class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors">
+                                        class="p-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                                        title="More Actions">
                                     <i class="fas fa-ellipsis-v"></i>
                                 </button>
                                 <div id="actionMenu-{{ $user->id }}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-10">
                                     <div class="py-1">
                                         @if(!$user->is_approved)
-                                        <button onclick="approveUser('{{ $user->id }}')"
+                                        <button onclick="approveUser({{ $user->id }})"
                                                 class="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-gray-50 flex items-center">
                                             <i class="fas fa-check mr-2"></i>
                                             Approve User
@@ -283,28 +280,21 @@
                                 </div>
                             </div>
                         </div>
-                     </td>
+                    </td>
                 </tr>
                 @endforeach
             </tbody>
         </table>
     </div>
 
-    <!-- Table Footer -->
+    <!-- Table Footer with Pagination -->
     <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
         <div class="flex items-center justify-between">
             <div class="text-sm text-gray-600">
-                @if($users instanceof \Illuminate\Pagination\LengthAwarePaginator)
-                    Showing <span class="font-medium">{{ $users->firstItem() }}</span> to
-                    <span class="font-medium">{{ $users->lastItem() }}</span> of
-                    <span class="font-medium">{{ $users->total() }}</span> users
-                @else
-                    Showing <span class="font-medium">1</span> to
-                    <span class="font-medium">{{ count($users) }}</span> of
-                    <span class="font-medium">{{ count($users) }}</span> users
-                @endif
+                Showing <span class="font-medium">{{ $users->firstItem() ?? 0 }}</span> to
+                <span class="font-medium">{{ $users->lastItem() ?? 0 }}</span> of
+                <span class="font-medium">{{ $users->total() ?? 0 }}</span> users
             </div>
-            @if($users instanceof \Illuminate\Pagination\LengthAwarePaginator)
             <div class="flex items-center space-x-2">
                 @if($users->onFirstPage())
                     <span class="px-3 py-1 border border-gray-300 rounded-lg text-gray-400 bg-gray-100 cursor-not-allowed">
@@ -328,7 +318,6 @@
                     </span>
                 @endif
             </div>
-            @endif
         </div>
     </div>
 </div>
@@ -340,7 +329,6 @@
         <div class="flex items-center space-x-2">
             <select id="bulkAction" class="px-3 py-1 border border-gray-300 rounded-lg text-sm">
                 <option value="">Select Action</option>
-                <option value="approve">Approve Selected</option>
                 <option value="activate">Activate Selected</option>
                 <option value="deactivate">Deactivate Selected</option>
                 <option value="delete">Delete Selected</option>
@@ -355,6 +343,7 @@
     </div>
 </div>
 
+<!-- Modals (Add User, View User, Edit User, Delete, Approve Role) -->
 <!-- Add User Modal -->
 <div id="addUserModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
@@ -430,9 +419,8 @@
         <span class="hidden sm:inline-block sm:align-middle sm:h-screen"></span>
         <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full modal-content">
             <div class="bg-white px-6 pt-5 pb-4" id="viewUserContent">
-                <!-- Content loaded via AJAX -->
                 <div class="flex justify-center items-center py-12">
-                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                    <div class="loading-spinner"></div>
                 </div>
             </div>
             <div class="bg-gray-50 px-6 py-4 flex justify-end">
@@ -452,9 +440,8 @@
         <span class="hidden sm:inline-block sm:align-middle sm:h-screen"></span>
         <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full modal-content">
             <div class="bg-white px-6 pt-5 pb-4" id="editUserContent">
-                <!-- Content loaded via AJAX -->
                 <div class="flex justify-center items-center py-12">
-                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                    <div class="loading-spinner"></div>
                 </div>
             </div>
         </div>
@@ -474,7 +461,7 @@
                     </div>
                     <div>
                         <h3 class="text-lg font-semibold text-gray-800">Confirm Delete</h3>
-                        <p class="text-sm text-gray-600 mt-1">This action cannot be undone.</p>
+                        <p class="text-sm text-gray-600 mt-1">This action cannot be undone</p>
                     </div>
                 </div>
                 <p class="text-gray-700" id="deleteMessage"></p>
@@ -497,25 +484,86 @@
     </div>
 </div>
 
+<!-- Approve User Role Selection Modal -->
+<div id="approveRoleModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity modal-overlay" onclick="closeApproveRoleModal()"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen"></span>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full modal-content">
+            <div class="bg-white px-6 pt-5 pb-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">Assign User Role</h3>
+                    <button onclick="closeApproveRoleModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="mb-4">
+                    <div class="flex items-center space-x-3 p-3 bg-blue-50 rounded-lg mb-4">
+                        <i class="fas fa-info-circle text-blue-500 text-lg"></i>
+                        <p class="text-sm text-blue-700">Role assignment determines dashboard access and system permissions</p>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Select Role <span class="text-red-500">*</span></label>
+                        <select id="approveRoleSelect" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="">Select a role</option>
+                            <option value="1">Main School</option>
+                            <option value="2">Administrator</option>
+                            <option value="3">Scholarship</option>
+                            <option value="4">Library</option>
+                            <option value="5">Student</option>
+                            <option value="6">Cafeteria</option>
+                            <option value="7">Finance</option>
+                            <option value="8">Trainers</option>
+                            <option value="9">Website</option>
+                        </select>
+                    </div>
+                    <div id="roleDescription" class="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg hidden">
+                        <i class="fas fa-arrow-right text-primary mr-2"></i>
+                        <span id="roleDescriptionText"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
+                <button onclick="closeApproveRoleModal()"
+                        class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                    Cancel
+                </button>
+                <button onclick="submitApprovalWithRole()"
+                        class="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors">
+                    <i class="fas fa-check mr-2"></i>
+                    Approve User
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
-    // Modal management functions
+    // CSRF Token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    let currentApprovingUserId = null;
+
+    // Role descriptions
+    const roleDescriptions = {
+        1: 'Main School dashboard - Manage courses, students, certificates, and academic operations',
+        2: 'Administrator dashboard - Full system access, user management, and settings',
+        3: 'Scholarship dashboard - Manage scholarship applications and awards',
+        4: 'Library dashboard - Manage books, ebooks, members, and library operations',
+        5: 'Student dashboard - View courses, enrollments, fees, and academic progress',
+        6: 'Cafeteria dashboard - Manage products, sales, inventory, and orders',
+        7: 'Finance dashboard - Manage payments, transactions, and financial reports',
+        8: 'Trainers dashboard - Manage training programs and participant registrations',
+        9: 'Website dashboard - Manage content, pages, blogs, and website settings'
+    };
+
+    // Modal Functions
     function openModal(modalId, size = 'md') {
         const modal = document.getElementById(modalId);
         if (modal) {
             modal.classList.remove('hidden');
             document.body.style.overflow = 'hidden';
-
-            // Adjust modal size if needed
-            const content = modal.querySelector('.modal-content');
-            if (content) {
-                if (size === 'lg') {
-                    content.classList.add('sm:max-w-2xl');
-                } else if (size === 'md') {
-                    content.classList.add('sm:max-w-lg');
-                } else if (size === 'xl') {
-                    content.classList.add('sm:max-w-4xl');
-                }
-            }
         }
     }
 
@@ -527,18 +575,79 @@
         }
     }
 
-    // View User Function
-    async function viewUser(userId) {
-        openModal('viewUserModal', 'lg');
+    // Approve User Functions
+    function approveUser(userId) {
+        currentApprovingUserId = userId;
+        const modal = document.getElementById('approveRoleModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            const roleSelect = document.getElementById('approveRoleSelect');
+            const roleDescription = document.getElementById('roleDescription');
+            if (roleSelect) roleSelect.value = '';
+            if (roleDescription) roleDescription.classList.add('hidden');
+        }
+    }
 
-        try {
-            const response = await fetch(`/admin/users/${userId}`, {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
+    function closeApproveRoleModal() {
+        const modal = document.getElementById('approveRoleModal');
+        if (modal) {
+            modal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+            currentApprovingUserId = null;
+        }
+    }
+
+    // Role description change handler
+    document.addEventListener('DOMContentLoaded', function() {
+        const roleSelect = document.getElementById('approveRoleSelect');
+        if (roleSelect) {
+            roleSelect.addEventListener('change', function() {
+                const roleDescription = document.getElementById('roleDescription');
+                const roleDescriptionText = document.getElementById('roleDescriptionText');
+                const selectedValue = this.value;
+
+                if (selectedValue && roleDescriptions[selectedValue]) {
+                    roleDescriptionText.textContent = roleDescriptions[selectedValue];
+                    roleDescription.classList.remove('hidden');
+                } else {
+                    roleDescription.classList.add('hidden');
                 }
             });
+        }
+    });
 
+    function submitApprovalWithRole() {
+        const roleSelect = document.getElementById('approveRoleSelect');
+        const selectedRole = roleSelect.value;
+
+        if (!selectedRole) {
+            showToast('Please select a role for this user', 'warning');
+            roleSelect.focus();
+            return;
+        }
+
+        if (currentApprovingUserId) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/admin/users/${currentApprovingUserId}/approve`;
+            form.innerHTML = `
+                <input type="hidden" name="_token" value="${csrfToken}">
+                <input type="hidden" name="_method" value="PUT">
+                <input type="hidden" name="role" value="${selectedRole}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+
+    // View User
+    async function viewUser(userId) {
+        openModal('viewUserModal', 'lg');
+        try {
+            const response = await fetch(`/admin/users/${userId}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+            });
             if (response.ok) {
                 const user = await response.json();
                 displayUserInModal(user);
@@ -546,101 +655,45 @@
                 throw new Error('Failed to load user data');
             }
         } catch (error) {
-            console.error('Error:', error);
-            document.getElementById('viewUserContent').innerHTML = `
-                <div class="text-center py-8">
-                    <i class="fas fa-exclamation-circle text-red-500 text-5xl mb-4"></i>
-                    <p class="text-gray-600">Failed to load user data. Please try again.</p>
-                </div>
-            `;
+            document.getElementById('viewUserContent').innerHTML = `<div class="text-center py-8 text-red-500">Error loading user data</div>`;
         }
     }
 
     function displayUserInModal(user) {
-        const roleNames = {
-            1: 'Main School', 2: 'Admin', 3: 'Scholarship', 4: 'Library',
-            5: 'Student', 6: 'Cafeteria', 7: 'Finance', 8: 'Trainers', 9: 'Website'
-        };
-
-        const roleColors = {
-            1: 'bg-purple-100 text-purple-800', 2: 'bg-red-100 text-red-800',
-            3: 'bg-green-100 text-green-800', 4: 'bg-blue-100 text-blue-800',
-            5: 'bg-indigo-100 text-indigo-800', 6: 'bg-pink-100 text-pink-800',
-            7: 'bg-yellow-100 text-yellow-800', 8: 'bg-gray-100 text-gray-800',
-            9: 'bg-teal-100 text-teal-800'
-        };
-
+        const roleNames = { 1: 'Main School', 2: 'Admin', 3: 'Scholarship', 4: 'Library', 5: 'Student', 6: 'Cafeteria', 7: 'Finance', 8: 'Trainers', 9: 'Website' };
         const html = `
-            <div class="flex items-center justify-between mb-6">
-                <h3 class="text-xl font-semibold text-gray-800">User Details</h3>
-                <button onclick="closeModal('viewUserModal')" class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times"></i>
-                </button>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">User Details</h3>
+                <button onclick="closeModal('viewUserModal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
             </div>
-
-            <div class="flex items-start space-x-6 mb-6">
-                <img src="${user.profile_picture ? '/storage/' + user.profile_picture : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.name) + '&background=B91C1C&color=fff&size=128'}"
-                     class="w-24 h-24 rounded-full object-cover border-4 border-gray-200">
-                <div class="flex-1">
-                    <h4 class="text-2xl font-bold text-gray-800">${escapeHtml(user.name)}</h4>
-                    <p class="text-gray-600 mt-1">${escapeHtml(user.email)}</p>
-                    ${user.phone_number ? `<p class="text-gray-600 mt-1"><i class="fas fa-phone mr-2"></i>${escapeHtml(user.phone_number)}</p>` : ''}
-                    <div class="mt-3">
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${roleColors[user.role] || 'bg-gray-100 text-gray-800'}">
-                            ${roleNames[user.role] || 'Unknown'}
-                        </span>
-                        ${user.is_approved ?
-                            '<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2"><i class="fas fa-check-circle mr-1"></i>Active</span>' :
-                            '<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 ml-2"><i class="fas fa-clock mr-1"></i>Pending</span>'
-                        }
+            <div class="space-y-4">
+                <div class="flex items-center space-x-4">
+                    <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=B91C1C&color=fff&size=100" class="w-20 h-20 rounded-full">
+                    <div>
+                        <h4 class="text-xl font-bold">${escapeHtml(user.name)}</h4>
+                        <p class="text-gray-600">${escapeHtml(user.email)}</p>
+                        <p class="text-gray-600">${user.phone_number || 'No phone number'}</p>
                     </div>
                 </div>
-            </div>
-
-            <div class="border-t border-gray-200 pt-4">
-                <h5 class="font-semibold text-gray-800 mb-3">Additional Information</h5>
                 <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <p class="text-sm text-gray-500">User ID</p>
-                        <p class="font-mono text-gray-800">#${String(user.id).padStart(5, '0')}</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-gray-500">Email Status</p>
-                        <p class="text-gray-800">${user.email_verified_at ? 'Verified' : 'Unverified'}</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-gray-500">Registered On</p>
-                        <p class="text-gray-800">${new Date(user.created_at).toLocaleDateString()}</p>
-                    </div>
-                    <div>
-                        <p class="text-sm text-gray-500">Last Updated</p>
-                        <p class="text-gray-800">${new Date(user.updated_at).toLocaleDateString()}</p>
-                    </div>
+                    <div><label class="font-semibold">Role:</label> ${roleNames[user.role] || 'Unknown'}</div>
+                    <div><label class="font-semibold">Status:</label> ${user.is_approved ? 'Active' : 'Pending'}</div>
+                    <div><label class="font-semibold">Email Verified:</label> ${user.email_verified_at ? 'Yes' : 'No'}</div>
+                    <div><label class="font-semibold">Member Since:</label> ${new Date(user.created_at).toLocaleDateString()}</div>
                 </div>
-                ${user.bio ? `
-                <div class="mt-4">
-                    <p class="text-sm text-gray-500">Bio</p>
-                    <p class="text-gray-700 mt-1">${escapeHtml(user.bio)}</p>
-                </div>
-                ` : ''}
+                ${user.bio ? `<div><label class="font-semibold">Bio:</label><p>${escapeHtml(user.bio)}</p></div>` : ''}
             </div>
         `;
-
         document.getElementById('viewUserContent').innerHTML = html;
     }
 
-    // Edit User Function
+    // Edit User
     async function editUser(userId) {
         openModal('editUserModal', 'md');
-
         try {
             const response = await fetch(`/admin/users/${userId}/edit`, {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
-                }
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
             });
-
             if (response.ok) {
                 const user = await response.json();
                 displayEditForm(user);
@@ -648,102 +701,52 @@
                 throw new Error('Failed to load user data');
             }
         } catch (error) {
-            console.error('Error:', error);
-            document.getElementById('editUserContent').innerHTML = `
-                <div class="text-center py-8">
-                    <i class="fas fa-exclamation-circle text-red-500 text-5xl mb-4"></i>
-                    <p class="text-gray-600">Failed to load edit form. Please try again.</p>
-                    <button onclick="closeModal('editUserModal')" class="mt-4 px-4 py-2 bg-gray-500 text-white rounded-lg">Close</button>
-                </div>
-            `;
+            document.getElementById('editUserContent').innerHTML = `<div class="text-center py-8 text-red-500">Error loading edit form</div>`;
         }
     }
 
     function displayEditForm(user) {
-        const roleNames = {
-            1: 'Main School', 2: 'Admin', 3: 'Scholarship', 4: 'Library',
-            5: 'Student', 6: 'Cafeteria', 7: 'Finance', 8: 'Trainers', 9: 'Website'
-        };
-
+        const roleNames = { 1: 'Main School', 2: 'Admin', 3: 'Scholarship', 4: 'Library', 5: 'Student', 6: 'Cafeteria', 7: 'Finance', 8: 'Trainers', 9: 'Website' };
         const html = `
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold text-gray-800">Edit User</h3>
-                <button onclick="closeModal('editUserModal')" class="text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times"></i>
-                </button>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">Edit User</h3>
+                <button onclick="closeModal('editUserModal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
             </div>
-
             <form id="editUserForm" method="POST" action="/admin/users/${user.id}">
-                @csrf
-                @method('PUT')
+                <input type="hidden" name="_token" value="${csrfToken}">
+                <input type="hidden" name="_method" value="PUT">
                 <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
-                        <input type="text" name="name" required value="${escapeHtml(user.name)}"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
-                        <input type="email" name="email" required value="${escapeHtml(user.email)}"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
-                        <input type="text" name="phone_number" value="${user.phone_number ? escapeHtml(user.phone_number) : ''}"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Role *</label>
-                        <select name="role" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
-                            ${Object.entries(roleNames).map(([value, label]) =>
-                                `<option value="${value}" ${user.role == value ? 'selected' : ''}>${label}</option>`
-                            ).join('')}
+                    <div><label class="block font-medium mb-1">Full Name</label><input type="text" name="name" value="${escapeHtml(user.name)}" class="w-full border rounded-lg px-3 py-2" required></div>
+                    <div><label class="block font-medium mb-1">Email</label><input type="email" name="email" value="${escapeHtml(user.email)}" class="w-full border rounded-lg px-3 py-2" required></div>
+                    <div><label class="block font-medium mb-1">Phone Number</label><input type="text" name="phone_number" value="${user.phone_number || ''}" class="w-full border rounded-lg px-3 py-2"></div>
+                    <div><label class="block font-medium mb-1">Role</label>
+                        <select name="role" class="w-full border rounded-lg px-3 py-2">
+                            ${Object.entries(roleNames).map(([val, label]) => `<option value="${val}" ${user.role == val ? 'selected' : ''}>${label}</option>`).join('')}
                         </select>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Bio</label>
-                        <textarea name="bio" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">${user.bio ? escapeHtml(user.bio) : ''}</textarea>
-                    </div>
+                    <div><label class="block font-medium mb-1">Bio</label><textarea name="bio" rows="3" class="w-full border rounded-lg px-3 py-2">${user.bio || ''}</textarea></div>
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" onclick="closeModal('editUserModal')" class="px-4 py-2 border rounded-lg">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg">Update User</button>
                 </div>
             </form>
-
-            <div class="mt-6 flex justify-end space-x-3">
-                <button onclick="closeModal('editUserModal')"
-                        class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                    Cancel
-                </button>
-                <button onclick="submitEditForm()"
-                        class="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors">
-                    Update User
-                </button>
-            </div>
         `;
-
         document.getElementById('editUserContent').innerHTML = html;
-    }
 
-    function submitEditForm() {
-        const form = document.getElementById('editUserForm');
-        const formData = new FormData(form);
-
-        fetch(form.action, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        }).then(response => {
-            if (response.ok) {
-                showToast('User updated successfully!', 'success');
-                closeModal('editUserModal');
-                setTimeout(() => location.reload(), 1500);
-            } else {
-                response.json().then(data => {
-                    showToast(data.message || 'Error updating user', 'error');
+        document.getElementById('editUserForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            fetch(this.action, { method: 'POST', body: formData })
+                .then(response => {
+                    if (response.ok) {
+                        showToast('User updated successfully', 'success');
+                        closeModal('editUserModal');
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        showToast('Error updating user', 'error');
+                    }
                 });
-            }
-        }).catch(error => {
-            showToast('An error occurred. Please try again.', 'error');
         });
     }
 
@@ -753,46 +756,10 @@
         return div.innerHTML;
     }
 
-    // Initialize table functionality
-    document.addEventListener('DOMContentLoaded', function() {
-        // Row selection
-        const selectAll = document.getElementById('selectAll');
-        const checkboxes = document.querySelectorAll('.row-checkbox');
-
-        selectAll?.addEventListener('change', function() {
-            checkboxes.forEach(cb => cb.checked = this.checked);
-            updateBulkActions();
-        });
-
-        checkboxes.forEach(cb => {
-            cb.addEventListener('change', updateBulkActions);
-        });
-
-        // Search functionality
-        const searchInput = document.getElementById('searchInput');
-        if (searchInput) {
-            searchInput.addEventListener('keyup', function() {
-                const searchTerm = this.value.toLowerCase();
-                const rows = document.querySelectorAll('#usersTableBody tr');
-
-                rows.forEach(row => {
-                    const name = row.querySelector('td:nth-child(4) .font-medium')?.textContent.toLowerCase() || '';
-                    const email = row.querySelector('td:nth-child(5) a')?.textContent.toLowerCase() || '';
-
-                    if (name.includes(searchTerm) || email.includes(searchTerm)) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
-            });
-        }
-    });
-
+    // Table Functions
     function updateBulkActions() {
         const selected = document.querySelectorAll('.row-checkbox:checked').length;
         const bulkActions = document.getElementById('bulkActions');
-
         if (selected > 0) {
             document.getElementById('selectedCount').textContent = `${selected} user${selected > 1 ? 's' : ''} selected`;
             bulkActions.classList.remove('hidden');
@@ -803,48 +770,15 @@
 
     function clearSelection() {
         document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
-        if (document.getElementById('selectAll')) {
-            document.getElementById('selectAll').checked = false;
-        }
+        const selectAll = document.getElementById('selectAll');
+        if (selectAll) selectAll.checked = false;
         updateBulkActions();
     }
 
     function toggleActionMenu(userId) {
         const menu = document.getElementById(`actionMenu-${userId}`);
-        const allMenus = document.querySelectorAll('[id^="actionMenu-"]');
-
-        allMenus.forEach(m => {
-            if (m.id !== `actionMenu-${userId}`) {
-                m.classList.add('hidden');
-            }
-        });
-
-        if (menu) {
-            menu.classList.toggle('hidden');
-        }
-    }
-
-    // Close action menus when clicking elsewhere
-    document.addEventListener('click', function(e) {
-        if (!e.target.closest('[id^="actionMenu-"]') && !e.target.closest('[onclick*="toggleActionMenu"]')) {
-            document.querySelectorAll('[id^="actionMenu-"]').forEach(menu => {
-                menu.classList.add('hidden');
-            });
-        }
-    });
-
-    function approveUser(userId) {
-        if (confirm('Are you sure you want to approve this user?')) {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = `/admin/users/${userId}/approve`;
-            form.innerHTML = `
-                @csrf
-                @method('PUT')
-            `;
-            document.body.appendChild(form);
-            form.submit();
-        }
+        document.querySelectorAll('[id^="actionMenu-"]').forEach(m => { if (m.id !== `actionMenu-${userId}`) m.classList.add('hidden'); });
+        if (menu) menu.classList.toggle('hidden');
     }
 
     function toggleStatus(userId, newStatus) {
@@ -853,65 +787,34 @@
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = `/admin/users/${userId}/status`;
-            form.innerHTML = `
-                @csrf
-                @method('PUT')
-                <input type="hidden" name="is_approved" value="${newStatus}">
-            `;
+            form.innerHTML = `<input type="hidden" name="_token" value="${csrfToken}"><input type="hidden" name="_method" value="PUT"><input type="hidden" name="is_approved" value="${newStatus}">`;
             document.body.appendChild(form);
             form.submit();
         }
     }
 
     let currentDeleteUserId = null;
-
     function deleteUser(userId) {
         currentDeleteUserId = userId;
-        const form = document.getElementById('deleteForm');
-        form.action = `/admin/users/${userId}`;
-        document.getElementById('deleteMessage').textContent =
-            'Are you sure you want to delete this user? This action cannot be undone.';
+        document.getElementById('deleteForm').action = `/admin/users/${userId}`;
+        document.getElementById('deleteMessage').textContent = 'Are you sure you want to delete this user? This action cannot be undone.';
         openModal('deleteModal', 'md');
     }
 
     function confirmDelete() {
-        if (currentDeleteUserId) {
-            document.getElementById('deleteForm').submit();
-        }
+        if (currentDeleteUserId) document.getElementById('deleteForm').submit();
     }
 
     function applyBulkAction() {
         const action = document.getElementById('bulkAction').value;
-        const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked'))
-            .map(cb => cb.value);
-
-        if (!action) {
-            showToast('Please select an action', 'warning');
-            return;
-        }
-
-        if (selectedIds.length === 0) {
-            showToast('Please select at least one user', 'warning');
-            return;
-        }
-
-        const actionText = {
-            'approve': 'approve',
-            'activate': 'activate',
-            'deactivate': 'deactivate',
-            'delete': 'delete'
-        };
-
-        if (confirm(`Are you sure you want to ${actionText[action]} ${selectedIds.length} user(s)?`)) {
+        const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
+        if (!action) { showToast('Please select an action', 'warning'); return; }
+        if (selectedIds.length === 0) { showToast('Please select at least one user', 'warning'); return; }
+        if (confirm(`Are you sure you want to ${action} ${selectedIds.length} user(s)?`)) {
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = '/admin/users/bulk-actions';
-            form.innerHTML = `
-                @csrf
-                @method('POST')
-                <input type="hidden" name="action" value="${action}">
-                ${selectedIds.map(id => `<input type="hidden" name="user_ids[]" value="${id}">`).join('')}
-            `;
+            form.innerHTML = `<input type="hidden" name="_token" value="${csrfToken}"><input type="hidden" name="action" value="${action}">${selectedIds.map(id => `<input type="hidden" name="user_ids[]" value="${id}">`).join('')}`;
             document.body.appendChild(form);
             form.submit();
         }
@@ -920,86 +823,72 @@
     function submitForm(formId, loadingText) {
         const form = document.getElementById(formId);
         const submitBtn = event.target;
-        const originalText = submitBtn.innerHTML;
-
         submitBtn.disabled = true;
         submitBtn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>${loadingText}`;
-
         form.submit();
     }
 
-    function showToast(message, type = 'info') {
-        // Create toast element
+    function showToast(message, type = 'success') {
+        const toastContainer = document.getElementById('toastContainer');
+        if (!toastContainer) return;
         const toast = document.createElement('div');
-        toast.className = `fixed bottom-4 right-4 px-6 py-3 rounded-lg text-white z-50 animate-slide-up ${
-            type === 'success' ? 'bg-green-500' :
-            type === 'error' ? 'bg-red-500' :
-            type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'
-        }`;
-        toast.innerHTML = `
-            <div class="flex items-center">
-                <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'} mr-2"></i>
-                <span>${message}</span>
-            </div>
-        `;
-
-        document.body.appendChild(toast);
-
-        setTimeout(() => {
-            toast.style.opacity = '0';
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
+        const colors = { success: 'bg-green-50 border-green-500 text-green-600', error: 'bg-red-50 border-red-500 text-red-600', warning: 'bg-yellow-50 border-yellow-500 text-yellow-600', info: 'bg-blue-50 border-blue-500 text-blue-600' };
+        toast.className = `p-3 mb-2 rounded-lg border-l-4 ${colors[type] || colors.info} shadow-lg`;
+        toast.innerHTML = `<div class="flex items-center"><i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'} mr-2"></i><span>${message}</span></div>`;
+        toastContainer.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
     }
 
-    function exportToExcel() {
-        showToast('Export functionality will be implemented soon', 'info');
-    }
+    function exportToExcel() { showToast('Export functionality coming soon', 'info'); }
+    function refreshTable() { location.reload(); }
 
-    function refreshTable() {
-        location.reload();
-    }
-
-    // Add animation styles
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideUp {
-            from {
-                transform: translateY(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
+    // Event Listeners
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectAll = document.getElementById('selectAll');
+        if (selectAll) {
+            selectAll.addEventListener('change', function() {
+                document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = this.checked);
+                updateBulkActions();
+            });
         }
+        document.querySelectorAll('.row-checkbox').forEach(cb => cb.addEventListener('change', updateBulkActions));
 
-        .animate-slide-up {
-            animation: slideUp 0.3s ease-out;
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('keyup', function() {
+                const term = this.value.toLowerCase();
+                document.querySelectorAll('#usersTable tbody tr').forEach(row => {
+                    const name = row.querySelector('td:nth-child(4) .font-medium')?.textContent.toLowerCase() || '';
+                    const email = row.querySelector('td:nth-child(5) a')?.textContent.toLowerCase() || '';
+                    row.style.display = (name.includes(term) || email.includes(term)) ? '' : 'none';
+                });
+            });
         }
+    });
 
-        #usersTable {
-            min-width: 1200px;
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('[id^="actionMenu-"]') && !e.target.closest('[onclick*="toggleActionMenu"]')) {
+            document.querySelectorAll('[id^="actionMenu-"]').forEach(menu => menu.classList.add('hidden'));
         }
-
-        @media (max-width: 768px) {
-            #usersTable {
-                min-width: 100%;
-            }
-        }
-
-        .row-checkbox:checked {
-            background-color: #B91C1C;
-            border-color: #B91C1C;
-        }
-
-        #bulkActions {
-            z-index: 40;
-        }
-
-        .modal-overlay {
-            background-color: rgba(0, 0, 0, 0.5);
-        }
-    `;
-    document.head.appendChild(style);
+    });
 </script>
+
+<style>
+    .loading-spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #B91C1C;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    .modal-overlay {
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+    }
+</style>
 @endsection

@@ -7,7 +7,7 @@
         <h1 class="text-2xl md:text-3xl font-bold text-gray-800 mb-4 md:mb-0">Contact Messages</h1>
         <div class="flex gap-3">
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-                Unread: {{ $unreadCount }}
+                Pending: {{ $unreadCount ?? 0 }}
             </span>
             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary text-white">
                 Total: {{ $messages->count() }}
@@ -32,11 +32,11 @@
                     </thead>
                     <tbody class="divide-y divide-gray-200">
                         @forelse($messages as $message)
-                        <tr class="{{ $message->is_seen ? '' : 'bg-yellow-50' }} hover:bg-gray-50">
+                        <tr class="{{ $message->status === 'pending' ? 'bg-yellow-50' : '' }} hover:bg-gray-50">
                             <td class="px-4 py-3">
                                 <div class="flex items-center">
                                     <strong class="text-gray-900">{{ $message->name }}</strong>
-                                    @if(!$message->is_seen)
+                                    @if($message->status === 'pending')
                                     <span class="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                                         New
                                     </span>
@@ -68,8 +68,18 @@
                                 </div>
                             </td>
                             <td class="px-4 py-3">
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-{{ $message->action_badge }}">
-                                    {{ $message->action ? ucfirst($message->action) : 'No Action' }}
+                                @php
+                                    $statusColors = [
+                                        'pending' => 'warning',
+                                        'viewed' => 'info',
+                                        'replied' => 'success',
+                                        'resolved' => 'primary',
+                                        'archived' => 'secondary'
+                                    ];
+                                    $color = $statusColors[$message->status] ?? 'secondary';
+                                @endphp
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-{{ $color }}-100 text-{{ $color }}-800">
+                                    {{ ucfirst($message->status) }}
                                 </span>
                             </td>
                             <td class="px-4 py-3 text-sm text-gray-900">
@@ -91,24 +101,38 @@
                                         <div id="dropdown-{{ $message->id }}"
                                              class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 hidden z-10">
                                             <div class="py-1">
+                                                @if($message->status !== 'viewed')
                                                 <a href="#"
-                                                   onclick="markAsSeen('{{ $message->id }}', true)"
+                                                   onclick="updateStatus('{{ $message->id }}', 'viewed')"
                                                    class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                                     <i class="fas fa-check mr-2 text-green-600"></i>
-                                                    Mark as Read
+                                                    Mark as Viewed
                                                 </a>
+                                                @endif
+                                                @if($message->status !== 'replied')
                                                 <a href="#"
-                                                   onclick="updateAction('{{ $message->id }}', 'responded')"
+                                                   onclick="updateStatus('{{ $message->id }}', 'replied')"
                                                    class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                                     <i class="fas fa-reply mr-2 text-blue-600"></i>
-                                                    Mark as Responded
+                                                    Mark as Replied
                                                 </a>
+                                                @endif
+                                                @if($message->status !== 'resolved')
                                                 <a href="#"
-                                                   onclick="updateAction('{{ $message->id }}', 'pending')"
+                                                   onclick="updateStatus('{{ $message->id }}', 'resolved')"
                                                    class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                                    <i class="fas fa-clock mr-2 text-yellow-600"></i>
-                                                    Mark as Pending
+                                                    <i class="fas fa-check-double mr-2 text-purple-600"></i>
+                                                    Mark as Resolved
                                                 </a>
+                                                @endif
+                                                @if($message->status !== 'archived')
+                                                <a href="#"
+                                                   onclick="updateStatus('{{ $message->id }}', 'archived')"
+                                                   class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                    <i class="fas fa-archive mr-2 text-gray-600"></i>
+                                                    Archive
+                                                </a>
+                                                @endif
                                                 <div class="border-t border-gray-200 my-1"></div>
                                                 <a href="#"
                                                    onclick="deleteMessage('{{ $message->id }}')"
@@ -161,8 +185,8 @@
                                             <p class="text-gray-900">{{ $message->created_at->format('M j, Y g:i A') }}</p>
                                         </div>
                                         <div>
-                                            <label class="block text-sm font-medium text-gray-700 mb-1">IP Address</label>
-                                            <p class="text-gray-900">{{ $message->ip_address }}</p>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                            <p class="text-gray-900">{{ ucfirst($message->status) }}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -197,19 +221,14 @@
     </div>
 </div>
 
-<!-- Action Forms -->
-<form id="seenForm" method="POST" style="display: none;">
+<!-- Status Update Form -->
+<form id="statusForm" method="POST" style="display: none;">
     @csrf
     @method('PUT')
-    <input type="hidden" name="is_seen" id="isSeenInput">
+    <input type="hidden" name="status" id="statusInput">
 </form>
 
-<form id="actionForm" method="POST" style="display: none;">
-    @csrf
-    @method('PUT')
-    <input type="hidden" name="action" id="actionInput">
-</form>
-
+<!-- Delete Form -->
 <form id="deleteForm" method="POST" style="display: none;">
     @csrf
     @method('DELETE')
@@ -224,7 +243,6 @@ function toggleDropdown(dropdownId) {
 function openMessageModal(messageId) {
     const modal = document.getElementById(`messageModal${messageId}`);
     modal.classList.remove('hidden');
-    markAsSeen(messageId, true);
 }
 
 function closeMessageModal(messageId) {
@@ -232,17 +250,10 @@ function closeMessageModal(messageId) {
     modal.classList.add('hidden');
 }
 
-function markAsSeen(messageId, isSeen) {
-    const form = document.getElementById('seenForm');
+function updateStatus(messageId, status) {
+    const form = document.getElementById('statusForm');
     form.action = `/admin/messages/${messageId}`;
-    document.getElementById('isSeenInput').value = isSeen ? 1 : 0;
-    form.submit();
-}
-
-function updateAction(messageId, action) {
-    const form = document.getElementById('actionForm');
-    form.action = `/admin/messages/${messageId}`;
-    document.getElementById('actionInput').value = action;
+    document.getElementById('statusInput').value = status;
     form.submit();
 }
 
@@ -256,7 +267,7 @@ function deleteMessage(messageId) {
 
 // Close dropdowns when clicking outside
 document.addEventListener('click', function(event) {
-    if (!event.target.matches('.relative button')) {
+    if (!event.target.closest('.relative')) {
         document.querySelectorAll('[id^="dropdown-"]').forEach(dropdown => {
             dropdown.classList.add('hidden');
         });
@@ -265,7 +276,7 @@ document.addEventListener('click', function(event) {
 
 // Close modals when clicking outside
 document.addEventListener('click', function(event) {
-    if (event.target.matches('.fixed.inset-0')) {
+    if (event.target.classList.contains('fixed') && event.target.classList.contains('inset-0')) {
         document.querySelectorAll('[id^="messageModal"]').forEach(modal => {
             modal.classList.add('hidden');
         });
@@ -274,9 +285,15 @@ document.addEventListener('click', function(event) {
 </script>
 
 <style>
-.bg-success { background-color: #10b981; }
-.bg-warning { background-color: #f59e0b; }
-.bg-danger { background-color: #ef4444; }
-.bg-light { background-color: #f8f9fa; }
+.bg-warning-100 { background-color: #fef3c7; }
+.bg-info-100 { background-color: #dbeafe; }
+.bg-success-100 { background-color: #d1fae5; }
+.bg-primary-100 { background-color: #fee2e2; }
+.bg-secondary-100 { background-color: #f3f4f6; }
+.text-warning-800 { color: #92400e; }
+.text-info-800 { color: #1e40af; }
+.text-success-800 { color: #065f46; }
+.text-primary-800 { color: #991b1b; }
+.text-secondary-800 { color: #374151; }
 </style>
 @endsection

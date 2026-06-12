@@ -119,7 +119,10 @@ class Student extends Model
     {
         return $this->belongsTo(Application::class);
     }
-
+ public function user()
+    {
+        return $this->hasOne(User::class, 'student_id', 'id');
+    }
     /**
      * Get the enrollments for the student.
      */

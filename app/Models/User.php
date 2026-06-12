@@ -34,6 +34,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'preferences',
         'last_login_at',
         'last_login_ip',
+        'student_id', // Add this
     ];
 
     protected $hidden = [
@@ -128,7 +129,10 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->role === self::ROLE_PRIVATE_SELLER;
     }
-
+public function student()
+{
+    return $this->belongsTo(\App\Models\Student::class, 'student_id');
+}
     public function hasPendingRoleRequest(): bool
     {
         return $this->role_approval_status === self::ROLE_APPROVAL_PENDING;

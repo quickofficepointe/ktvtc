@@ -1,10 +1,10 @@
 @extends('layouts.app')
 
 @section('title', 'Login | Student Portal - Kenswed Technical College')
-@section('meta_description', 'Access your Kenswed College student portal account. Login to manage courses, events, and academic information.')
-@section('meta_keywords', 'Kenswed login, student portal, college login, technical college portal, student account')
+@section('meta_description', 'Access your Kenswed College student portal account. Login using your email or student number to manage courses, events, and academic information.')
+@section('meta_keywords', 'Kenswed login, student portal, college login, technical college portal, student account, student number login')
 @section('og_title', 'Student Login | Kenswed College')
-@section('og_description', 'Access your student portal at Kenswed Technical and Vocational Training College')
+@section('og_description', 'Access your student portal at Kenswed Technical and Vocational Training College using your email or student number')
 @section('og_url', url()->current())
 @section('og_image', asset('Assets/images/Kenswed_logo.png'))
 @section('canonical', url()->current())
@@ -41,6 +41,15 @@
                 </div>
             @endif
 
+            @if(session('warning'))
+                <div class="mb-6 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-triangle text-yellow-500 mr-2"></i>
+                        <span class="text-yellow-700 text-sm">{{ session('warning') }}</span>
+                    </div>
+                </div>
+            @endif
+
             @if($errors->any())
                 <div class="mb-6 p-3 bg-red-50 border border-red-200 rounded-lg">
                     <div class="flex items-center">
@@ -57,17 +66,20 @@
             <form method="POST" action="{{ route('login') }}" class="space-y-6">
                 @csrf
 
-                <!-- Email -->
+                <!-- Email or Student Number -->
                 <div>
-                    <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                    <label for="login" class="block text-sm font-medium text-gray-700 mb-2">Email or Student Number</label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <i class="fas fa-envelope text-gray-400"></i>
+                            <i class="fas fa-user text-gray-400"></i>
                         </div>
-                        <input id="email" name="email" type="email" value="{{ old('email') }}" required autofocus
+                        <input id="login" name="login" type="text" value="{{ old('login') }}" required autofocus
                                class="pl-10 pr-4 py-3 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                               placeholder="student@example.com">
+                               placeholder="student@example.com or HD/01678">
                     </div>
+                    <p class="text-xs text-gray-500 mt-1">
+                        <i class="fas fa-info-circle"></i> Students: Use your student number (e.g., HD/01678) as username
+                    </p>
                 </div>
 
                 <!-- Password -->
@@ -90,6 +102,7 @@
                             <i class="fas fa-eye text-gray-600 hover:text-red-600"></i>
                         </button>
                     </div>
+                    
                 </div>
 
                 <!-- Remember Me -->
@@ -112,6 +125,9 @@
                         New student?
                         <a href="{{ route('register') }}" class="font-semibold text-red-600 hover:text-red-700 hover:underline">Create an account</a>
                     </p>
+                    <p class="text-xs text-gray-500 mt-2">
+                        <i class="fas fa-graduation-cap"></i> Existing students: Your account is automatically created using your student number
+                    </p>
                 </div>
             </form>
         </div>
@@ -122,12 +138,16 @@
                 Need help? Contact IT Support:
                 <a href="tel:+254790148509" class="text-red-600 hover:underline">+254 790 148 509</a>
             </p>
+            <p class="text-xs text-gray-500 mt-2">
+                <i class="fas fa-clock"></i> Support Hours: Monday-Friday, 8:00 AM - 5:00 PM
+            </p>
         </div>
     </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Password toggle functionality
     document.querySelectorAll('.password-toggle').forEach(function(btn) {
         btn.addEventListener('click', function() {
             const input = document.getElementById(this.getAttribute('data-target'));
@@ -144,6 +164,30 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // Auto-trim spaces from login input
+    const loginInput = document.getElementById('login');
+    if (loginInput) {
+        loginInput.addEventListener('input', function() {
+            this.value = this.value.trim();
+        });
+    }
 });
 </script>
+
+<style>
+/* Additional styles for better UX */
+input:focus {
+    outline: none;
+}
+
+.password-toggle {
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.password-toggle:hover i {
+    color: #dc2626;
+}
+</style>
 @endsection

@@ -298,7 +298,7 @@
     <div id="globalLoadingOverlay" class="fixed inset-0 bg-black/70 z-[100] hidden flex items-center justify-center">
         <div class="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center min-w-[280px]">
             <div class="loading-spinner mb-4"></div>
-            <p id="loadingMessage" class="text-gray-800 font-semibold text-lg">Processing...</p>
+            <p id="loadingMessage" class="text-gray-800 font-semibold text-lg">Processing</p>
             <p class="text-gray-500 text-sm mt-2">Please wait</p>
         </div>
     </div>
@@ -521,7 +521,7 @@
                     <span class="nav-text font-semibold">Dashboard</span>
                 </a>
 
-                <!-- MANAGEMENT SECTION -->
+                <!-- Management Section -->
                 <div class="mt-6 mb-2">
                     <p class="px-4 py-2 text-xs font-bold text-white/60 uppercase tracking-wider group-title">
                         <i class="fas fa-cog mr-2"></i>Management
@@ -543,7 +543,7 @@
                     @endif
                 </a>
 
-                <!-- STUDENT MANAGEMENT SECTION -->
+                <!-- Student Management Section -->
                 <div class="mt-6 mb-2">
                     <p class="px-4 py-2 text-xs font-bold text-white/60 uppercase tracking-wider group-title">
                         <i class="fas fa-graduation-cap mr-2"></i>Student Management
@@ -571,7 +571,7 @@
                     <span class="nav-text">Fee Payments</span>
                 </a>
 
-                <!-- EXAMINATIONS SECTION -->
+                <!-- Examinations Section -->
                 <div class="mt-6 mb-2">
                     <p class="px-4 py-2 text-xs font-bold text-white/60 uppercase tracking-wider group-title">
                         <i class="fas fa-pencil-alt mr-2"></i>Examinations
@@ -585,7 +585,7 @@
                     <span class="nav-text">Exam Registrations</span>
                 </a>
 
-                <!-- APPLICATIONS SECTION -->
+                <!-- Applications Section -->
                 <div class="mt-6 mb-2">
                     <p class="px-4 py-2 text-xs font-bold text-white/60 uppercase tracking-wider group-title">
                         <i class="fas fa-file-alt mr-2"></i>Applications
@@ -614,7 +614,7 @@
                     <span class="nav-text">Event Applications</span>
                 </a>
 
-                <!-- COMMUNICATIONS SECTION -->
+                <!-- Communications Section -->
                 <div class="mt-6 mb-2">
                     <p class="px-4 py-2 text-xs font-bold text-white/60 uppercase tracking-wider group-title">
                         <i class="fas fa-comments mr-2"></i>Communications
@@ -640,7 +640,7 @@
                     <span class="nav-text">Subscriptions</span>
                 </a>
 
-                <!-- ANALYTICS SECTION -->
+                <!-- Analytics Section -->
                 <div class="mt-6 mb-2">
                     <p class="px-4 py-2 text-xs font-bold text-white/60 uppercase tracking-wider group-title">
                         <i class="fas fa-chart-line mr-2"></i>Analytics
@@ -709,7 +709,7 @@
                             <i class="fas fa-check-circle text-green-600"></i>
                         </div>
                         <div class="flex-1">
-                            <p class="font-semibold text-green-800">Success!</p>
+                            <p class="font-semibold text-green-800">Success</p>
                             <p class="text-green-700">{{ session('success') }}</p>
                         </div>
                         <button onclick="this.closest('.animate-fade-in').remove()" class="text-gray-400 hover:text-gray-600 transition-colors">
@@ -726,7 +726,7 @@
                             <i class="fas fa-exclamation-circle text-red-600"></i>
                         </div>
                         <div class="flex-1">
-                            <p class="font-semibold text-red-800">Error!</p>
+                            <p class="font-semibold text-red-800">Error</p>
                             <p class="text-red-700">{{ session('error') }}</p>
                         </div>
                         <button onclick="this.closest('.animate-fade-in').remove()" class="text-gray-400 hover:text-gray-600 transition-colors">
@@ -743,7 +743,7 @@
                             <i class="fas fa-exclamation-triangle text-yellow-600"></i>
                         </div>
                         <div class="flex-1">
-                            <p class="font-semibold text-yellow-800">Warning!</p>
+                            <p class="font-semibold text-yellow-800">Warning</p>
                             <p class="text-yellow-700">{{ session('warning') }}</p>
                         </div>
                         <button onclick="this.closest('.animate-fade-in').remove()" class="text-gray-400 hover:text-gray-600 transition-colors">
@@ -760,7 +760,7 @@
                             <i class="fas fa-exclamation-triangle text-yellow-600"></i>
                         </div>
                         <div class="flex-1">
-                            <p class="font-semibold text-yellow-800">Please fix the following errors:</p>
+                            <p class="font-semibold text-yellow-800">Please fix the following errors</p>
                             <ul class="mt-2 list-disc list-inside text-yellow-700">
                                 @foreach($errors->all() as $error)
                                     <li>{{ $error }}</li>
@@ -934,8 +934,8 @@
             });
         });
 
-        // ============ GLOBAL LOADING FUNCTIONS ============
-        window.showGlobalLoading = function(message = 'Processing...') {
+        // Global Loading Functions
+        window.showGlobalLoading = function(message = 'Processing') {
             const overlay = document.getElementById('globalLoadingOverlay');
             const messageEl = document.getElementById('loadingMessage');
             if (overlay) {
@@ -953,8 +953,8 @@
             }
         };
 
-        // ============ BUTTON LOADING STATE ============
-        window.setButtonLoading = function(button, isLoading = true, loadingText = 'Processing...') {
+        // Button Loading State
+        window.setButtonLoading = function(button, isLoading = true, loadingText = 'Processing') {
             if (!button) return;
 
             if (isLoading) {
@@ -971,14 +971,14 @@
             }
         };
 
-        // ============ FORM SUBMIT WITH LOADING ============
+        // Form Submit With Loading
         window.submitFormWithLoading = function(formId, options = {}) {
             const form = document.getElementById(formId);
             if (!form) return;
 
             const submitBtn = form.querySelector('button[type="submit"]');
-            const loadingMessage = options.loadingMessage || 'Submitting...';
-            const buttonText = options.buttonText || 'Processing...';
+            const loadingMessage = options.loadingMessage || 'Submitting';
+            const buttonText = options.buttonText || 'Processing';
 
             if (submitBtn) {
                 setButtonLoading(submitBtn, true, buttonText);
@@ -986,7 +986,6 @@
 
             showGlobalLoading(loadingMessage);
 
-            // Set timeout to prevent infinite loading
             setTimeout(() => {
                 setButtonLoading(submitBtn, false);
                 hideGlobalLoading();
@@ -995,10 +994,10 @@
             form.submit();
         };
 
-        // ============ AJAX REQUEST WITH LOADING ============
+        // AJAX Request With Loading
         window.ajaxWithLoading = async function(url, options = {}) {
             const showLoader = options.showLoader !== false;
-            const loadingMessage = options.loadingMessage || 'Loading...';
+            const loadingMessage = options.loadingMessage || 'Loading';
 
             if (showLoader) showGlobalLoading(loadingMessage);
 
@@ -1021,7 +1020,7 @@
             }
         };
 
-        // ============ TABLE ROW SELECTION ============
+        // Table Row Selection
         window.selectAllRows = function(tableId) {
             const selectAll = document.querySelector(`#${tableId} .select-all`);
             const checkboxes = document.querySelectorAll(`#${tableId} .row-checkbox`);
@@ -1035,7 +1034,7 @@
             return Array.from(checkboxes).map(cb => cb.value);
         };
 
-        // ============ TOAST SYSTEM ============
+        // Toast System
         window.showToast = function(message, type = 'success', duration = 5000) {
             const toastContainer = document.getElementById('toastContainer');
             const toastId = 'toast-' + Date.now();
@@ -1081,7 +1080,7 @@
             }
         };
 
-        // ============ MODAL SYSTEM ============
+        // Modal System
         window.openModal = function(modalId, size = 'lg') {
             const modal = document.getElementById(modalId);
             if (modal) {
@@ -1111,7 +1110,7 @@
             }
         };
 
-        // ============ CONFIRM DIALOG ============
+        // Confirm Dialog
         window.confirmAction = function(message, callback) {
             if (confirm(message)) {
                 if (callback) callback();

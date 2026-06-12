@@ -752,8 +752,18 @@ Route::post('/ebooks/{ebook}/toggle-active', [EBookController::class, 'toggleAct
 // ============================================================================
 Route::middleware(['auth', 'verified', 'role.student'])->prefix('student')->name('student.')->group(function () {
     Route::get('/dashboard', [StudentController::class, 'dashboard'])->name('dashboard');
-});
+    Route::get('/force-password-change', [App\Http\Controllers\Auth\ForcePasswordChangeController::class, 'showForm'])->name('force-password-change');
+    Route::post('/force-password-change', [App\Http\Controllers\Auth\ForcePasswordChangeController::class, 'update'])->name('force-password-change.update');
 
+    Route::prefix('fees')->name('fees.')->group(function () {
+        Route::get('/', [App\Http\Controllers\StudentFeesController::class, 'index'])->name('index');
+        Route::get('/pay/{enrollment}', [App\Http\Controllers\StudentFeesController::class, 'pay'])->name('pay');
+        Route::post('/initiate/{enrollment}', [App\Http\Controllers\StudentFeesController::class, 'initiatePayment'])->name('initiate');
+        Route::post('/payment/callback', [App\Http\Controllers\StudentFeesController::class, 'paymentCallback'])->name('payment.callback');
+        Route::get('/status/{transactionId}', [App\Http\Controllers\StudentFeesController::class, 'checkStatus'])->name('status');
+        Route::get('/statement/download', [App\Http\Controllers\StudentFeesController::class, 'downloadStatement'])->name('statement.download');
+    });
+});
 // ============================================================================
 // CAFETERIA ROUTES
 // ============================================================================

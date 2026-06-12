@@ -83,7 +83,7 @@ class FeePaymentController extends Controller
             ->whereYear('payment_date', now()->year)
             ->count();
 
-       $totalFees = Enrollment::sum('total_fees') ?: 1;
+        $totalFees = Enrollment::sum('total_fees') ?: 1;
         $collected = FeePayment::where('status', 'completed')->sum('amount');
         $collectionRate = round(($collected / $totalFees) * 100, 1);
 
@@ -132,96 +132,103 @@ class FeePaymentController extends Controller
     /**
      * ============ STORE PAYMENT ============
      */
-public function store(Request $request)
-{
-    $validator = Validator::make($request->all(), [
-        'student_id' => 'required|exists:students,id',
-        'enrollment_id' => 'required|exists:enrollments,id',
-        'amount' => 'required|numeric|min:1',
-        'payment_method' => 'required|in:cash,mpesa,bank,kcb,other',
-        'payment_date' => 'required|date',
-        'transaction_code' => 'nullable|string|max:100',
-        'payment_for_month' => 'nullable|string|max:20',
-        'payer_name' => 'nullable|string|max:255',
-        'payer_phone' => 'nullable|string|max:20',
-        'payer_type' => 'nullable|in:student,parent,sponsor,employer,other',
-        'notes' => 'nullable|string',
-    ]);
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'student_id' => 'required|exists:students,id',
+            'enrollment_id' => 'required|exists:enrollments,id',
+            'amount' => 'required|numeric|min:1',
+            'payment_method' => 'required|in:cash,mpesa,bank,kcb,other',
+            'payment_date' => 'required|date',
+            'transaction_code' => 'nullable|string|max:100',
+            'payment_for_month' => 'nullable|string|max:20',
+            'payer_name' => 'nullable|string|max:255',
+            'payer_phone' => 'nullable|string|max:20',
+            'payer_type' => 'nullable|in:student,parent,sponsor,employer,other',
+            'notes' => 'nullable|string',
+        ]);
 
-    if ($validator->fails()) {
-        return redirect()->back()
-            ->withErrors($validator)
-            ->withInput();
-    }
-
-    DB::beginTransaction();
-
-    try {
-        $enrollment = Enrollment::find($request->enrollment_id);
-
-        // Calculate current balance (total_fees - amount_paid)
-        $currentBalance = $enrollment->total_fees - $enrollment->amount_paid;
-
-        // Check if amount exceeds balance
-        if ($request->amount > $currentBalance) {
+        if ($validator->fails()) {
             return redirect()->back()
-                ->with('error', 'Payment amount exceeds the outstanding balance of KES ' . number_format($currentBalance, 2))
+                ->withErrors($validator)
                 ->withInput();
         }
 
-        // Generate receipt number
-        $receiptNumber = FeePayment::generateReceiptNumber();
+        DB::beginTransaction();
 
-        // Create payment
-        $payment = FeePayment::create([
-            'student_id' => $request->student_id,
-            'enrollment_id' => $request->enrollment_id,
-            'amount' => $request->amount,
-            'payment_date' => $request->payment_date,
-            'receipt_number' => $receiptNumber,
-            'payment_method' => $request->payment_method,
-            'transaction_code' => $request->transaction_code,
-            'payment_for_month' => $request->payment_for_month,
-            'payer_name' => $request->payer_name,
-            'payer_phone' => $request->payer_phone,
-            'payer_type' => $request->payer_type ?? 'student',
-            'status' => 'completed',
-            'is_verified' => true, // Auto-verify for manual entries
-            'verified_by' => Auth::id(),
-            'verified_at' => now(),
-            'notes' => $request->notes,
-            'recorded_by' => Auth::id(),
-            'import_source' => $request->import_source ?? 'manual',
-        ]);
+        try {
+            $enrollment = Enrollment::find($request->enrollment_id);
 
-        // ✅ FIXED: Update enrollment amount_paid
-        $enrollment->amount_paid = $enrollment->amount_paid + $request->amount;
-        $enrollment->save();
+            // Calculate current balance (using database balance column)
+            $currentBalance = $enrollment->balance;
 
-        DB::commit();
+            // Check if amount exceeds balance
+            if ($request->amount > $currentBalance) {
+                return redirect()->back()
+                    ->with('error', 'Payment amount exceeds the outstanding balance of KES ' . number_format($currentBalance, 2))
+                    ->withInput();
+            }
 
-        return redirect()->route('admin.fee-payments.show', $payment)
-            ->with('success', 'Payment recorded successfully. Receipt: ' . $receiptNumber);
+            // Generate receipt number
+            $receiptNumber = FeePayment::generateReceiptNumber();
 
-    } catch (\Exception $e) {
-        DB::rollBack();
+            // Create payment
+            $payment = FeePayment::create([
+                'student_id' => $request->student_id,
+                'enrollment_id' => $request->enrollment_id,
+                'amount' => $request->amount,
+                'payment_date' => $request->payment_date,
+                'receipt_number' => $receiptNumber,
+                'payment_method' => $request->payment_method,
+                'transaction_code' => $request->transaction_code,
+                'payment_for_month' => $request->payment_for_month,
+                'payer_name' => $request->payer_name,
+                'payer_phone' => $request->payer_phone,
+                'payer_type' => $request->payer_type ?? 'student',
+                'status' => 'completed',
+                'is_verified' => true,
+                'verified_by' => Auth::id(),
+                'verified_at' => now(),
+                'notes' => $request->notes,
+                'recorded_by' => Auth::id(),
+                'import_source' => 'manual',
+            ]);
 
-        return redirect()->back()
-            ->with('error', 'Failed to record payment: ' . $e->getMessage())
-            ->withInput();
+            // Update enrollment - update BOTH amount_paid AND balance
+            $enrollment->amount_paid = $enrollment->amount_paid + $request->amount;
+            $enrollment->balance = $enrollment->total_fees - $enrollment->amount_paid;
+            $enrollment->save();
+
+            DB::commit();
+
+            $newBalance = $enrollment->balance;
+            $message = "Payment recorded successfully. Receipt: {$receiptNumber}";
+            if ($newBalance <= 0) {
+                $message .= " The enrollment is now fully paid!";
+            }
+
+            return redirect()->route('admin.fee-payments.show', $payment)
+                ->with('success', $message);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return redirect()->back()
+                ->with('error', 'Failed to record payment: ' . $e->getMessage())
+                ->withInput();
+        }
     }
-}
 
     /**
      * ============ SHOW PAYMENT ============
      */
-   public function show(FeePayment $feePayment)
-{
-    $feePayment->load(['student', 'enrollment.course', 'verifier', 'recorder']);
+    public function show(FeePayment $feePayment)
+    {
+        $feePayment->load(['student', 'enrollment.course', 'verifier', 'recorder']);
+        $payment = $feePayment;
 
-    return view('ktvtc.admin.fee-payments.show', compact('feePayment'))
-        ->with('payment', $feePayment); // ✅ Pass as 'payment' variable
-}
+        return view('ktvtc.admin.fee-payments.show', compact('payment'));
+    }
 
     /**
      * ============ DESTROY PAYMENT ============
@@ -238,8 +245,8 @@ public function store(Request $request)
         try {
             // Reverse the payment from enrollment
             $enrollment = $feePayment->enrollment;
-            $enrollment->amount_paid -= $feePayment->amount;
-            $enrollment->balance = $enrollment->total_course_fee - $enrollment->amount_paid;
+            $enrollment->amount_paid = $enrollment->amount_paid - $feePayment->amount;
+            $enrollment->balance = $enrollment->total_fees - $enrollment->amount_paid;
             $enrollment->save();
 
             // Delete payment
@@ -275,7 +282,6 @@ public function store(Request $request)
             'is_verified' => true,
             'verified_by' => Auth::id(),
             'verified_at' => now(),
-            'verification_notes' => $request->notes,
         ]);
 
         return redirect()->back()->with('success', 'Payment verified successfully.');
@@ -299,8 +305,8 @@ public function store(Request $request)
         try {
             // Reverse from enrollment
             $enrollment = $feePayment->enrollment;
-            $enrollment->amount_paid -= $feePayment->amount;
-            $enrollment->balance = $enrollment->total_course_fee - $enrollment->amount_paid;
+            $enrollment->amount_paid = $enrollment->amount_paid - $feePayment->amount;
+            $enrollment->balance = $enrollment->total_fees - $enrollment->amount_paid;
             $enrollment->save();
 
             // Update payment
@@ -326,16 +332,13 @@ public function store(Request $request)
     /**
      * ============ RECEIPT ============
      */
-/**
- * ============ RECEIPT ============
- */
-public function receipt(FeePayment $feePayment)
-{
-    $feePayment->load(['student', 'enrollment.course']);
-    $payment = $feePayment; // Create alias for the view
+    public function receipt(FeePayment $feePayment)
+    {
+        $feePayment->load(['student', 'enrollment.course']);
+        $payment = $feePayment;
 
-    return view('ktvtc.admin.fee-payments.receipt', compact('payment'));
-}
+        return view('ktvtc.admin.fee-payments.receipt', compact('payment'));
+    }
 
     /**
      * ============ BULK VERIFY ============
@@ -362,283 +365,14 @@ public function receipt(FeePayment $feePayment)
     /**
      * ============ DAILY REPORT ============
      */
-
-public function dailyReport(Request $request)
-{
-    $user = Auth::user();
-    $date = $request->get('date') ? Carbon::parse($request->get('date')) : today();
-
-    $query = FeePayment::with(['student', 'enrollment.course'])
-        ->whereDate('payment_date', $date)
-        ->where('status', 'completed');
-
-    if ($user->role != 2) {
-        $query->whereHas('enrollment', function ($q) use ($user) {
-            $q->where('campus_id', $user->campus_id);
-        });
-    }
-
-    if ($request->filled('campus_id') && $user->role == 2) {
-        $query->whereHas('enrollment', function ($q) use ($request) {
-            $q->where('campus_id', $request->campus_id);
-        });
-    }
-
-    $transactions = $query->orderBy('created_at')->get();
-
-    $totalCollected = $transactions->sum('amount');
-    $transactionCount = $transactions->count();
-    $averageTransaction = $transactionCount > 0 ? $totalCollected / $transactionCount : 0;
-    $pendingCount = FeePayment::whereDate('payment_date', $date)
-        ->where('status', 'completed')
-        ->where('is_verified', false)
-        ->count();
-
-    // Hourly breakdown
-    $hourlyData = array_fill(0, 24, 0);
-    $hourlyLabels = [];
-    foreach ($transactions as $t) {
-        $hour = (int)$t->created_at->format('H');
-        $hourlyData[$hour] += $t->amount;
-    }
-    for ($i = 0; $i < 24; $i++) {
-        $hourlyLabels[] = $i . ':00';
-    }
-
-    // Method breakdown
-    $methodBreakdown = [];
-    foreach ($transactions->groupBy('payment_method') as $method => $items) {
-        $total = $items->sum('amount');
-        $methodBreakdown[$method] = [
-            'total' => $total,
-            'count' => $items->count(),
-            'percentage' => $totalCollected > 0 ? round(($total / $totalCollected) * 100, 1) : 0,
-        ];
-    }
-
-    // Campus breakdown
-    $campusBreakdown = [];
-    $campuses = $user->role == 2 ? Campus::all() : Campus::where('id', $user->campus_id)->get();
-    foreach ($campuses as $campus) {
-        $campusTransactions = $transactions->filter(function ($t) use ($campus) {
-            return $t->enrollment->campus_id == $campus->id;
-        });
-        $total = $campusTransactions->sum('amount');
-        $campusBreakdown[$campus->name] = [
-            'total' => $total,
-            'count' => $campusTransactions->count(),
-            'percentage' => $totalCollected > 0 ? round(($total / $totalCollected) * 100, 1) : 0,
-        ];
-    }
-
-    // Campuses for filter
-    $filterCampuses = $user->role == 2 ? Campus::orderBy('name')->get() : [];
-
-    return view('ktvtc.admin.fee-payments.reports.daily', compact(
-        'date',                 // Changed from 'selectedDate' => $date
-        'transactions',
-        'totalCollected',
-        'transactionCount',
-        'averageTransaction',
-        'pendingCount',
-        'hourlyData',
-        'hourlyLabels',
-        'methodBreakdown',
-        'campusBreakdown',
-        'filterCampuses'        // Changed from 'campuses' => $filterCampuses
-    ));
-}
-
-    /**
-     * ============ MONTHLY REPORT ============
-     */
-/**
- * ============ MONTHLY REPORT ============
- */
-public function monthlyReport(Request $request)
-{
-    $user = Auth::user();
-    $month = $request->get('month', now()->month);
-    $year = $request->get('year', now()->year);
-
-    $startDate = Carbon::create($year, $month, 1)->startOfMonth();
-    $endDate = Carbon::create($year, $month, 1)->endOfMonth();
-
-    $query = FeePayment::with(['student', 'enrollment.course'])
-        ->whereBetween('payment_date', [$startDate, $endDate])
-        ->where('status', 'completed');
-
-    if ($user->role != 2) {
-        $query->whereHas('enrollment', function ($q) use ($user) {
-            $q->where('campus_id', $user->campus_id);
-        });
-    }
-
-    if ($request->filled('campus_id') && $user->role == 2) {
-        $query->whereHas('enrollment', function ($q) use ($request) {
-            $q->where('campus_id', $request->campus_id);
-        });
-    }
-
-    $payments = $query->get();
-
-    $totalCollected = $payments->sum('amount');
-    $transactionCount = $payments->count();
-    $averagePerDay = $payments->groupBy(function ($p) {
-        return $p->payment_date->format('Y-m-d');
-    })->map->sum('amount')->average() ?? 0;
-
-    // Best day
-    $dailyTotals = $payments->groupBy(function ($p) {
-        return $p->payment_date->format('Y-m-d');
-    })->map->sum('amount');
-    $bestDayAmount = $dailyTotals->max();
-    $bestDayDate = $dailyTotals->search($bestDayAmount)
-        ? Carbon::parse($dailyTotals->search($bestDayAmount))->format('M j, Y')
-        : 'N/A';
-
-    // Daily breakdown
-    $dailyLabels = [];
-    $dailyData = [];
-    $dailyBreakdown = [];
-
-    for ($day = 1; $day <= $startDate->daysInMonth; $day++) {
-        $date = Carbon::create($year, $month, $day);
-        $dailyLabels[] = $date->format('M j');
-
-        $dayPayments = $payments->filter(function ($p) use ($date) {
-            return $p->payment_date->format('Y-m-d') == $date->format('Y-m-d');
-        });
-
-        $dayTotal = $dayPayments->sum('amount');
-        $dailyData[] = $dayTotal;
-
-        $dailyBreakdown[] = [
-            'date' => $date,
-            'count' => $dayPayments->count(),
-            'total' => $dayTotal,
-            'cash' => $dayPayments->where('payment_method', 'cash')->sum('amount'),
-            'mpesa' => $dayPayments->where('payment_method', 'mpesa')->sum('amount'),
-            'bank' => $dayPayments->where('payment_method', 'bank')->sum('amount'),
-            'kcb' => $dayPayments->where('payment_method', 'kcb')->sum('amount'),
-        ];
-    }
-
-    // Monthly comparison (last 12 months)
-    $monthlyLabels = [];
-    $monthlyData = [];
-    for ($i = 11; $i >= 0; $i--) {
-        $date = now()->subMonths($i);
-        $monthlyLabels[] = $date->format('M Y');
-
-        $monthTotal = FeePayment::whereYear('payment_date', $date->year)
-            ->whereMonth('payment_date', $date->month)
-            ->where('status', 'completed')
-            ->when($user->role != 2, function ($q) use ($user) {
-                return $q->whereHas('enrollment', function ($sq) use ($user) {
-                    $sq->where('campus_id', $user->campus_id);
-                });
-            })
-            ->when($request->filled('campus_id') && $user->role == 2, function ($q) use ($request) {
-                return $q->whereHas('enrollment', function ($sq) use ($request) {
-                    $sq->where('campus_id', $request->campus_id);
-                });
-            })
-            ->sum('amount');
-
-        $monthlyData[] = $monthTotal;
-    }
-
-    // Method summary
-    $methodSummary = [];
-    foreach ($payments->groupBy('payment_method') as $method => $items) {
-        $total = $items->sum('amount');
-        $methodSummary[$method] = [
-            'total' => $total,
-            'count' => $items->count(),
-            'percentage' => $totalCollected > 0 ? round(($total / $totalCollected) * 100, 1) : 0,
-        ];
-    }
-
-    // Top courses
-    $courseSummary = [];
-    $courseGroups = $payments->groupBy(function ($p) {
-        return $p->enrollment->course_id;
-    });
-    foreach ($courseGroups as $courseId => $items) {
-        $course = Course::find($courseId);
-        if ($course) {
-            $total = $items->sum('amount');
-            $courseSummary[] = [
-                'name' => $course->name,
-                'total' => $total,
-                'count' => $items->count(),
-                'percentage' => $totalCollected > 0 ? round(($total / $totalCollected) * 100, 1) : 0,
-            ];
-        }
-    }
-    $topCourses = collect($courseSummary)->sortByDesc('total')->take(5)->values()->toArray();
-
-    // Campuses for filter
-    $campuses = $user->role == 2 ? Campus::orderBy('name')->get() : [];
-    $monthName = $startDate->format('F');
-
-    return view('ktvtc.admin.fee-payments.reports.monthly', compact(
-        'month',
-        'year',
-        'monthName',
-        'totalCollected',
-        'transactionCount',
-        'averagePerDay',
-        'bestDayAmount',
-        'bestDayDate',
-        'dailyLabels',
-        'dailyData',
-        'dailyBreakdown',
-        'monthlyLabels',
-        'monthlyData',
-        'methodSummary',
-        'topCourses',
-        'campuses'
-    ));
-}
-
-    /**
-     * ============ API: Get By Student ============
-     */
-    public function getByStudent(Request $request)
-    {
-        $request->validate([
-            'student_id' => 'required|exists:students,id',
-        ]);
-
-        $enrollments = Enrollment::with('course')
-            ->where('student_id', $request->student_id)
-            ->where('balance', '>', 0)
-            ->where('is_active', true)
-            ->get()
-            ->map(function ($e) {
-                return [
-                    'id' => $e->id,
-                    'course' => $e->course->name,
-                    'balance' => $e->balance,
-                    'intake' => $e->intake_period . ' ' . $e->intake_year,
-                ];
-            });
-
-        return response()->json($enrollments);
-    }
-
-    /**
-     * ============ API: Get Today Stats ============
-     */
-    public function getTodayStats(Request $request)
+    public function dailyReport(Request $request)
     {
         $user = Auth::user();
-        $days = $request->get('days', 7);
+        $date = $request->get('date') ? Carbon::parse($request->get('date')) : today();
 
-        $query = FeePayment::where('status', 'completed')
-            ->whereDate('payment_date', '>=', now()->subDays($days));
+        $query = FeePayment::with(['student', 'enrollment.course'])
+            ->whereDate('payment_date', $date)
+            ->where('status', 'completed');
 
         if ($user->role != 2) {
             $query->whereHas('enrollment', function ($q) use ($user) {
@@ -646,18 +380,156 @@ public function monthlyReport(Request $request)
             });
         }
 
-        $dailyTotals = $query->get()
-            ->groupBy(function ($p) {
-                return $p->payment_date->format('Y-m-d');
-            })
-            ->map->sum('amount');
+        if ($request->filled('campus_id') && $user->role == 2) {
+            $query->whereHas('enrollment', function ($q) use ($request) {
+                $q->where('campus_id', $request->campus_id);
+            });
+        }
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'daily_totals' => $dailyTotals,
-            ]
-        ]);
+        $transactions = $query->orderBy('created_at')->get();
+
+        $totalCollected = $transactions->sum('amount');
+        $transactionCount = $transactions->count();
+        $averageTransaction = $transactionCount > 0 ? $totalCollected / $transactionCount : 0;
+        $pendingCount = FeePayment::whereDate('payment_date', $date)
+            ->where('status', 'completed')
+            ->where('is_verified', false)
+            ->count();
+
+        // Hourly breakdown
+        $hourlyData = array_fill(0, 24, 0);
+        foreach ($transactions as $t) {
+            $hour = (int)$t->created_at->format('H');
+            $hourlyData[$hour] += $t->amount;
+        }
+
+        // Method breakdown
+        $methodBreakdown = [];
+        foreach ($transactions->groupBy('payment_method') as $method => $items) {
+            $total = $items->sum('amount');
+            $methodBreakdown[$method] = [
+                'total' => $total,
+                'count' => $items->count(),
+                'percentage' => $totalCollected > 0 ? round(($total / $totalCollected) * 100, 1) : 0,
+            ];
+        }
+
+        // Campuses for filter
+        $filterCampuses = $user->role == 2 ? Campus::orderBy('name')->get() : [];
+
+        return view('ktvtc.admin.fee-payments.reports.daily', compact(
+            'date',
+            'transactions',
+            'totalCollected',
+            'transactionCount',
+            'averageTransaction',
+            'pendingCount',
+            'hourlyData',
+            'methodBreakdown',
+            'filterCampuses'
+        ));
+    }
+
+    /**
+     * ============ MONTHLY REPORT ============
+     */
+    public function monthlyReport(Request $request)
+    {
+        $user = Auth::user();
+        $month = $request->get('month', now()->month);
+        $year = $request->get('year', now()->year);
+
+        $startDate = Carbon::create($year, $month, 1)->startOfMonth();
+        $endDate = Carbon::create($year, $month, 1)->endOfMonth();
+
+        $query = FeePayment::with(['student', 'enrollment.course'])
+            ->whereBetween('payment_date', [$startDate, $endDate])
+            ->where('status', 'completed');
+
+        if ($user->role != 2) {
+            $query->whereHas('enrollment', function ($q) use ($user) {
+                $q->where('campus_id', $user->campus_id);
+            });
+        }
+
+        if ($request->filled('campus_id') && $user->role == 2) {
+            $query->whereHas('enrollment', function ($q) use ($request) {
+                $q->where('campus_id', $request->campus_id);
+            });
+        }
+
+        $payments = $query->get();
+
+        $totalCollected = $payments->sum('amount');
+        $transactionCount = $payments->count();
+
+        // Daily breakdown
+        $dailyLabels = [];
+        $dailyData = [];
+
+        for ($day = 1; $day <= $startDate->daysInMonth; $day++) {
+            $date = Carbon::create($year, $month, $day);
+            $dailyLabels[] = $date->format('M j');
+
+            $dayTotal = $payments->filter(function ($p) use ($date) {
+                return $p->payment_date->format('Y-m-d') == $date->format('Y-m-d');
+            })->sum('amount');
+
+            $dailyData[] = $dayTotal;
+        }
+
+        // Monthly comparison (last 12 months)
+        $monthlyLabels = [];
+        $monthlyData = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $date = now()->subMonths($i);
+            $monthlyLabels[] = $date->format('M Y');
+
+            $monthTotal = FeePayment::whereYear('payment_date', $date->year)
+                ->whereMonth('payment_date', $date->month)
+                ->where('status', 'completed')
+                ->when($user->role != 2, function ($q) use ($user) {
+                    return $q->whereHas('enrollment', function ($sq) use ($user) {
+                        $sq->where('campus_id', $user->campus_id);
+                    });
+                })
+                ->when($request->filled('campus_id') && $user->role == 2, function ($q) use ($request) {
+                    return $q->whereHas('enrollment', function ($sq) use ($request) {
+                        $sq->where('campus_id', $request->campus_id);
+                    });
+                })
+                ->sum('amount');
+
+            $monthlyData[] = $monthTotal;
+        }
+
+        // Method summary
+        $methodSummary = [];
+        foreach ($payments->groupBy('payment_method') as $method => $items) {
+            $total = $items->sum('amount');
+            $methodSummary[$method] = [
+                'total' => $total,
+                'count' => $items->count(),
+                'percentage' => $totalCollected > 0 ? round(($total / $totalCollected) * 100, 1) : 0,
+            ];
+        }
+
+        $campuses = $user->role == 2 ? Campus::orderBy('name')->get() : [];
+        $monthName = $startDate->format('F');
+
+        return view('ktvtc.admin.fee-payments.reports.monthly', compact(
+            'month',
+            'year',
+            'monthName',
+            'totalCollected',
+            'transactionCount',
+            'dailyLabels',
+            'dailyData',
+            'monthlyLabels',
+            'monthlyData',
+            'methodSummary',
+            'campuses'
+        ));
     }
 
     /**
@@ -707,13 +579,10 @@ public function monthlyReport(Request $request)
             'Student Name',
             'Student Number',
             'Course',
-            'Intake',
-            'Campus',
             'Amount',
             'Payment Method',
             'Transaction Code',
             'Status',
-            'Verified',
         ]);
 
         // Data
@@ -724,13 +593,10 @@ public function monthlyReport(Request $request)
                 $payment->student->full_name ?? 'N/A',
                 $payment->student->student_number ?? 'N/A',
                 $payment->enrollment->course->name ?? 'N/A',
-                ($payment->enrollment->intake_period ?? '') . ' ' . ($payment->enrollment->intake_year ?? ''),
-                $payment->enrollment->campus->name ?? 'N/A',
                 $payment->amount,
                 strtoupper($payment->payment_method),
                 $payment->transaction_code ?? '',
                 $payment->status,
-                $payment->is_verified ? 'Yes' : 'No',
             ]);
         }
 
@@ -741,31 +607,5 @@ public function monthlyReport(Request $request)
         return response($content)
             ->header('Content-Type', 'text/csv')
             ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
-    }
-
-    /**
-     * ============ M-PESA CALLBACK ============
-     */
-    public function mpesaCallback(Request $request)
-    {
-        // Process M-Pesa callback
-        // This would handle automatic payment recording from M-Pesa API
-        // For now, just log or return success
-        return response()->json(['success' => true]);
-    }
-
-    /**
-     * ============ HELPER METHODS ============
-     */
-    private function generateReceiptNumber()
-    {
-        $year = date('Y');
-        $month = date('m');
-
-        $last = FeePayment::whereYear('created_at', $year)
-            ->whereMonth('created_at', $month)
-            ->count();
-
-        return sprintf('RCT-%s%s-%04d', $year, $month, $last + 1);
     }
 }

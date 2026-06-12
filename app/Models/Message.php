@@ -4,36 +4,72 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Message extends Model
 {
     use HasFactory;
+    // Remove SoftDeletes since it's not in your migration
 
     protected $fillable = [
         'name',
         'email',
         'phone',
         'message',
-        'seen_by', // admin id who first saw the message
-        'action_taken', // optional: e.g., responded, forwarded
-        'created_by',
-        'updated_by',
-        'ip_address',
-        'user_agent'
+        'first_seen_by',
+        'status',
     ];
 
-  // Accessor for action badge color
-    public function getActionBadgeAttribute()
+    protected $casts = [
+        'status' => 'string',
+    ];
+
+    // Relationship with admin who first saw the message
+    public function firstSeenBy()
     {
-        return match($this->action) {
-            'responded' => 'success',
+        return $this->belongsTo(User::class, 'first_seen_by');
+    }
+
+    // Accessor for status badge color
+    public function getStatusBadgeAttribute()
+    {
+        return match($this->status) {
             'pending' => 'warning',
-            'ignored' => 'secondary',
+            'viewed' => 'info',
+            'replied' => 'success',
+            'resolved' => 'primary',
+            'archived' => 'secondary',
             default => 'light'
         };
     }
-    public function admin()
+
+    // Accessor for status label
+    public function getStatusLabelAttribute()
     {
-        return $this->belongsTo(User::class, 'seen_by');
+        return ucfirst($this->status);
+    }
+
+    // Scope for pending messages
+    public function scopePending($query)
+    {
+        return $query->where('status', 'pending');
+    }
+
+    // Scope for viewed messages
+    public function scopeViewed($query)
+    {
+        return $query->where('status', 'viewed');
+    }
+
+    // Scope for replied messages
+    public function scopeReplied($query)
+    {
+        return $query->where('status', 'replied');
+    }
+
+    // Scope for resolved messages
+    public function scopeResolved($query)
+    {
+        return $query->where('status', 'resolved');
     }
 }
