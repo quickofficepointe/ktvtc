@@ -761,7 +761,6 @@ class StudentController extends Controller
             'phone_number' => $student->phone,
             'bio' => $student->remarks ?? 'Student account automatically created',
             'role' => 5,
-            'is_verified' => true,
             'is_active' => true,
             'is_approved' => true,
             'password' => Hash::make($defaultPassword),
