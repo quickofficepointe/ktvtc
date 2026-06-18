@@ -404,7 +404,9 @@ Route::middleware(['auth', 'verified', 'role.admin'])
         Route::put('/{id}/status', [AdminController::class, 'updateStatus'])->name('updateStatus');
         Route::delete('/{id}', [AdminController::class, 'destroy'])->name('destroy');
         Route::put('/{id}/approve', [AdminController::class, 'approve'])->name('approve');
-    });
+   Route::put('/{id}/reset-password', [AdminController::class, 'resetPassword'])->name('reset-password');
+    Route::post('/bulk-reset-passwords', [AdminController::class, 'bulkResetPasswords'])->name('bulk-reset-passwords');
+        });
 
     // ==================== APPLICATIONS MANAGEMENT ====================
     Route::prefix('applications')->name('applications.')->group(function () {
@@ -464,7 +466,9 @@ Route::middleware(['auth', 'verified', 'role.admin'])
         Route::get('/{student}/edit', [StudentController::class, 'edit'])->name('edit');
         Route::put('/{student}', [StudentController::class, 'update'])->name('update');
         Route::delete('/{student}', [StudentController::class, 'destroy'])->name('destroy');
-
+  Route::post('/{student}/fix-student-number', [StudentController::class, 'fixStudentNumber'])->name('fix-student-number');
+    Route::post('/bulk-sync-numbers', [StudentController::class, 'bulkSyncStudentNumbers'])->name('bulk-sync-numbers');
+    Route::post('/{student}/sync-password', [StudentController::class, 'syncPassword'])->name('sync-password');
         // Status Actions
         Route::post('/{student}/activate', [StudentController::class, 'activate'])->name('activate');
         Route::post('/{student}/suspend', [StudentController::class, 'suspend'])->name('suspend');

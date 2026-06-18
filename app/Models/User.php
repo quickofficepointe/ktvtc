@@ -19,13 +19,14 @@ class User extends Authenticatable implements MustVerifyEmail
         'name',
         'username',
         'email',
-        'phone',
+        'phone_number',
         'password',
         'avatar',
         'bio',
         'role',
         'is_verified',
         'is_active',
+        'is_approved',
         'requested_role',
         'role_approval_status',
         'role_approval_notes',
@@ -34,7 +35,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'preferences',
         'last_login_at',
         'last_login_ip',
-        'student_id', // Add this
+        'student_id',
     ];
 
     protected $hidden = [
@@ -52,6 +53,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'password' => 'hashed',
             'is_verified' => 'boolean',
             'is_active' => 'boolean',
+            'is_approved' => 'boolean',
             'preferences' => 'array',
         ];
     }
@@ -129,10 +131,12 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->role === self::ROLE_PRIVATE_SELLER;
     }
-public function student()
-{
-    return $this->belongsTo(\App\Models\Student::class, 'student_id');
-}
+
+    public function student()
+    {
+        return $this->belongsTo(\App\Models\Student::class, 'student_id');
+    }
+
     public function hasPendingRoleRequest(): bool
     {
         return $this->role_approval_status === self::ROLE_APPROVAL_PENDING;

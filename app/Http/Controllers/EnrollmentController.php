@@ -6,315 +6,36 @@ use App\Models\Enrollment;
 use App\Models\Student;
 use App\Models\Course;
 use App\Models\Campus;
+use App\Models\FeePayment;
 use Illuminate\Http\Request;
-use App\Services\SmsService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
+use App\Services\SmsService;
 
 class EnrollmentController extends Controller
 {
-    public function sendFeeReminders(Request $request)
+    protected $smsService;
+
+    public function __construct(SmsService $smsService)
     {
-        $request->validate([
-            'enrollment_ids' => 'required|array',
-            'enrollment_ids.*' => 'exists:enrollments,id',
-            'template' => 'required|in:standard,urgent,friendly,custom',
-            'custom_message' => 'required_if:template,custom|nullable|string'
-        ]);
-
-        $enrollments = Enrollment::with('student')
-            ->whereIn('id', $request->enrollment_ids)
-            ->get();
-
-        $smsService = new SmsService();
-        $successCount = 0;
-        $failed = [];
-        $results = [];
-
-        foreach ($enrollments as $enrollment) {
-            // Check if student has phone number
-            if (!$enrollment->student || !$enrollment->student->phone) {
-                $failed[] = [
-                    'id' => $enrollment->id,
-                    'name' => $enrollment->student_name,
-                    'reason' => 'No phone number on file'
-                ];
-                continue;
-            }
-
-            // Check if there's a balance
-            if ($enrollment->balance <= 0) {
-                $failed[] = [
-                    'id' => $enrollment->id,
-                    'name' => $enrollment->student_name,
-                    'reason' => 'No balance owing (Fully paid: KES ' . number_format($enrollment->amount_paid, 2) . ')'
-                ];
-                continue;
-            }
-
-            // Generate personalized message
-            $message = $this->generateFeeReminderMessage($enrollment, $request->template, $request->custom_message);
-
-            // Send SMS
-            $result = $smsService->sendSingleSms($enrollment->student->phone, $message);
-
-            if ($result['success']) {
-                $successCount++;
-                $results[] = [
-                    'name' => $enrollment->student_name,
-                    'phone' => $enrollment->student->phone,
-                    'balance' => $enrollment->balance,
-                    'status' => 'sent'
-                ];
-            } else {
-                $failed[] = [
-                    'id' => $enrollment->id,
-                    'name' => $enrollment->student_name,
-                    'reason' => $result['message'] ?? 'SMS sending failed'
-                ];
-            }
-
-            // Optional: Add small delay to avoid rate limiting
-            usleep(100000); // 0.1 second delay between messages
-        }
-
-        return response()->json([
-            'success' => $successCount > 0,
-            'sent_count' => $successCount,
-            'total_count' => $enrollments->count(),
-            'failed_count' => count($failed),
-            'failed' => $failed,
-            'results' => $results,
-            'message' => "Sent {$successCount} of {$enrollments->count()} fee reminders"
-        ]);
+        $this->smsService = $smsService;
     }
 
-    /**
-     * Send single fee reminder to one student
-     */
-    public function sendSingleFeeReminder(Enrollment $enrollment)
-    {
-        if (!$enrollment->student) {
-            return redirect()->back()->with('error', 'Student record not found');
-        }
-
-        if (!$enrollment->student->phone) {
-            return redirect()->back()->with('error', 'Student has no phone number on file');
-        }
-
-        if ($enrollment->balance <= 0) {
-            return redirect()->back()->with('error', 'This student has no outstanding balance (Balance: KES ' . number_format($enrollment->balance, 2) . ')');
-        }
-
-        $smsService = new SmsService();
-        $message = $this->generateFeeReminderMessage($enrollment, 'standard');
-
-        $result = $smsService->sendSingleSms($enrollment->student->phone, $message);
-
-        if ($result['success']) {
-            return redirect()->back()->with('success', 'Fee reminder sent successfully to ' . $enrollment->student_name);
-        }
-
-        return redirect()->back()->with('error', 'Failed to send reminder: ' . ($result['message'] ?? 'Unknown error'));
-    }
-
-    /**
-     * Generate fee reminder message based on template
-     */
-    private function generateFeeReminderMessage($enrollment, $template, $customMessage = null)
-    {
-        $studentName = $enrollment->student_name;
-        $balance = number_format($enrollment->balance, 2);
-        $paymentLink = 'www.ktvtc.ac.ke/pay';
-        $courseName = $enrollment->course_name;
-        $studentNumber = $enrollment->student_number;
-        $totalFees = number_format($enrollment->total_fees, 2);
-        $amountPaid = number_format($enrollment->amount_paid, 2);
-
-        // For custom template
-        if ($template === 'custom' && $customMessage) {
-            $message = str_replace(
-                ['{name}', '{balance}', '{link}', '{course}', '{student_number}', '{total_fees}', '{paid}'],
-                [$studentName, $balance, $paymentLink, $courseName, $studentNumber, $totalFees, $amountPaid],
-                $customMessage
-            );
-            return substr($message, 0, 1600);
-        }
-
-        switch ($template) {
-            case 'urgent':
-                return "URGENT: Dear {$studentName}, your fee balance of KES {$balance} for {$courseName} is now overdue. Kindly clear the balance immediately. M-Pesa Paybill: 522533, Account Number: 7664166. Forward payment confirmation to +254790148509. KTVTC Admin.";
-            case 'friendly':
-                return "Hello {$studentName}! Friendly reminder: Your outstanding balance for {$courseName} is KES {$balance}. You've paid KES {$amountPaid} of KES {$totalFees}. M-Pesa Paybill: 522533, Account: 7664166. Forward confirmation to +254790148509. Thank you for choosing KTVTC.";
-            case 'standard':
-            default:
-                return "Dear {$studentName}, this is a reminder that you have an outstanding fee balance of KES {$balance} for {$courseName}. Kindly clear the balance on or before Friday, 1st May 2026. M-Pesa Paybill: 522533, Account Number: 7664166. Please forward your payment confirmation to +254790148509 once done. Thank you. KTVTC.";
-        }
-    }
-
-    /**
-     * Bulk send reminders to all students with balance
-     */
-    public function sendBulkBalanceReminders(Request $request)
-    {
-        $request->validate([
-            'status' => 'nullable|string',
-            'course_id' => 'nullable|exists:courses,id',
-            'min_balance' => 'nullable|numeric|min:0',
-            'template' => 'required|in:standard,urgent,friendly,custom',
-            'custom_message' => 'required_if:template,custom|nullable|string'
-        ]);
-
-        $query = Enrollment::with('student')
-            ->whereHas('student', function($q) {
-                $q->whereNotNull('phone');
-            })
-            ->hasBalance();
-
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
-        if ($request->filled('course_id')) {
-            $query->where('course_id', $request->course_id);
-        }
-
-        if ($request->filled('min_balance') && $request->min_balance > 0) {
-            $query->whereRaw('total_fees - amount_paid >= ?', [$request->min_balance]);
-        }
-
-        $enrollments = $query->get();
-
-        if ($enrollments->isEmpty()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No students found with outstanding balances'
-            ]);
-        }
-
-        $smsService = new SmsService();
-        $successCount = 0;
-        $failed = [];
-
-        foreach ($enrollments as $enrollment) {
-            $message = $this->generateFeeReminderMessage($enrollment, $request->template, $request->custom_message);
-            $result = $smsService->sendSingleSms($enrollment->student->phone, $message);
-
-            if ($result['success']) {
-                $successCount++;
-            } else {
-                $failed[] = [
-                    'name' => $enrollment->student_name,
-                    'reason' => $result['message'] ?? 'Failed'
-                ];
-            }
-
-            usleep(100000);
-        }
-
-        return response()->json([
-            'success' => $successCount > 0,
-            'sent_count' => $successCount,
-            'total_count' => $enrollments->count(),
-            'failed_count' => count($failed),
-            'failed' => $failed,
-            'message' => "Bulk reminder sent to {$successCount} students"
-        ]);
-    }
-
-    /**
-     * Get students eligible for fee reminders (for AJAX)
-     */
-    public function getEligibleForReminder(Request $request)
-    {
-        $query = Enrollment::with('student')
-            ->hasBalance()
-            ->whereHas('student', function($q) {
-                $q->whereNotNull('phone');
-            });
-
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('student_name', 'like', "%{$search}%")
-                  ->orWhere('student_number', 'like', "%{$search}%");
-            });
-        }
-
-        $enrollments = $query->limit(50)->get();
-
-        return response()->json([
-            'success' => true,
-            'count' => $enrollments->count(),
-            'students' => $enrollments->map(function($e) {
-                return [
-                    'id' => $e->id,
-                    'name' => $e->student_name,
-                    'student_number' => $e->student_number,
-                    'balance' => $e->balance,
-                    'course' => $e->course_name,
-                    'phone' => $e->student->phone
-                ];
-            })
-        ]);
-    }
-
-    /**
-     * ============ INDEX ============
-     */
     public function index(Request $request)
     {
-        $user = auth()->user();
+        $query = Enrollment::with(['student', 'course', 'campus']);
 
-        $query = Enrollment::with(['student', 'course', 'campus'])
-            ->when($user->role != 2, function ($q) use ($user) {
-                return $q->where('campus_id', $user->campus_id);
-            });
-
-        // Apply filters
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        if ($request->filled('campus_id') && $user->role == 2) {
-            $query->where('campus_id', $request->campus_id);
+        if ($request->filled('student_id')) {
+            $query->where('student_id', $request->student_id);
         }
 
         if ($request->filled('course_id')) {
             $query->where('course_id', $request->course_id);
-        }
-
-        if ($request->filled('intake_month')) {
-            $query->where('intake_month', $request->intake_month);
-        }
-
-        if ($request->filled('intake_year')) {
-            $query->where('intake_year', $request->intake_year);
-        }
-
-        if ($request->filled('student_type')) {
-            $query->where('student_type', $request->student_type);
-        }
-
-        if ($request->filled('sponsorship_type')) {
-            $query->where('sponsorship_type', $request->sponsorship_type);
-        }
-
-        if ($request->filled('requires_external_exam')) {
-            $query->where('requires_external_exam', $request->requires_external_exam === 'yes');
-        }
-
-        if ($request->filled('exam_body')) {
-            $query->where('exam_body', $request->exam_body);
-        }
-
-        if ($request->filled('enrollment_date_from')) {
-            $query->whereDate('enrollment_date', '>=', $request->enrollment_date_from);
-        }
-
-        if ($request->filled('enrollment_date_to')) {
-            $query->whereDate('enrollment_date', '<=', $request->enrollment_date_to);
         }
 
         if ($request->filled('search')) {
@@ -323,155 +44,62 @@ class EnrollmentController extends Controller
                 $q->where('student_name', 'like', "%{$search}%")
                   ->orWhere('student_number', 'like', "%{$search}%")
                   ->orWhere('course_name', 'like', "%{$search}%")
-                  ->orWhere('course_code', 'like', "%{$search}%")
-                  ->orWhere('legacy_code', 'like', "%{$search}%");
+                  ->orWhere('course_code', 'like', "%{$search}%");
             });
         }
 
-        // Statistics for cards
-        $totalEnrollments = (clone $query)->count();
-        $activeEnrollments = (clone $query)->where('status', 'active')->count();
-        $completedEnrollments = (clone $query)->where('status', 'completed')->count();
-        $pendingPayment = (clone $query)->where('balance', '>', 0)->count();
-        $requiresExamRegistration = (clone $query)
-            ->where('requires_external_exam', true)
-            ->whereDoesntHave('examRegistrations', function($q) {
-                $q->whereIn('status', ['registered', 'submitted', 'completed']);
-            })
-            ->count();
-
-        $statusBreakdown = [
-            'active' => (clone $query)->where('status', 'active')->count(),
-            'graduated' => (clone $query)->where('status', 'graduated')->count(),
-            'completed' => (clone $query)->where('status', 'completed')->count(),
-            'dropped' => (clone $query)->where('status', 'dropped')->count(),
-            'suspended' => (clone $query)->where('status', 'suspended')->count(),
-            'deferred' => (clone $query)->where('status', 'deferred')->count(),
-            'pending' => (clone $query)->where('status', 'pending')->count(),
-        ];
-
-        $examBodyBreakdown = [];
-        $examBodies = ['KNEC', 'CDACC', 'NITA', 'TVETA'];
-        foreach ($examBodies as $body) {
-            $examBodyBreakdown[$body] = (clone $query)
-                ->where('exam_body', $body)
-                ->count();
-        }
-
-        $currentYear = date('Y');
-        $intakeBreakdown = [
-            'January' => (clone $query)->where('intake_month', 'January')->where('intake_year', $currentYear)->count(),
-            'May' => (clone $query)->where('intake_month', 'May')->where('intake_year', $currentYear)->count(),
-            'September' => (clone $query)->where('intake_month', 'September')->where('intake_year', $currentYear)->count(),
-        ];
-
         $enrollments = $query->orderBy('created_at', 'desc')->paginate(15);
 
-        if ($user->role == 2) {
-            $campuses = Campus::orderBy('name')->get();
-        } else {
-            $campuses = Campus::where('id', $user->campus_id)->orderBy('name')->get();
-        }
+        $stats = [
+            'total' => Enrollment::count(),
+            'active' => Enrollment::where('status', 'active')->count(),
+            'completed' => Enrollment::where('status', 'completed')->count(),
+            'graduated' => Enrollment::where('status', 'graduated')->count(),
+            'dropped' => Enrollment::where('status', 'dropped')->count(),
+            'suspended' => Enrollment::where('status', 'suspended')->count(),
+            'has_balance' => Enrollment::whereRaw('total_fees > amount_paid')->count(),
+            'fully_paid' => Enrollment::whereRaw('total_fees <= amount_paid')->count(),
+        ];
 
+        $students = Student::where('status', 'active')->orderBy('first_name')->get();
         $courses = Course::orderBy('name')->get();
-        $intakeMonths = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-        $intakeYears = range(date('Y') - 2, date('Y') + 1);
-        $studentTypes = ['new', 'continuing', 'alumnus', 'transfer'];
-        $sponsorshipTypes = ['self', 'sponsored', 'government', 'scholarship', 'company'];
-        $statuses = ['active', 'graduated', 'completed', 'dropped', 'suspended', 'deferred', 'pending'];
 
-        return view('ktvtc.admin.enrollments.index', compact(
-            'user',
-            'enrollments',
-            'campuses',
-            'courses',
-            'examBodies',
-            'intakeMonths',
-            'intakeYears',
-            'studentTypes',
-            'sponsorshipTypes',
-            'statuses',
-            'totalEnrollments',
-            'activeEnrollments',
-            'completedEnrollments',
-            'pendingPayment',
-            'requiresExamRegistration',
-            'statusBreakdown',
-            'examBodyBreakdown',
-            'intakeBreakdown'
-        ));
+        return view('ktvtc.admin.enrollments.index', compact('enrollments', 'stats', 'students', 'courses'));
     }
 
-    /**
-     * ============ CREATE FORM ============
-     */
     public function create()
     {
-        $user = auth()->user();
-
-        $students = Student::when($user->role != 2, function ($q) use ($user) {
-                return $q->where('campus_id', $user->campus_id);
-            })
-            ->select('id', 'first_name', 'last_name', 'student_number', 'email', 'phone')
+        $students = Student::where('status', 'active')
             ->orderBy('first_name')
             ->get();
 
-        $courses = Course::select('id', 'name', 'code', 'duration_months')
+        $courses = Course::select('id', 'name', 'code')
             ->orderBy('name')
             ->get();
 
-        if ($user->role == 2) {
-            $campuses = Campus::orderBy('name')->get();
-        } else {
-            $campuses = Campus::where('id', $user->campus_id)->orderBy('name')->get();
-        }
+        $campuses = Campus::orderBy('name')->get();
 
-        $intakeMonths = ['January', 'February', 'March', 'April', 'May', 'June',
-                         'July', 'August', 'September', 'October', 'November', 'December'];
-        $intakeYear = date('Y');
-        $studyModes = ['full_time', 'part_time', 'evening', 'weekend', 'online'];
-        $studentTypes = ['new', 'continuing', 'alumnus', 'transfer'];
-        $sponsorshipTypes = ['self', 'sponsored', 'government', 'scholarship', 'company'];
-        $examBodies = ['KNEC', 'CDACC', 'NITA', 'TVETA'];
-
-        return view('ktvtc.admin.enrollments.create', compact(
-            'students',
-            'courses',
-            'campuses',
-            'intakeMonths',
-            'intakeYear',
-            'studyModes',
-            'studentTypes',
-            'sponsorshipTypes',
-            'examBodies'
-        ));
+        return view('ktvtc.admin.enrollments.create', compact('students', 'courses', 'campuses'));
     }
 
-    /**
-     * ============ STORE ============
-     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'student_id' => 'required|exists:students,id',
             'course_id' => 'required|exists:courses,id',
             'campus_id' => 'nullable|exists:campuses,id',
-            'intake_year' => 'required|integer|min:2000|max:' . (date('Y') + 2),
-            'intake_month' => 'required|string|max:20',
-            'enrollment_date' => 'nullable|date',
-            'study_mode' => 'required|in:full_time,part_time,evening,weekend,online',
-            'student_type' => 'required|in:new,continuing,alumnus,transfer',
-            'sponsorship_type' => 'required|in:self,sponsored,government,scholarship,company',
-            'duration_months' => 'nullable|integer|min:1',
-            'start_date' => 'nullable|date',
-            'expected_end_date' => 'nullable|date|after_or_equal:start_date',
             'total_fees' => 'required|numeric|min:0',
-            'amount_paid' => 'nullable|numeric|min:0',
-            'status' => 'required|in:active,graduated,completed,dropped,suspended,deferred,pending',
-            'requires_external_exam' => 'boolean',
-            'exam_body' => 'nullable|in:KNEC,CDACC,NITA,TVETA',
+            'intake_year' => 'required|integer|min:2000|max:' . (date('Y') + 5),
+            'intake_month' => 'required|string',
+            'enrollment_date' => 'required|date',
+            'start_date' => 'nullable|date',
+            'expected_end_date' => 'nullable|date|after:start_date',
+            'status' => 'required|string|in:active,graduated,completed,dropped,suspended,pending',
+            'study_mode' => 'required|string|in:full_time,part_time,evening,weekend,online',
+            'student_type' => 'required|string|in:new,continuing,alumnus,transfer',
+            'sponsorship_type' => 'required|string|in:self,sponsored,government,scholarship,company',
+            'duration_months' => 'nullable|integer|min:0',
             'remarks' => 'nullable|string',
-            'legacy_code' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
@@ -480,137 +108,73 @@ class EnrollmentController extends Controller
                 ->withInput();
         }
 
-        DB::beginTransaction();
+        $student = Student::findOrFail($request->student_id);
+        $course = Course::findOrFail($request->course_id);
 
-        try {
-            // Get student data
-            $student = Student::findOrFail($request->student_id);
+        $enrollment = Enrollment::create([
+            'student_id' => $request->student_id,
+            'course_id' => $request->course_id,
+            'campus_id' => $request->campus_id,
+            'student_name' => $student->full_name,
+            'student_number' => $student->student_number,
+            'course_name' => $course->name,
+            'course_code' => $course->code,
+            'total_fees' => $request->total_fees,
+            'amount_paid' => $request->amount_paid ?? 0,
+            'intake_year' => $request->intake_year,
+            'intake_month' => $request->intake_month,
+            'enrollment_date' => $request->enrollment_date,
+            'start_date' => $request->start_date,
+            'expected_end_date' => $request->expected_end_date,
+            'status' => $request->status,
+            'study_mode' => $request->study_mode,
+            'student_type' => $request->student_type,
+            'sponsorship_type' => $request->sponsorship_type,
+            'duration_months' => $request->duration_months,
+            'remarks' => $request->remarks,
+            'is_active' => $request->status === 'active',
+        ]);
 
-            // Get course data
-            $course = Course::findOrFail($request->course_id);
-
-            // Prepare enrollment data
-            $data = $request->all();
-
-            // Auto-populate student_name and student_number from student record
-            $data['student_name'] = $student->full_name ?? trim($student->first_name . ' ' . $student->last_name);
-            $data['student_number'] = $student->student_number;
-
-            // Auto-populate course_name and course_code from course record
-            $data['course_name'] = $course->name;
-            $data['course_code'] = $course->code;
-
-            // Auto-populate campus_id from student if not provided
-            if (empty($data['campus_id']) && $student->campus_id) {
-                $data['campus_id'] = $student->campus_id;
-            }
-
-            // Calculate balance
-            $amountPaid = $data['amount_paid'] ?? 0;
-            $data['balance'] = $data['total_fees'] - $amountPaid;
-
-            // Set is_active based on status
-            $data['is_active'] = in_array($data['status'], ['active', 'pending']);
-
-            // Set enrollment date if not provided
-            if (empty($data['enrollment_date'])) {
-                $data['enrollment_date'] = now();
-            }
-
-            // Create enrollment
-            $enrollment = Enrollment::create($data);
-
-            DB::commit();
-
-            return redirect()->route('admin.enrollments.show', $enrollment)
-                ->with('success', 'Enrollment created successfully.');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            return redirect()->back()
-                ->with('error', 'Failed to create enrollment: ' . $e->getMessage())
-                ->withInput();
-        }
+        return redirect()->route('admin.enrollments.index')
+            ->with('success', "Enrollment created successfully for {$enrollment->student_name}.");
     }
 
-    /**
-     * ============ SHOW ============
-     */
-    public function show(Enrollment $enrollment)
+    public function show($id)
     {
-        $enrollment->load(['student', 'course', 'campus', 'payments', 'examRegistrations']);
-        $payments = $enrollment->payments;
-
-        return view('ktvtc.admin.enrollments.show', compact('enrollment', 'payments'));
+        $enrollment = Enrollment::with(['student', 'course', 'campus', 'payments'])->findOrFail($id);
+        return view('ktvtc.admin.enrollments.show', compact('enrollment'));
     }
 
-    /**
-     * ============ EDIT ============
-     */
-    public function edit(Enrollment $enrollment)
+    public function edit($id)
     {
-        $user = auth()->user();
-
-        $students = Student::when($user->role != 2, function ($q) use ($user) {
-                return $q->where('campus_id', $user->campus_id);
-            })
-            ->orderBy('first_name')
-            ->get();
-
+        $enrollment = Enrollment::findOrFail($id);
+        $students = Student::where('status', 'active')->orderBy('first_name')->get();
         $courses = Course::orderBy('name')->get();
+        $campuses = Campus::orderBy('name')->get();
 
-        if ($user->role == 2) {
-            $campuses = Campus::orderBy('name')->get();
-        } else {
-            $campuses = Campus::where('id', $user->campus_id)->orderBy('name')->get();
-        }
-
-        $intakeMonths = ['January', 'February', 'March', 'April', 'May', 'June',
-                         'July', 'August', 'September', 'October', 'November', 'December'];
-        $studyModes = ['full_time', 'part_time', 'evening', 'weekend', 'online'];
-        $studentTypes = ['new', 'continuing', 'alumnus', 'transfer'];
-        $sponsorshipTypes = ['self', 'sponsored', 'government', 'scholarship', 'company'];
-        $examBodies = ['KNEC', 'CDACC', 'NITA', 'TVETA'];
-        $statuses = ['active', 'graduated', 'completed', 'dropped', 'suspended', 'deferred', 'pending'];
-
-        return view('ktvtc.admin.enrollments.edit', compact(
-            'enrollment',
-            'students',
-            'courses',
-            'campuses',
-            'intakeMonths',
-            'studyModes',
-            'studentTypes',
-            'sponsorshipTypes',
-            'examBodies',
-            'statuses'
-        ));
+        return view('ktvtc.admin.enrollments.edit', compact('enrollment', 'students', 'courses', 'campuses'));
     }
 
-    /**
-     * ============ UPDATE ============
-     */
-    public function update(Request $request, Enrollment $enrollment)
+    public function update(Request $request, $id)
     {
+        $enrollment = Enrollment::findOrFail($id);
+
         $validator = Validator::make($request->all(), [
             'student_id' => 'required|exists:students,id',
             'course_id' => 'required|exists:courses,id',
             'campus_id' => 'nullable|exists:campuses,id',
-            'intake_year' => 'required|integer|min:2000|max:' . (date('Y') + 2),
-            'intake_month' => 'required|string|max:20',
-            'enrollment_date' => 'nullable|date',
-            'study_mode' => 'required|in:full_time,part_time,evening,weekend,online',
-            'student_type' => 'required|in:new,continuing,alumnus,transfer',
-            'sponsorship_type' => 'required|in:self,sponsored,government,scholarship,company',
-            'duration_months' => 'nullable|integer|min:1',
-            'start_date' => 'nullable|date',
-            'expected_end_date' => 'nullable|date|after_or_equal:start_date',
             'total_fees' => 'required|numeric|min:0',
             'amount_paid' => 'nullable|numeric|min:0',
-            'status' => 'required|in:active,graduated,completed,dropped,suspended,deferred,pending',
-            'requires_external_exam' => 'boolean',
-            'exam_body' => 'nullable|in:KNEC,CDACC,NITA,TVETA',
+            'intake_year' => 'required|integer|min:2000|max:' . (date('Y') + 5),
+            'intake_month' => 'required|string',
+            'enrollment_date' => 'required|date',
+            'start_date' => 'nullable|date',
+            'expected_end_date' => 'nullable|date|after:start_date',
+            'status' => 'required|string|in:active,graduated,completed,dropped,suspended,pending',
+            'study_mode' => 'required|string|in:full_time,part_time,evening,weekend,online',
+            'student_type' => 'required|string|in:new,continuing,alumnus,transfer',
+            'sponsorship_type' => 'required|string|in:self,sponsored,government,scholarship,company',
+            'duration_months' => 'nullable|integer|min:0',
             'remarks' => 'nullable|string',
         ]);
 
@@ -620,217 +184,246 @@ class EnrollmentController extends Controller
                 ->withInput();
         }
 
-        DB::beginTransaction();
+        $student = Student::findOrFail($request->student_id);
+        $course = Course::findOrFail($request->course_id);
 
-        try {
-            // Get student and course data for denormalized fields
-            $student = Student::findOrFail($request->student_id);
-            $course = Course::findOrFail($request->course_id);
-
-            $data = $request->all();
-
-            // Update denormalized fields
-            $data['student_name'] = $student->full_name ?? trim($student->first_name . ' ' . $student->last_name);
-            $data['student_number'] = $student->student_number;
-            $data['course_name'] = $course->name;
-            $data['course_code'] = $course->code;
-
-            // Calculate balance
-            $amountPaid = $data['amount_paid'] ?? 0;
-            $data['balance'] = $data['total_fees'] - $amountPaid;
-
-            // Set is_active based on status
-            $data['is_active'] = in_array($data['status'], ['active', 'pending']);
-
-            $enrollment->update($data);
-
-            DB::commit();
-
-            return redirect()->route('admin.enrollments.show', $enrollment)
-                ->with('success', 'Enrollment updated successfully.');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            return redirect()->back()
-                ->with('error', 'Failed to update enrollment: ' . $e->getMessage())
-                ->withInput();
-        }
-    }
-
-    /**
-     * ============ DESTROY ============
-     */
-    public function destroy(Enrollment $enrollment)
-    {
-        DB::beginTransaction();
-
-        try {
-            // Check if there are any payments
-            if ($enrollment->payments()->count() > 0) {
-                return redirect()->back()
-                    ->with('error', 'Cannot delete enrollment with payments.');
-            }
-
-            $enrollment->delete();
-
-            DB::commit();
-
-            return redirect()->route('admin.enrollments.index')
-                ->with('success', 'Enrollment deleted successfully.');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            return redirect()->back()
-                ->with('error', 'Failed to delete enrollment: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * ============ STATUS ACTIONS ============
-     */
-    public function activate(Enrollment $enrollment)
-    {
         $enrollment->update([
-            'status' => 'active',
-            'is_active' => true
+            'student_id' => $request->student_id,
+            'course_id' => $request->course_id,
+            'campus_id' => $request->campus_id,
+            'student_name' => $student->full_name,
+            'student_number' => $student->student_number,
+            'course_name' => $course->name,
+            'course_code' => $course->code,
+            'total_fees' => $request->total_fees,
+            'amount_paid' => $request->amount_paid ?? $enrollment->amount_paid,
+            'intake_year' => $request->intake_year,
+            'intake_month' => $request->intake_month,
+            'enrollment_date' => $request->enrollment_date,
+            'start_date' => $request->start_date,
+            'expected_end_date' => $request->expected_end_date,
+            'status' => $request->status,
+            'study_mode' => $request->study_mode,
+            'student_type' => $request->student_type,
+            'sponsorship_type' => $request->sponsorship_type,
+            'duration_months' => $request->duration_months,
+            'remarks' => $request->remarks,
+            'is_active' => $request->status === 'active',
         ]);
 
-        return redirect()->back()
-            ->with('success', 'Enrollment activated successfully.');
+        return redirect()->route('admin.enrollments.index')
+            ->with('success', "Enrollment updated successfully.");
     }
 
-    public function suspend(Enrollment $enrollment)
+    public function destroy($id)
     {
-        $enrollment->update([
-            'status' => 'suspended',
-            'is_active' => false
-        ]);
+        $enrollment = Enrollment::findOrFail($id);
+        $enrollment->delete();
 
-        return redirect()->back()
-            ->with('success', 'Enrollment suspended successfully.');
+        return redirect()->route('admin.enrollments.index')
+            ->with('success', 'Enrollment deleted successfully.');
     }
 
-    public function complete(Enrollment $enrollment)
+    public function activate($id)
     {
-        $enrollment->update([
-            'status' => 'completed',
-            'is_active' => false,
-            'actual_end_date' => now()
-        ]);
+        $enrollment = Enrollment::findOrFail($id);
+        $enrollment->status = 'active';
+        $enrollment->is_active = true;
+        $enrollment->save();
 
-        return redirect()->back()
-            ->with('success', 'Enrollment marked as completed.');
+        return redirect()->back()->with('success', 'Enrollment activated successfully.');
     }
 
-    public function defer(Enrollment $enrollment)
+    public function suspend($id)
     {
-        $enrollment->update([
-            'status' => 'deferred',
-            'is_active' => false
-        ]);
+        $enrollment = Enrollment::findOrFail($id);
+        $enrollment->status = 'suspended';
+        $enrollment->is_active = false;
+        $enrollment->save();
 
-        return redirect()->back()
-            ->with('success', 'Enrollment deferred successfully.');
+        return redirect()->back()->with('success', 'Enrollment suspended successfully.');
     }
 
-    /**
-     * ============ API ENDPOINTS ============
-     */
+    public function complete($id)
+    {
+        $enrollment = Enrollment::findOrFail($id);
+        $enrollment->status = 'completed';
+        $enrollment->actual_end_date = now();
+        $enrollment->save();
+
+        return redirect()->back()->with('success', 'Enrollment completed successfully.');
+    }
+
+    public function defer($id)
+    {
+        $enrollment = Enrollment::findOrFail($id);
+        $enrollment->status = 'deferred';
+        $enrollment->is_active = false;
+        $enrollment->save();
+
+        return redirect()->back()->with('success', 'Enrollment deferred successfully.');
+    }
+
+    public function registerExam($id)
+    {
+        $enrollment = Enrollment::findOrFail($id);
+        $enrollment->requires_external_exam = true;
+        $enrollment->save();
+
+        return redirect()->back()->with('success', 'Student registered for external exam.');
+    }
+
+    public function bulkActivate(Request $request)
+    {
+        $ids = $request->enrollment_ids;
+        Enrollment::whereIn('id', $ids)->update(['status' => 'active', 'is_active' => true]);
+
+        return redirect()->back()->with('success', count($ids) . ' enrollments activated.');
+    }
+
+    public function bulkComplete(Request $request)
+    {
+        $ids = $request->enrollment_ids;
+        Enrollment::whereIn('id', $ids)->update(['status' => 'completed', 'actual_end_date' => now()]);
+
+        return redirect()->back()->with('success', count($ids) . ' enrollments completed.');
+    }
+
+    public function bulkDelete(Request $request)
+    {
+        $ids = $request->enrollment_ids;
+        Enrollment::whereIn('id', $ids)->delete();
+
+        return redirect()->back()->with('success', count($ids) . ' enrollments deleted.');
+    }
+
+    public function export()
+    {
+        // Export logic here
+        return redirect()->back()->with('success', 'Export functionality coming soon.');
+    }
+
+    public function enrollmentReport()
+    {
+        $data = Enrollment::with(['student', 'course'])->get();
+        return view('ktvtc.admin.enrollments.report', compact('data'));
+    }
+
+    public function financialReport()
+    {
+        $data = Enrollment::with(['student', 'course', 'payments'])->get();
+        return view('ktvtc.admin.enrollments.financial-report', compact('data'));
+    }
+
     public function getByStudent(Request $request)
     {
-        $request->validate([
-            'student_id' => 'required|exists:students,id'
-        ]);
-
-        $enrollments = Enrollment::where('student_id', $request->student_id)
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function($enrollment) {
-                return [
-                    'id' => $enrollment->id,
-                    'student_name' => $enrollment->student_name,
-                    'student_number' => $enrollment->student_number,
-                    'course' => $enrollment->course_name,
-                    'intake' => $enrollment->intake_month . ' ' . $enrollment->intake_year,
-                    'status' => $enrollment->status,
-                    'total_fee' => $enrollment->total_fees,
-                    'paid' => $enrollment->amount_paid,
-                    'balance' => $enrollment->balance,
-                ];
-            });
-
+        $studentId = $request->student_id;
+        $enrollments = Enrollment::where('student_id', $studentId)->with('course')->get();
         return response()->json($enrollments);
     }
 
-    /**
-     * ============ EXPORT ============
-     */
-    public function export(Request $request)
+    public function getStats(Request $request)
     {
-        $user = auth()->user();
+        $stats = [
+            'total' => Enrollment::count(),
+            'active' => Enrollment::where('status', 'active')->count(),
+            'completed' => Enrollment::where('status', 'completed')->count(),
+            'graduated' => Enrollment::where('status', 'graduated')->count(),
+            'has_balance' => Enrollment::whereRaw('total_fees > amount_paid')->count(),
+            'fully_paid' => Enrollment::whereRaw('total_fees <= amount_paid')->count(),
+        ];
+        return response()->json($stats);
+    }
 
-        $query = Enrollment::with(['student', 'course', 'campus'])
-            ->when($user->role != 2, function ($q) use ($user) {
-                return $q->where('campus_id', $user->campus_id);
-            });
+    // SMS Fee Reminder Methods
+    public function sendFeeReminders(Request $request)
+    {
+        $enrollments = Enrollment::whereRaw('total_fees > amount_paid')
+            ->where('status', 'active')
+            ->with(['student'])
+            ->get();
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
-        if ($request->filled('intake_year')) {
-            $query->where('intake_year', $request->intake_year);
-        }
-
-        if ($request->filled('intake_month')) {
-            $query->where('intake_month', $request->intake_month);
-        }
-
-        $enrollments = $query->orderBy('created_at', 'desc')->get();
-
-        $filename = 'enrollments_' . now()->format('Y-m-d_His') . '.csv';
-        $handle = fopen('php://temp', 'w');
-
-        fputcsv($handle, [
-            'Enrollment Number',
-            'Student Name',
-            'Student Number',
-            'Course',
-            'Intake',
-            'Campus',
-            'Exam Body',
-            'Status',
-            'Total Fee',
-            'Amount Paid',
-            'Balance',
-            'Enrollment Date',
-        ]);
+        $sent = 0;
+        $failed = 0;
 
         foreach ($enrollments as $enrollment) {
-            fputcsv($handle, [
-                $enrollment->id,
-                $enrollment->student_name,
-                $enrollment->student_number ?? 'N/A',
-                $enrollment->course_name,
-                $enrollment->intake_month . ' ' . $enrollment->intake_year,
-                $enrollment->campus->name ?? 'N/A',
-                $enrollment->exam_body ?? 'N/A',
-                ucfirst($enrollment->status),
-                $enrollment->total_fees,
-                $enrollment->amount_paid,
-                $enrollment->balance,
-                $enrollment->enrollment_date ? $enrollment->enrollment_date->format('Y-m-d') : 'N/A',
-            ]);
+            if ($enrollment->student && $enrollment->student->phone) {
+                $balance = $enrollment->total_fees - $enrollment->amount_paid;
+                $message = "Dear {$enrollment->student->full_name},\n\n";
+                $message .= "This is a reminder that you have an outstanding balance of KES " . number_format($balance, 2) . " for your enrollment in {$enrollment->course_name}.\n\n";
+                $message .= "Please settle your fees to avoid any interruptions.\n\n";
+                $message .= "Thank you,\nKTVTC Team";
+
+                $result = $this->smsService->sendSingleSms($enrollment->student->phone, $message);
+                if ($result['success']) {
+                    $sent++;
+                } else {
+                    $failed++;
+                }
+            }
         }
 
-        rewind($handle);
-        $content = stream_get_contents($handle);
-        fclose($handle);
+        return redirect()->back()->with('success', "Fee reminders sent: {$sent} sent, {$failed} failed.");
+    }
 
-        return response($content)
-            ->header('Content-Type', 'text/csv')
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+    public function sendSingleFeeReminder($id)
+    {
+        $enrollment = Enrollment::findOrFail($id);
+
+        if (!$enrollment->student || !$enrollment->student->phone) {
+            return redirect()->back()->with('error', 'Student has no phone number.');
+        }
+
+        $balance = $enrollment->total_fees - $enrollment->amount_paid;
+        $message = "Dear {$enrollment->student->full_name},\n\n";
+        $message .= "This is a reminder that you have an outstanding balance of KES " . number_format($balance, 2) . " for your enrollment in {$enrollment->course_name}.\n\n";
+        $message .= "Please settle your fees to avoid any interruptions.\n\n";
+        $message .= "Thank you,\nKTVTC Team";
+
+        $result = $this->smsService->sendSingleSms($enrollment->student->phone, $message);
+
+        if ($result['success']) {
+            return redirect()->back()->with('success', 'Fee reminder sent successfully.');
+        } else {
+            return redirect()->back()->with('error', 'Failed to send fee reminder: ' . $result['message']);
+        }
+    }
+
+    public function sendBulkBalanceReminders(Request $request)
+    {
+        $ids = $request->enrollment_ids;
+        $enrollments = Enrollment::whereIn('id', $ids)->with(['student'])->get();
+
+        $sent = 0;
+        $failed = 0;
+
+        foreach ($enrollments as $enrollment) {
+            if ($enrollment->student && $enrollment->student->phone) {
+                $balance = $enrollment->total_fees - $enrollment->amount_paid;
+                $message = "Dear {$enrollment->student->full_name},\n\n";
+                $message .= "This is a reminder that you have an outstanding balance of KES " . number_format($balance, 2) . " for your enrollment in {$enrollment->course_name}.\n\n";
+                $message .= "Please settle your fees to avoid any interruptions.\n\n";
+                $message .= "Thank you,\nKTVTC Team";
+
+                $result = $this->smsService->sendSingleSms($enrollment->student->phone, $message);
+                if ($result['success']) {
+                    $sent++;
+                } else {
+                    $failed++;
+                }
+            }
+        }
+
+        return redirect()->back()->with('success', "Bulk reminders sent: {$sent} sent, {$failed} failed.");
+    }
+
+    public function getEligibleForReminder()
+    {
+        $enrollments = Enrollment::whereRaw('total_fees > amount_paid')
+            ->where('status', 'active')
+            ->with(['student'])
+            ->get(['id', 'student_id', 'student_name', 'total_fees', 'amount_paid']);
+
+        return response()->json($enrollments);
     }
 }

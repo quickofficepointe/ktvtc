@@ -134,7 +134,6 @@
 
 <!-- Analytics Charts Row -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-    <!-- Status Breakdown Chart -->
     <div class="bg-white rounded-xl border border-gray-200 p-6">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-semibold text-gray-800">Status Distribution</h3>
@@ -157,7 +156,6 @@
         </div>
     </div>
 
-    <!-- Gender Distribution Chart -->
     <div class="bg-white rounded-xl border border-gray-200 p-6">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-semibold text-gray-800">Gender Distribution</h3>
@@ -167,7 +165,6 @@
         </div>
     </div>
 
-    <!-- Category Distribution Chart -->
     <div class="bg-white rounded-xl border border-gray-200 p-6">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-semibold text-gray-800">Student Categories</h3>
@@ -198,7 +195,6 @@
     <div class="p-6">
         <form id="filterForm" action="{{ route('admin.students.index') }}" method="GET">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <!-- Status Filter -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
                     <select name="status" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
@@ -214,7 +210,6 @@
                     </select>
                 </div>
 
-                <!-- Campus Filter -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Campus</label>
                     <select name="campus_id" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
@@ -227,7 +222,6 @@
                     </select>
                 </div>
 
-                <!-- Gender Filter -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Gender</label>
                     <select name="gender" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
@@ -238,7 +232,6 @@
                     </select>
                 </div>
 
-                <!-- Category Filter -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
                     <select name="student_category" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
@@ -251,21 +244,18 @@
                     </select>
                 </div>
 
-                <!-- Date From Filter -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Registration From</label>
                     <input type="date" name="registration_date_from" value="{{ request('registration_date_from') }}"
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
                 </div>
 
-                <!-- Date To Filter -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Registration To</label>
                     <input type="date" name="registration_date_to" value="{{ request('registration_date_to') }}"
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
                 </div>
 
-                <!-- Cleanup Filter -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Cleanup Status</label>
                     <select name="requires_cleanup" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
@@ -275,7 +265,6 @@
                     </select>
                 </div>
 
-                <!-- Search -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Search</label>
                     <div class="relative">
@@ -287,7 +276,6 @@
                 </div>
             </div>
 
-            <!-- Filter Buttons -->
             <div class="flex justify-end space-x-3 mt-6">
                 <a href="{{ route('admin.students.index') }}"
                    class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
@@ -301,7 +289,7 @@
     </div>
 </div>
 
-<!-- Bulk Actions Bar (Hidden by default) -->
+<!-- Bulk Actions Bar -->
 <div id="bulkActionsBar" class="hidden bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
     <div class="flex items-center justify-between">
         <div class="flex items-center space-x-3">
@@ -310,7 +298,7 @@
                 <span id="selectedCount">0</span> student(s) selected
             </span>
         </div>
-        <div class="flex items-center space-x-2">
+        <div class="flex items-center space-x-2 flex-wrap gap-2">
             <button onclick="bulkActivate()"
                     class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm flex items-center space-x-2">
                 <i class="fas fa-check-circle"></i>
@@ -325,6 +313,11 @@
                     class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm flex items-center space-x-2">
                 <i class="fas fa-archive"></i>
                 <span>Archive</span>
+            </button>
+            <button onclick="bulkSyncStudentNumbers()"
+                    class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm flex items-center space-x-2">
+                <i class="fas fa-sync-alt"></i>
+                <span>Sync Numbers</span>
             </button>
             <button onclick="bulkDelete()"
                     class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm flex items-center space-x-2">
@@ -493,7 +486,7 @@
                         </div>
                     </td>
                     <td class="py-3 px-6" onclick="event.stopPropagation()">
-                        <div class="flex items-center space-x-2">
+                        <div class="flex items-center space-x-1">
                             <a href="{{ route('admin.students.show', $student) }}"
                                class="p-2 text-gray-600 hover:text-primary hover:bg-gray-100 rounded-lg transition-colors"
                                data-tooltip="View Details">
@@ -510,8 +503,9 @@
                                     <i class="fas fa-ellipsis-v"></i>
                                 </button>
                                 <div id="actionMenu-{{ $student->id }}"
-                                     class="hidden absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-10">
+                                     class="hidden absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-10">
                                     <div class="py-1">
+                                        <!-- Status Actions -->
                                         @if($student->status !== 'active')
                                         <button onclick="updateStatus('{{ $student->id }}', 'activate')"
                                                 class="w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-gray-50 flex items-center">
@@ -536,6 +530,21 @@
 
                                         <hr class="my-1 border-gray-200">
 
+                                        <!-- NEW: Student Number Fix Actions -->
+                                        <button onclick="openFixStudentNumberModal('{{ $student->id }}', '{{ $student->student_number }}', '{{ $student->first_name }} {{ $student->last_name }}')"
+                                                class="w-full text-left px-4 py-2 text-sm text-purple-600 hover:bg-gray-50 flex items-center">
+                                            <i class="fas fa-pencil-alt mr-2"></i>
+                                            Fix Student Number
+                                        </button>
+
+                                        <button onclick="syncStudentPassword('{{ $student->id }}', '{{ $student->student_number }}', '{{ $student->first_name }} {{ $student->last_name }}')"
+                                                class="w-full text-left px-4 py-2 text-sm text-indigo-600 hover:bg-gray-50 flex items-center">
+                                            <i class="fas fa-key mr-2"></i>
+                                            Sync Password
+                                        </button>
+
+                                        <hr class="my-1 border-gray-200">
+
                                         <a href="{{ route('admin.students.details', $student) }}"
                                            class="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-50 flex items-center">
                                             <i class="fas fa-info-circle mr-2"></i>
@@ -543,7 +552,7 @@
                                         </a>
 
                                         <button onclick="generateReport('{{ $student->id }}')"
-                                                class="w-full text-left px-4 py-2 text-sm text-purple-600 hover:bg-gray-50 flex items-center">
+                                                class="w-full text-left px-4 py-2 text-sm text-teal-600 hover:bg-gray-50 flex items-center">
                                             <i class="fas fa-file-alt mr-2"></i>
                                             Generate Report
                                         </button>
@@ -581,17 +590,15 @@
         </table>
     </div>
 
-    <!-- Table Footer -->
-    @if($students instanceof \Illuminate\Pagination\LengthAwarePaginator && $students->total() > 0)
     <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
         <div class="flex items-center justify-between">
             <div class="text-sm text-gray-600">
-                Showing <span class="font-medium">{{ $students->firstItem() }}</span> to
-                <span class="font-medium">{{ $students->lastItem() }}</span> of
-                <span class="font-medium">{{ number_format($students->total()) }}</span> students
+                Showing <span class="font-medium">{{ $students->firstItem() ?? 0 }}</span> to
+                <span class="font-medium">{{ $students->lastItem() ?? 0 }}</span> of
+                <span class="font-medium">{{ number_format($students->total() ?? 0) }}</span> students
             </div>
             <div class="flex items-center space-x-2">
-                @if($students->onFirstPage())
+                @if($students->onFirstPage() ?? true)
                 <button disabled class="px-3 py-1 border border-gray-300 rounded-lg text-gray-400 bg-gray-50 cursor-not-allowed">
                     <i class="fas fa-chevron-left"></i>
                 </button>
@@ -603,10 +610,10 @@
                 @endif
 
                 <span class="text-sm text-gray-600">
-                    Page {{ $students->currentPage() }} of {{ $students->lastPage() }}
+                    Page {{ $students->currentPage() ?? 1 }} of {{ $students->lastPage() ?? 1 }}
                 </span>
 
-                @if($students->hasMorePages())
+                @if($students->hasMorePages() ?? false)
                 <a href="{{ $students->nextPageUrl() }}"
                    class="px-3 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
                     <i class="fas fa-chevron-right"></i>
@@ -619,8 +626,9 @@
             </div>
         </div>
     </div>
-    @endif
 </div>
+
+<!-- ==================== MODALS ==================== -->
 
 <!-- Status Update Modal -->
 <div id="statusModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
@@ -713,165 +721,200 @@
     </div>
 </div>
 
-<!-- Bulk Action Modals -->
-<!-- Bulk Delete Modal -->
-<div id="bulkDeleteModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+<!-- ==================== NEW: FIX STUDENT NUMBER MODAL ==================== -->
+<div id="fixStudentNumberModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 transition-opacity modal-overlay" onclick="closeModal('bulkDeleteModal')"></div>
+        <div class="fixed inset-0 transition-opacity modal-overlay" onclick="closeModal('fixStudentNumberModal')"></div>
         <span class="hidden sm:inline-block sm:align-middle sm:h-screen"></span>
-        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full modal-content">
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full modal-content">
             <div class="bg-white px-6 pt-5 pb-4">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800">Bulk Delete Students</h3>
-                    <button onclick="closeModal('bulkDeleteModal')" class="text-gray-400 hover:text-gray-600">
+                    <h3 class="text-lg font-semibold text-gray-800">Fix Student Number</h3>
+                    <button onclick="closeModal('fixStudentNumberModal')" class="text-gray-400 hover:text-gray-600">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
                 <div class="mb-4">
-                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
-                        <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-purple-100 mb-4">
+                        <i class="fas fa-id-card text-purple-600 text-xl"></i>
                     </div>
-                    <p class="text-center text-gray-600" id="bulkDeleteModalMessage">
-                        Are you sure you want to delete <span id="bulkDeleteCount"></span> student(s)? This action cannot be undone.
+                    <p class="text-center text-gray-600" id="fixStudentNumberMessage">
+                        Update student number and automatically sync password.
                     </p>
                 </div>
-                <form id="bulkDeleteForm" method="POST" action="{{ route('admin.students.bulk.delete') }}">
+                <form id="fixStudentNumberForm" method="POST">
                     @csrf
-                    <div id="bulkDeleteInputs"></div>
+                    <input type="hidden" name="student_id" id="fixStudentNumberStudentId">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Student Name</label>
+                            <p class="text-gray-900 font-medium" id="fixStudentNumberName">-</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Current Student Number</label>
+                            <p class="text-gray-600" id="fixStudentNumberCurrent">-</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">New Student Number <span class="text-red-500">*</span></label>
+                            <input type="text" name="student_number" id="fixStudentNumberNew"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                   placeholder="Enter new student number" required>
+                            <p class="text-xs text-gray-500 mt-1">Password will be automatically updated to this student number (uppercase).</p>
+                        </div>
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <div class="flex items-start">
+                                <i class="fas fa-info-circle text-blue-500 mt-0.5 mr-2"></i>
+                                <div>
+                                    <p class="text-sm text-blue-700 font-medium">What happens next?</p>
+                                    <ul class="text-xs text-blue-600 mt-1 list-disc pl-4 space-y-1">
+                                        <li>Student number will be updated</li>
+                                        <li>Password will be changed to the new student number (uppercase)</li>
+                                        <li>SMS notification will be sent to the student</li>
+                                        <li>Student will be prompted to change password on next login</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </form>
             </div>
             <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
-                <button onclick="closeModal('bulkDeleteModal')"
+                <button onclick="closeModal('fixStudentNumberModal')"
                         class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
                     Cancel
                 </button>
-                <button onclick="submitBulkDelete()"
-                        class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center">
-                    <i class="fas fa-trash mr-2"></i>
-                    Delete
+                <button onclick="submitFixStudentNumber()"
+                        class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center">
+                    <i class="fas fa-sync-alt mr-2"></i>
+                    Update & Sync Password
                 </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Bulk Activate Modal -->
-<div id="bulkActivateModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+<!-- ==================== NEW: SYNC PASSWORD MODAL ==================== -->
+<div id="syncPasswordModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 transition-opacity modal-overlay" onclick="closeModal('bulkActivateModal')"></div>
+        <div class="fixed inset-0 transition-opacity modal-overlay" onclick="closeModal('syncPasswordModal')"></div>
         <span class="hidden sm:inline-block sm:align-middle sm:h-screen"></span>
-        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full modal-content">
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full modal-content">
             <div class="bg-white px-6 pt-5 pb-4">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800">Bulk Activate Students</h3>
-                    <button onclick="closeModal('bulkActivateModal')" class="text-gray-400 hover:text-gray-600">
+                    <h3 class="text-lg font-semibold text-gray-800">Sync Password</h3>
+                    <button onclick="closeModal('syncPasswordModal')" class="text-gray-400 hover:text-gray-600">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
                 <div class="mb-4">
-                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
-                        <i class="fas fa-check-circle text-green-600 text-xl"></i>
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100 mb-4">
+                        <i class="fas fa-key text-indigo-600 text-xl"></i>
                     </div>
-                    <p class="text-center text-gray-600" id="bulkActivateModalMessage">
-                        Are you sure you want to activate <span id="bulkActivateCount"></span> student(s)?
+                    <p class="text-center text-gray-600" id="syncPasswordMessage">
+                        Sync student password with their student number.
                     </p>
                 </div>
-                <form id="bulkActivateForm" method="POST" action="{{ route('admin.students.bulk.activate') }}">
-                    @csrf
-                    <div id="bulkActivateInputs"></div>
-                </form>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Student</label>
+                        <p class="text-gray-900 font-medium" id="syncPasswordName">-</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Student Number</label>
+                        <p class="text-gray-600 font-mono" id="syncPasswordNumber">-</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                        <p class="text-gray-600 font-mono bg-gray-100 p-2 rounded-lg" id="syncPasswordNew">-</p>
+                    </div>
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div class="flex items-start">
+                            <i class="fas fa-check-circle text-green-500 mt-0.5 mr-2"></i>
+                            <div>
+                                <p class="text-sm text-green-700 font-medium">What happens next?</p>
+                                <ul class="text-xs text-green-600 mt-1 list-disc pl-4 space-y-1">
+                                    <li>Password will be changed to: <span id="syncPasswordNewDisplay" class="font-bold"></span></li>
+                                    <li>SMS notification will be sent to the student</li>
+                                    <li>Student will be prompted to change password on next login</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
-                <button onclick="closeModal('bulkActivateModal')"
+                <button onclick="closeModal('syncPasswordModal')"
                         class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
                     Cancel
                 </button>
-                <button onclick="submitBulkActivate()"
-                        class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center">
-                    <i class="fas fa-check-circle mr-2"></i>
-                    Activate
+                <button onclick="submitSyncPassword()"
+                        class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center">
+                    <i class="fas fa-sync-alt mr-2"></i>
+                    Sync Password
                 </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Bulk Suspend Modal -->
-<div id="bulkSuspendModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
-    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 transition-opacity modal-overlay" onclick="closeModal('bulkSuspendModal')"></div>
-        <span class="hidden sm:inline-block sm:align-middle sm:h-screen"></span>
-        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full modal-content">
-            <div class="bg-white px-6 pt-5 pb-4">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800">Bulk Suspend Students</h3>
-                    <button onclick="closeModal('bulkSuspendModal')" class="text-gray-400 hover:text-gray-600">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="mb-4">
-                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 mb-4">
-                        <i class="fas fa-pause-circle text-yellow-600 text-xl"></i>
-                    </div>
-                    <p class="text-center text-gray-600" id="bulkSuspendModalMessage">
-                        Are you sure you want to suspend <span id="bulkSuspendCount"></span> student(s)?
-                    </p>
-                </div>
-                <form id="bulkSuspendForm" method="POST" action="{{ route('admin.students.bulk.suspend') }}">
-                    @csrf
-                    <div id="bulkSuspendInputs"></div>
-                </form>
-            </div>
-            <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
-                <button onclick="closeModal('bulkSuspendModal')"
-                        class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                    Cancel
-                </button>
-                <button onclick="submitBulkSuspend()"
-                        class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors flex items-center">
-                    <i class="fas fa-pause-circle mr-2"></i>
-                    Suspend
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Bulk Modals -->
+<div id="bulkDeleteModal" class="hidden fixed inset-0 z-50 overflow-y-auto">...</div>
+<div id="bulkActivateModal" class="hidden fixed inset-0 z-50 overflow-y-auto">...</div>
+<div id="bulkSuspendModal" class="hidden fixed inset-0 z-50 overflow-y-auto">...</div>
+<div id="bulkArchiveModal" class="hidden fixed inset-0 z-50 overflow-y-auto">...</div>
 
-<!-- Bulk Archive Modal -->
-<div id="bulkArchiveModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+<!-- ==================== NEW: BULK SYNC NUMBERS MODAL ==================== -->
+<div id="bulkSyncModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 transition-opacity modal-overlay" onclick="closeModal('bulkArchiveModal')"></div>
+        <div class="fixed inset-0 transition-opacity modal-overlay" onclick="closeModal('bulkSyncModal')"></div>
         <span class="hidden sm:inline-block sm:align-middle sm:h-screen"></span>
-        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full modal-content">
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full modal-content">
             <div class="bg-white px-6 pt-5 pb-4">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800">Bulk Archive Students</h3>
-                    <button onclick="closeModal('bulkArchiveModal')" class="text-gray-400 hover:text-gray-600">
+                    <h3 class="text-lg font-semibold text-gray-800">Bulk Sync Student Numbers</h3>
+                    <button onclick="closeModal('bulkSyncModal')" class="text-gray-400 hover:text-gray-600">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
                 <div class="mb-4">
-                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gray-100 mb-4">
-                        <i class="fas fa-archive text-gray-600 text-xl"></i>
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-purple-100 mb-4">
+                        <i class="fas fa-sync-alt text-purple-600 text-xl"></i>
                     </div>
-                    <p class="text-center text-gray-600" id="bulkArchiveModalMessage">
-                        Are you sure you want to archive <span id="bulkArchiveCount"></span> student(s)?
+                    <p class="text-center text-gray-600" id="bulkSyncMessage">
+                        Generate new student numbers for <span id="bulkSyncCount"></span> selected students and sync passwords.
                     </p>
                 </div>
-                <form id="bulkArchiveForm" method="POST" action="{{ route('admin.students.bulk.archive') }}">
+                <form id="bulkSyncForm" method="POST" action="{{ route('admin.students.bulk-sync-numbers') }}">
                     @csrf
-                    <div id="bulkArchiveInputs"></div>
+                    <div id="bulkSyncInputs"></div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Number Prefix</label>
+                            <input type="text" name="prefix" value="STU"
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                   placeholder="e.g., STU">
+                            <p class="text-xs text-gray-500 mt-1">Format: {PREFIX}/{YEAR}/{MONTH}/{0001}</p>
+                        </div>
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <div class="flex items-start">
+                                <i class="fas fa-info-circle text-blue-500 mt-0.5 mr-2"></i>
+                                <p class="text-sm text-blue-700">
+                                    All selected students will get new student numbers and their passwords will be synced. SMS notifications will be sent.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </form>
             </div>
             <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
-                <button onclick="closeModal('bulkArchiveModal')"
+                <button onclick="closeModal('bulkSyncModal')"
                         class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
                     Cancel
                 </button>
-                <button onclick="submitBulkArchive()"
-                        class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors flex items-center">
-                    <i class="fas fa-archive mr-2"></i>
-                    Archive
+                <button onclick="submitBulkSync()"
+                        class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center">
+                    <i class="fas fa-sync-alt mr-2"></i>
+                    Sync All
                 </button>
             </div>
         </div>
@@ -883,6 +926,9 @@
 @section('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    // ============ CSRF TOKEN ============
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
     // ============ INITIALIZATION ============
     document.addEventListener('DOMContentLoaded', function() {
         initializeCharts();
@@ -900,16 +946,7 @@
                     labels: {!! json_encode(array_keys($statusBreakdown ?? [])) !!},
                     datasets: [{
                         data: {!! json_encode(array_values($statusBreakdown ?? [])) !!},
-                        backgroundColor: [
-                            '#10B981', // active - green
-                            '#6B7280', // inactive - gray
-                            '#8B5CF6', // graduated - purple
-                            '#EF4444', // dropped - red
-                            '#F59E0B', // suspended - amber
-                            '#3B82F6', // alumnus - blue
-                            '#F59E0B', // prospective - amber
-                            '#9CA3AF'  // historical - gray
-                        ],
+                        backgroundColor: ['#10B981', '#6B7280', '#8B5CF6', '#EF4444', '#F59E0B', '#3B82F6', '#F59E0B', '#9CA3AF'],
                         borderWidth: 0
                     }]
                 },
@@ -919,10 +956,7 @@
                     plugins: {
                         legend: {
                             position: 'bottom',
-                            labels: {
-                                boxWidth: 12,
-                                padding: 15
-                            }
+                            labels: { boxWidth: 12, padding: 15 }
                         }
                     }
                 }
@@ -948,10 +982,7 @@
                     plugins: {
                         legend: {
                             position: 'bottom',
-                            labels: {
-                                boxWidth: 12,
-                                padding: 15
-                            }
+                            labels: { boxWidth: 12, padding: 15 }
                         }
                     }
                 }
@@ -976,24 +1007,10 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: {
-                                display: true,
-                                color: '#E5E7EB'
-                            }
-                        },
-                        x: {
-                            grid: {
-                                display: false
-                            }
-                        }
+                        y: { beginAtZero: true, grid: { display: true, color: '#E5E7EB' } },
+                        x: { grid: { display: false } }
                     },
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    }
+                    plugins: { legend: { display: false } }
                 }
             });
         }
@@ -1004,9 +1021,7 @@
         window.location.href = `/admin/students/${studentId}`;
     }
 
-    function refreshTable() {
-        location.reload();
-    }
+    function refreshTable() { location.reload(); }
 
     function initializeQuickSearch() {
         const searchInput = document.getElementById('tableSearch');
@@ -1023,171 +1038,104 @@
 
     // ============ CHECKBOX & BULK ACTIONS ============
     function toggleAllCheckboxes(checkbox) {
-        const checkboxes = document.querySelectorAll('.student-checkbox');
-        checkboxes.forEach(cb => {
-            cb.checked = checkbox.checked;
-        });
+        document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = checkbox.checked);
         updateSelectedCount();
     }
 
     function updateSelectedCount() {
-        const checkboxes = document.querySelectorAll('.student-checkbox:checked');
-        const count = checkboxes.length;
+        const count = document.querySelectorAll('.student-checkbox:checked').length;
         document.getElementById('selectedCount').textContent = count;
-
-        const bulkActionsBar = document.getElementById('bulkActionsBar');
-        if (count > 0) {
-            bulkActionsBar.classList.remove('hidden');
-        } else {
-            bulkActionsBar.classList.add('hidden');
-        }
+        document.getElementById('bulkActionsBar').classList.toggle('hidden', count === 0);
     }
 
     function toggleBulkActions() {
-        const bulkActionsBar = document.getElementById('bulkActionsBar');
-        bulkActionsBar.classList.toggle('hidden');
-
-        // Uncheck all checkboxes when hiding
-        if (bulkActionsBar.classList.contains('hidden')) {
-            const checkboxes = document.querySelectorAll('.student-checkbox');
-            checkboxes.forEach(cb => {
-                cb.checked = false;
-            });
+        const bar = document.getElementById('bulkActionsBar');
+        bar.classList.toggle('hidden');
+        if (bar.classList.contains('hidden')) {
+            document.querySelectorAll('.student-checkbox').forEach(cb => cb.checked = false);
             const mainCheckbox = document.querySelector('th input[type="checkbox"]');
             if (mainCheckbox) mainCheckbox.checked = false;
         }
     }
 
     function getSelectedStudentIds() {
-        const checkboxes = document.querySelectorAll('.student-checkbox:checked');
-        return Array.from(checkboxes).map(cb => cb.value);
+        return Array.from(document.querySelectorAll('.student-checkbox:checked')).map(cb => cb.value);
     }
 
     // ============ BULK ACTIONS ============
     function bulkActivate() {
         const ids = getSelectedStudentIds();
-        if (ids.length === 0) {
-            alert('Please select at least one student');
-            return;
-        }
-
+        if (ids.length === 0) { alert('Please select at least one student'); return; }
         document.getElementById('bulkActivateCount').textContent = ids.length;
-
-        const inputsDiv = document.getElementById('bulkActivateInputs');
-        inputsDiv.innerHTML = '';
-        ids.forEach(id => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'student_ids[]';
-            input.value = id;
-            inputsDiv.appendChild(input);
-        });
-
+        const inputs = document.getElementById('bulkActivateInputs');
+        inputs.innerHTML = ids.map(id => `<input type="hidden" name="student_ids[]" value="${id}">`).join('');
         openModal('bulkActivateModal');
     }
 
-    function submitBulkActivate() {
-        document.getElementById('bulkActivateForm').submit();
-    }
+    function submitBulkActivate() { document.getElementById('bulkActivateForm').submit(); }
 
     function bulkSuspend() {
         const ids = getSelectedStudentIds();
-        if (ids.length === 0) {
-            alert('Please select at least one student');
-            return;
-        }
-
+        if (ids.length === 0) { alert('Please select at least one student'); return; }
         document.getElementById('bulkSuspendCount').textContent = ids.length;
-
-        const inputsDiv = document.getElementById('bulkSuspendInputs');
-        inputsDiv.innerHTML = '';
-        ids.forEach(id => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'student_ids[]';
-            input.value = id;
-            inputsDiv.appendChild(input);
-        });
-
+        const inputs = document.getElementById('bulkSuspendInputs');
+        inputs.innerHTML = ids.map(id => `<input type="hidden" name="student_ids[]" value="${id}">`).join('');
         openModal('bulkSuspendModal');
     }
 
-    function submitBulkSuspend() {
-        document.getElementById('bulkSuspendForm').submit();
-    }
+    function submitBulkSuspend() { document.getElementById('bulkSuspendForm').submit(); }
 
     function bulkArchive() {
         const ids = getSelectedStudentIds();
-        if (ids.length === 0) {
-            alert('Please select at least one student');
-            return;
-        }
-
+        if (ids.length === 0) { alert('Please select at least one student'); return; }
         document.getElementById('bulkArchiveCount').textContent = ids.length;
-
-        const inputsDiv = document.getElementById('bulkArchiveInputs');
-        inputsDiv.innerHTML = '';
-        ids.forEach(id => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'student_ids[]';
-            input.value = id;
-            inputsDiv.appendChild(input);
-        });
-
+        const inputs = document.getElementById('bulkArchiveInputs');
+        inputs.innerHTML = ids.map(id => `<input type="hidden" name="student_ids[]" value="${id}">`).join('');
         openModal('bulkArchiveModal');
     }
 
-    function submitBulkArchive() {
-        document.getElementById('bulkArchiveForm').submit();
-    }
+    function submitBulkArchive() { document.getElementById('bulkArchiveForm').submit(); }
 
     function bulkDelete() {
         const ids = getSelectedStudentIds();
-        if (ids.length === 0) {
-            alert('Please select at least one student');
-            return;
-        }
-
+        if (ids.length === 0) { alert('Please select at least one student'); return; }
         document.getElementById('bulkDeleteCount').textContent = ids.length;
-
-        const inputsDiv = document.getElementById('bulkDeleteInputs');
-        inputsDiv.innerHTML = '';
-        ids.forEach(id => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'student_ids[]';
-            input.value = id;
-            inputsDiv.appendChild(input);
-        });
-
+        const inputs = document.getElementById('bulkDeleteInputs');
+        inputs.innerHTML = ids.map(id => `<input type="hidden" name="student_ids[]" value="${id}">`).join('');
         openModal('bulkDeleteModal');
     }
 
-    function submitBulkDelete() {
-        document.getElementById('bulkDeleteForm').submit();
+    function submitBulkDelete() { document.getElementById('bulkDeleteForm').submit(); }
+
+    // ============ NEW: BULK SYNC STUDENT NUMBERS ============
+    function bulkSyncStudentNumbers() {
+        const ids = getSelectedStudentIds();
+        if (ids.length === 0) { alert('Please select at least one student'); return; }
+
+        if (!confirm(`Generate new student numbers for ${ids.length} student(s) and sync passwords?`)) return;
+
+        document.getElementById('bulkSyncCount').textContent = ids.length;
+        const inputs = document.getElementById('bulkSyncInputs');
+        inputs.innerHTML = ids.map(id => `<input type="hidden" name="student_ids[]" value="${id}">`).join('');
+        openModal('bulkSyncModal');
+    }
+
+    function submitBulkSync() {
+        document.getElementById('bulkSyncForm').submit();
     }
 
     // ============ ACTION MENU ============
     function toggleActionMenu(studentId) {
         const menu = document.getElementById(`actionMenu-${studentId}`);
-        const allMenus = document.querySelectorAll('[id^="actionMenu-"]');
-
-        allMenus.forEach(m => {
-            if (m.id !== `actionMenu-${studentId}`) {
-                m.classList.add('hidden');
-            }
+        document.querySelectorAll('[id^="actionMenu-"]').forEach(m => {
+            if (m.id !== `actionMenu-${studentId}`) m.classList.add('hidden');
         });
-
         menu.classList.toggle('hidden');
     }
 
-    // Close action menus when clicking elsewhere
     document.addEventListener('click', function(e) {
         if (!e.target.closest('[id^="actionMenu-"]') && !e.target.closest('[onclick*="toggleActionMenu"]')) {
-            document.querySelectorAll('[id^="actionMenu-"]').forEach(menu => {
-                menu.classList.add('hidden');
-            });
+            document.querySelectorAll('[id^="actionMenu-"]').forEach(menu => menu.classList.add('hidden'));
         }
     });
 
@@ -1196,47 +1144,23 @@
         document.getElementById('statusStudentId').value = studentId;
         document.getElementById('statusAction').value = action;
 
-        let title = '';
-        let message = '';
-        let icon = '';
-        let iconBg = '';
-        let actionText = '';
+        const configs = {
+            activate: { title: 'Activate Student', message: 'Are you sure you want to activate this student?', icon: 'fa-check-circle', bg: 'bg-green-100 text-green-600', btn: 'Activate' },
+            suspend: { title: 'Suspend Student', message: 'Are you sure you want to suspend this student?', icon: 'fa-pause-circle', bg: 'bg-yellow-100 text-yellow-600', btn: 'Suspend' }
+        };
 
-        switch(action) {
-            case 'activate':
-                title = 'Activate Student';
-                message = 'Are you sure you want to activate this student?';
-                icon = 'fa-check-circle';
-                iconBg = 'bg-green-100 text-green-600';
-                actionText = 'Activate';
-                break;
-            case 'suspend':
-                title = 'Suspend Student';
-                message = 'Are you sure you want to suspend this student?';
-                icon = 'fa-pause-circle';
-                iconBg = 'bg-yellow-100 text-yellow-600';
-                actionText = 'Suspend';
-                break;
-        }
+        const config = configs[action];
+        document.getElementById('statusModalTitle').textContent = config.title;
+        document.getElementById('statusModalMessage').textContent = config.message;
+        document.getElementById('statusModalIconIcon').className = `fas ${config.icon} text-xl`;
+        document.getElementById('statusModalIcon').className = `mx-auto flex items-center justify-center h-12 w-12 rounded-full ${config.bg} mb-4`;
+        document.getElementById('statusModalActionBtn').textContent = config.btn;
 
-        document.getElementById('statusModalTitle').textContent = title;
-        document.getElementById('statusModalMessage').textContent = message;
-        document.getElementById('statusModalIconIcon').className = `fas ${icon} text-xl`;
-        document.getElementById('statusModalIcon').className = `mx-auto flex items-center justify-center h-12 w-12 rounded-full ${iconBg} mb-4`;
-        document.getElementById('statusModalActionBtn').textContent = actionText;
-
-        if (action === 'activate') {
-            document.getElementById('statusForm').action = `/admin/students/${studentId}/activate`;
-        } else if (action === 'suspend') {
-            document.getElementById('statusForm').action = `/admin/students/${studentId}/suspend`;
-        }
-
+        document.getElementById('statusForm').action = `/admin/students/${studentId}/${action}`;
         openModal('statusModal');
     }
 
-    function submitStatusForm() {
-        document.getElementById('statusForm').submit();
-    }
+    function submitStatusForm() { document.getElementById('statusForm').submit(); }
 
     function archiveStudent(studentId) {
         if (confirm('Are you sure you want to archive this student?')) {
@@ -1250,12 +1174,66 @@
         openModal('deleteModal');
     }
 
-    function submitDeleteForm() {
-        document.getElementById('deleteForm').submit();
-    }
+    function submitDeleteForm() { document.getElementById('deleteForm').submit(); }
 
     function generateReport(studentId) {
         window.location.href = `/admin/students/${studentId}/report`;
+    }
+
+    // ============ NEW: FIX STUDENT NUMBER ============
+    function openFixStudentNumberModal(studentId, currentNumber, studentName) {
+        document.getElementById('fixStudentNumberStudentId').value = studentId;
+        document.getElementById('fixStudentNumberName').textContent = studentName;
+        document.getElementById('fixStudentNumberCurrent').textContent = currentNumber || 'No student number';
+        document.getElementById('fixStudentNumberNew').value = '';
+        document.getElementById('fixStudentNumberForm').action = `/admin/students/${studentId}/fix-student-number`;
+        openModal('fixStudentNumberModal');
+
+        // Focus the input after modal opens
+        setTimeout(() => {
+            document.getElementById('fixStudentNumberNew').focus();
+        }, 300);
+    }
+
+    function submitFixStudentNumber() {
+        const newNumber = document.getElementById('fixStudentNumberNew').value.trim();
+        if (!newNumber) {
+            showToast('Please enter a new student number', 'error');
+            return;
+        }
+
+        if (newNumber === document.getElementById('fixStudentNumberCurrent').textContent) {
+            if (!confirm('New number is the same as current. Continue anyway?')) return;
+        }
+
+        if (confirm(`Update student number to "${newNumber}" and sync password? SMS will be sent.`)) {
+            document.getElementById('fixStudentNumberForm').submit();
+        }
+    }
+
+    // ============ NEW: SYNC PASSWORD ============
+    function syncStudentPassword(studentId, studentNumber, studentName) {
+        if (!studentNumber) {
+            showToast('Student has no student number to sync.', 'error');
+            return;
+        }
+
+        if (!confirm(`Sync password for ${studentName} to "${studentNumber}"? SMS will be sent.`)) return;
+
+        // Get the uppercase password
+        const newPassword = studentNumber.toUpperCase();
+
+        document.getElementById('syncPasswordName').textContent = studentName;
+        document.getElementById('syncPasswordNumber').textContent = studentNumber;
+        document.getElementById('syncPasswordNew').textContent = newPassword;
+        document.getElementById('syncPasswordNewDisplay').textContent = newPassword;
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/students/${studentId}/sync-password`;
+        form.innerHTML = `<input type="hidden" name="_token" value="${csrfToken}">`;
+        document.body.appendChild(form);
+        form.submit();
     }
 
     // ============ MODAL FUNCTIONS ============
@@ -1267,98 +1245,65 @@
     function closeModal(modalId) {
         document.getElementById(modalId).classList.add('hidden');
         document.body.style.overflow = 'auto';
-
-        // Clear form inputs
-        if (modalId === 'statusModal') {
-            document.getElementById('statusNotes').value = '';
-        }
     }
 
     // ============ CHART FUNCTIONS ============
     function toggleChartMenu() {
-        const menu = document.getElementById('chartMenu');
-        menu.classList.toggle('hidden');
+        document.getElementById('chartMenu').classList.toggle('hidden');
     }
 
     function exportChart(chartType) {
-        let canvas;
-        switch(chartType) {
-            case 'status':
-                canvas = document.getElementById('statusChart');
-                break;
-            case 'gender':
-                canvas = document.getElementById('genderChart');
-                break;
-            case 'category':
-                canvas = document.getElementById('categoryChart');
-                break;
-        }
-
+        const canvas = document.getElementById(`${chartType}Chart`);
         if (canvas) {
             const link = document.createElement('a');
             link.download = `${chartType}-chart.png`;
             link.href = canvas.toDataURL('image/png');
             link.click();
         }
-
         toggleChartMenu();
     }
 
     // ============ TOAST NOTIFICATIONS ============
     function showToast(message, type = 'success') {
-        // Create toast container if it doesn't exist
-        let toastContainer = document.getElementById('toast-container');
-        if (!toastContainer) {
-            toastContainer = document.createElement('div');
-            toastContainer.id = 'toast-container';
-            toastContainer.className = 'fixed top-4 right-4 z-50 space-y-2';
-            document.body.appendChild(toastContainer);
+        let container = document.getElementById('toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            container.className = 'fixed top-4 right-4 z-50 space-y-2';
+            document.body.appendChild(container);
         }
 
-        // Create toast
         const toast = document.createElement('div');
-        toast.className = `flex items-center p-4 rounded-lg shadow-lg transform transition-all duration-300 translate-x-0 ${
-            type === 'success' ? 'bg-green-50 border border-green-200' :
-            type === 'error' ? 'bg-red-50 border border-red-200' :
-            'bg-blue-50 border border-blue-200'
-        }`;
+        const colors = {
+            success: 'bg-green-50 border-green-200 text-green-800',
+            error: 'bg-red-50 border-red-200 text-red-800',
+            warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+            info: 'bg-blue-50 border-blue-200 text-blue-800'
+        };
+        const icons = {
+            success: 'fa-check-circle text-green-600',
+            error: 'fa-exclamation-circle text-red-600',
+            warning: 'fa-exclamation-triangle text-yellow-600',
+            info: 'fa-info-circle text-blue-600'
+        };
 
-        const icon = type === 'success' ? 'fa-check-circle text-green-600' :
-                     type === 'error' ? 'fa-exclamation-circle text-red-600' :
-                     'fa-info-circle text-blue-600';
-
+        toast.className = `flex items-center p-4 rounded-lg shadow-lg border ${colors[type] || colors.info}`;
         toast.innerHTML = `
-            <div class="flex items-start">
-                <i class="fas ${icon} mt-0.5 mr-3"></i>
-                <div>
-                    <p class="text-sm font-medium ${
-                        type === 'success' ? 'text-green-800' :
-                        type === 'error' ? 'text-red-800' :
-                        'text-blue-800'
-                    }">${message}</p>
-                </div>
-                <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
+            <i class="fas ${icons[type] || icons.info} mr-3"></i>
+            <span class="text-sm font-medium">${message}</span>
+            <button onclick="this.parentElement.remove()" class="ml-4 text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times"></i>
+            </button>
         `;
 
-        toastContainer.appendChild(toast);
-
-        // Auto remove after 5 seconds
-        setTimeout(() => {
-            toast.remove();
-            if (toastContainer.children.length === 0) {
-                toastContainer.remove();
-            }
-        }, 5000);
+        container.appendChild(toast);
+        setTimeout(() => { if (toast.parentElement) toast.remove(); }, 5000);
     }
 
-    // Close modals when clicking escape key
+    // Close modals on Escape key
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
-            const modals = document.querySelectorAll('[id$="Modal"]');
-            modals.forEach(modal => {
+            document.querySelectorAll('[id$="Modal"]').forEach(modal => {
                 if (!modal.classList.contains('hidden')) {
                     modal.classList.add('hidden');
                 }
@@ -1367,59 +1312,4 @@
         }
     });
 </script>
-
-<style>
-    #studentsTable {
-        min-width: 1400px;
-    }
-
-    @media (max-width: 768px) {
-        #studentsTable {
-            min-width: 100%;
-        }
-    }
-
-    tr[onclick]:hover {
-        cursor: pointer;
-        background-color: #F9FAFB;
-    }
-
-    .modal-overlay {
-        background-color: rgba(0, 0, 0, 0.5);
-    }
-
-    .modal-content {
-        max-height: 90vh;
-        overflow-y: auto;
-    }
-
-    /* Custom scrollbar */
-    .overflow-x-auto::-webkit-scrollbar {
-        height: 6px;
-    }
-
-    .overflow-x-auto::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 10px;
-    }
-
-    .overflow-x-auto::-webkit-scrollbar-thumb {
-        background: #888;
-        border-radius: 10px;
-    }
-
-    .overflow-x-auto::-webkit-scrollbar-thumb:hover {
-        background: #555;
-    }
-
-    /* Card hover effect */
-    .card-hover {
-        transition: all 0.3s ease;
-    }
-
-    .card-hover:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    }
-</style>
 @endsection

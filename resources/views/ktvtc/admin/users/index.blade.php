@@ -256,7 +256,7 @@
                                         title="More Actions">
                                     <i class="fas fa-ellipsis-v"></i>
                                 </button>
-                                <div id="actionMenu-{{ $user->id }}" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-10">
+                                <div id="actionMenu-{{ $user->id }}" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-10">
                                     <div class="py-1">
                                         @if(!$user->is_approved)
                                         <button onclick="approveUser({{ $user->id }})"
@@ -270,6 +270,19 @@
                                             <i class="fas fa-power-off mr-2"></i>
                                             {{ $user->is_approved ? 'Deactivate' : 'Activate' }}
                                         </button>
+                                        <div class="border-t border-gray-200 my-1"></div>
+                                        <button onclick="openResetPasswordModal('{{ $user->id }}', '{{ $user->name }}', '{{ $user->phone_number }}')"
+                                                class="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-50 flex items-center">
+                                            <i class="fas fa-key mr-2"></i>
+                                            Reset Password
+                                        </button>
+                                        @if($user->phone_number)
+                                        <button onclick="resetPasswordWithSms('{{ $user->id }}', '{{ $user->name }}', '{{ $user->phone_number }}')"
+                                                class="w-full text-left px-4 py-2 text-sm text-indigo-600 hover:bg-gray-50 flex items-center">
+                                            <i class="fas fa-sms mr-2"></i>
+                                            Reset & Send SMS
+                                        </button>
+                                        @endif
                                         <div class="border-t border-gray-200 my-1"></div>
                                         <button onclick="deleteUser('{{ $user->id }}')"
                                                 class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50 flex items-center">
@@ -331,6 +344,7 @@
                 <option value="">Select Action</option>
                 <option value="activate">Activate Selected</option>
                 <option value="deactivate">Deactivate Selected</option>
+                <option value="reset_password">Reset Passwords</option>
                 <option value="delete">Delete Selected</option>
             </select>
             <button onclick="applyBulkAction()" class="px-4 py-1 bg-primary hover:bg-primary-dark text-white rounded-lg text-sm font-medium">
@@ -343,7 +357,7 @@
     </div>
 </div>
 
-<!-- Modals (Add User, View User, Edit User, Delete, Approve Role) -->
+<!-- Modals -->
 <!-- Add User Modal -->
 <div id="addUserModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
@@ -540,10 +554,69 @@
     </div>
 </div>
 
+<!-- Reset Password Modal -->
+<div id="resetPasswordModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity modal-overlay" onclick="closeModal('resetPasswordModal')"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen"></span>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full modal-content">
+            <div class="bg-white px-6 pt-5 pb-4">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">Reset Password</h3>
+                    <button onclick="closeModal('resetPasswordModal')" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form id="resetPasswordForm">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">User</label>
+                            <p class="text-gray-600 font-medium" id="resetUserDisplay">-</p>
+                            <p class="text-xs text-gray-500 mt-1" id="resetUserPhone">-</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                            <div class="flex">
+                                <input type="text" id="resetNewPassword"
+                                       class="flex-1 px-4 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                                       required minlength="8">
+                                <button type="button" onclick="generateRandomPasswordField()"
+                                        class="px-3 py-2 bg-gray-100 border border-gray-300 border-l-0 rounded-r-lg hover:bg-gray-200">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Minimum 8 characters</p>
+                        </div>
+                        <div>
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" id="sendSmsCheckbox" checked>
+                                <span class="text-sm font-medium text-gray-700">Send SMS Notification</span>
+                            </label>
+                            <p class="text-xs text-gray-500 mt-1 ml-6">SMS will be sent to the user's registered phone number</p>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
+                <button onclick="closeModal('resetPasswordModal')"
+                        class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                    Cancel
+                </button>
+                <button onclick="submitResetPassword()"
+                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center">
+                    <i class="fas fa-key mr-2"></i>
+                    Reset Password
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     // CSRF Token
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     let currentApprovingUserId = null;
+    let currentResetUserId = null;
 
     // Role descriptions
     const roleDescriptions = {
@@ -572,6 +645,112 @@
         if (modal) {
             modal.classList.add('hidden');
             document.body.style.overflow = 'auto';
+        }
+    }
+
+    // ============================================
+    // PASSWORD RESET FUNCTIONS
+    // ============================================
+
+    function generateRandomPassword() {
+        const length = 10;
+        const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+        let password = '';
+        for (let i = 0; i < length; i++) {
+            password += charset.charAt(Math.floor(Math.random() * charset.length));
+        }
+        return password;
+    }
+
+    function generateRandomPasswordField() {
+        document.getElementById('resetNewPassword').value = generateRandomPassword();
+    }
+
+    function openResetPasswordModal(userId, userName, userPhone) {
+        currentResetUserId = userId;
+        document.getElementById('resetUserDisplay').textContent = userName;
+        document.getElementById('resetUserPhone').textContent = userPhone ? `Phone: ${userPhone}` : 'No phone number registered';
+        document.getElementById('resetNewPassword').value = generateRandomPassword();
+
+        if (userPhone) {
+            document.getElementById('sendSmsCheckbox').disabled = false;
+            document.getElementById('sendSmsCheckbox').checked = true;
+        } else {
+            document.getElementById('sendSmsCheckbox').disabled = true;
+            document.getElementById('sendSmsCheckbox').checked = false;
+        }
+
+        openModal('resetPasswordModal', 'md');
+    }
+
+    function submitResetPassword() {
+        const password = document.getElementById('resetNewPassword').value;
+        if (password.length < 8) {
+            showToast('Password must be at least 8 characters long.', 'warning');
+            return;
+        }
+
+        const sendSms = document.getElementById('sendSmsCheckbox').checked;
+
+        if (confirm(`Reset password for this user?${sendSms ? ' SMS will be sent.' : ''}`)) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/admin/users/${currentResetUserId}/reset-password`;
+            form.innerHTML = `
+                <input type="hidden" name="_token" value="${csrfToken}">
+                <input type="hidden" name="_method" value="PUT">
+                <input type="hidden" name="password" value="${password}">
+                <input type="hidden" name="password_confirmation" value="${password}">
+                <input type="hidden" name="send_sms" value="${sendSms ? '1' : '0'}">
+            `;
+            document.body.appendChild(form);
+            closeModal('resetPasswordModal');
+            form.submit();
+        }
+    }
+
+    function resetPasswordWithSms(userId, userName, phoneNumber) {
+        if (confirm(`Reset password for ${userName} and send SMS to ${phoneNumber}?`)) {
+            const newPassword = generateRandomPassword();
+
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/admin/users/${userId}/reset-password`;
+            form.innerHTML = `
+                <input type="hidden" name="_token" value="${csrfToken}">
+                <input type="hidden" name="_method" value="PUT">
+                <input type="hidden" name="password" value="${newPassword}">
+                <input type="hidden" name="password_confirmation" value="${newPassword}">
+                <input type="hidden" name="send_sms" value="1">
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+
+    // Bulk Reset Passwords
+    function applyBulkResetPassword() {
+        const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
+        if (selectedIds.length === 0) {
+            showToast('Please select at least one user', 'warning');
+            return;
+        }
+
+        const sendSms = confirm(`Send SMS notifications to ${selectedIds.length} selected users?`);
+        const newPassword = generateRandomPassword();
+
+        if (confirm(`Reset passwords for ${selectedIds.length} selected users?`)) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/admin/users/bulk-reset-passwords';
+            form.innerHTML = `
+                <input type="hidden" name="_token" value="${csrfToken}">
+                <input type="hidden" name="password" value="${newPassword}">
+                <input type="hidden" name="send_sms" value="${sendSms ? '1' : '0'}">
+                ${selectedIds.map(id => `<input type="hidden" name="user_ids[]" value="${id}">`).join('')}
+            `;
+            document.body.appendChild(form);
+            form.submit();
         }
     }
 
@@ -808,16 +987,35 @@
     function applyBulkAction() {
         const action = document.getElementById('bulkAction').value;
         const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
+
         if (!action) { showToast('Please select an action', 'warning'); return; }
         if (selectedIds.length === 0) { showToast('Please select at least one user', 'warning'); return; }
-        if (confirm(`Are you sure you want to ${action} ${selectedIds.length} user(s)?`)) {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '/admin/users/bulk-actions';
-            form.innerHTML = `<input type="hidden" name="_token" value="${csrfToken}"><input type="hidden" name="action" value="${action}">${selectedIds.map(id => `<input type="hidden" name="user_ids[]" value="${id}">`).join('')}`;
-            document.body.appendChild(form);
-            form.submit();
+
+        if (action === 'reset_password') {
+            applyBulkResetPassword();
+            return;
         }
+
+        if (action === 'delete') {
+            if (!confirm(`Are you sure you want to delete ${selectedIds.length} user(s)? This action cannot be undone.`)) {
+                return;
+            }
+        } else {
+            if (!confirm(`Are you sure you want to ${action} ${selectedIds.length} user(s)?`)) {
+                return;
+            }
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/admin/users/bulk-actions';
+        form.innerHTML = `
+            <input type="hidden" name="_token" value="${csrfToken}">
+            <input type="hidden" name="action" value="${action}">
+            ${selectedIds.map(id => `<input type="hidden" name="user_ids[]" value="${id}">`).join('')}
+        `;
+        document.body.appendChild(form);
+        form.submit();
     }
 
     function submitForm(formId, loadingText) {

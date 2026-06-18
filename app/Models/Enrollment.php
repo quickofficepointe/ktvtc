@@ -16,7 +16,7 @@ class Enrollment extends Model
         'course_id',
         'campus_id',
 
-        // DENORMALIZED STUDENT DATA (for speed)
+        // DENORMALIZED STUDENT DATA
         'student_name',
         'student_number',
 
@@ -24,32 +24,35 @@ class Enrollment extends Model
         'course_name',
         'course_code',
 
-        // FINANCIAL - THE ONLY NUMBERS YOU NEED
+        // DURATION
+        'duration_months',
+
+        // FINANCIAL
         'total_fees',
         'amount_paid',
 
         // DATES
         'intake_year',
-        'intake_month', // 'January', 'May', 'September'
+        'intake_month',
         'enrollment_date',
         'start_date',
         'expected_end_date',
         'actual_end_date',
 
         // STATUS
-        'status', // 'active', 'graduated', 'dropped', 'completed', 'pending'
+        'status',
 
         // STUDY INFO
-        'study_mode', // 'full_time', 'part_time', 'evening', 'weekend', 'online'
-        'student_type', // 'new', 'continuing', 'alumnus', 'transfer'
-        'sponsorship_type', // 'self', 'sponsored', 'government', 'scholarship', 'company'
+        'study_mode',
+        'student_type',
+        'sponsorship_type',
 
-        // EXTERNAL EXAM (OPTIONAL)
+        // EXTERNAL EXAM
         'requires_external_exam',
-        'exam_body', // 'KNEC', 'NITA', 'CDACC'
+        'exam_body',
 
         // IMPORT TRACKING
-        'legacy_code', // Original 'HDBT/021/2021'
+        'legacy_code',
         'import_batch',
         'needs_review',
 
@@ -69,6 +72,7 @@ class Enrollment extends Model
         'is_active' => 'boolean',
         'needs_review' => 'boolean',
         'intake_year' => 'integer',
+        'duration_months' => 'integer',
     ];
 
     /**
@@ -88,15 +92,16 @@ class Enrollment extends Model
     {
         return $this->belongsTo(Campus::class);
     }
-protected static function boot()
-{
-    parent::boot();
 
-    // Auto-calculate balance before saving
-    static::saving(function ($model) {
-        $model->balance = $model->total_fees - $model->amount_paid;
-    });
-}
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saving(function ($model) {
+            $model->balance = $model->total_fees - $model->amount_paid;
+        });
+    }
+
     public function payments()
     {
         return $this->hasMany(FeePayment::class);
