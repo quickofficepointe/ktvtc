@@ -38,6 +38,18 @@ class EnrollmentController extends Controller
             $query->where('course_id', $request->course_id);
         }
 
+        if ($request->filled('campus_id')) {
+            $query->where('campus_id', $request->campus_id);
+        }
+
+        if ($request->filled('intake_year')) {
+            $query->where('intake_year', $request->intake_year);
+        }
+
+        if ($request->filled('intake_month')) {
+            $query->where('intake_month', $request->intake_month);
+        }
+
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -48,23 +60,58 @@ class EnrollmentController extends Controller
             });
         }
 
+        if ($request->filled('payment_status')) {
+            if ($request->payment_status === 'paid') {
+                $query->whereRaw('total_fees <= amount_paid');
+            } elseif ($request->payment_status === 'partial') {
+                $query->whereRaw('total_fees > amount_paid AND amount_paid > 0');
+            } elseif ($request->payment_status === 'unpaid') {
+                $query->where('amount_paid', 0);
+            }
+        }
+
+        if ($request->filled('exam_required')) {
+            $query->where('requires_external_exam', $request->exam_required === 'yes');
+        }
+
         $enrollments = $query->orderBy('created_at', 'desc')->paginate(15);
 
-        $stats = [
-            'total' => Enrollment::count(),
-            'active' => Enrollment::where('status', 'active')->count(),
-            'completed' => Enrollment::where('status', 'completed')->count(),
-            'graduated' => Enrollment::where('status', 'graduated')->count(),
-            'dropped' => Enrollment::where('status', 'dropped')->count(),
-            'suspended' => Enrollment::where('status', 'suspended')->count(),
-            'has_balance' => Enrollment::whereRaw('total_fees > amount_paid')->count(),
-            'fully_paid' => Enrollment::whereRaw('total_fees <= amount_paid')->count(),
-        ];
+        // Stats
+        $totalEnrollments = Enrollment::count();
+        $activeEnrollments = Enrollment::where('status', 'active')->count();
+        $completedEnrollments = Enrollment::where('status', 'completed')->count();
+        $pendingPayment = Enrollment::whereRaw('total_fees > amount_paid')->count();
+        $requiresExamRegistration = Enrollment::where('requires_external_exam', true)->count();
 
+        // Data for filters
         $students = Student::where('status', 'active')->orderBy('first_name')->get();
         $courses = Course::orderBy('name')->get();
+        $campuses = Campus::orderBy('name')->get();
 
-        return view('ktvtc.admin.enrollments.index', compact('enrollments', 'stats', 'students', 'courses'));
+        // Get intake years
+        $intakeYears = Enrollment::select('intake_year')
+            ->distinct()
+            ->orderBy('intake_year', 'desc')
+            ->pluck('intake_year')
+            ->toArray();
+
+        if (empty($intakeYears)) {
+            $currentYear = date('Y');
+            $intakeYears = range($currentYear - 5, $currentYear + 1);
+        }
+
+        return view('ktvtc.admin.enrollments.index', compact(
+            'enrollments',
+            'totalEnrollments',
+            'activeEnrollments',
+            'completedEnrollments',
+            'pendingPayment',
+            'requiresExamRegistration',
+            'students',
+            'courses',
+            'campuses',
+            'intakeYears'
+        ));
     }
 
     public function create()
@@ -299,7 +346,6 @@ class EnrollmentController extends Controller
 
     public function export()
     {
-        // Export logic here
         return redirect()->back()->with('success', 'Export functionality coming soon.');
     }
 
@@ -335,35 +381,110 @@ class EnrollmentController extends Controller
         return response()->json($stats);
     }
 
-    // SMS Fee Reminder Methods
     public function sendFeeReminders(Request $request)
     {
-        $enrollments = Enrollment::whereRaw('total_fees > amount_paid')
-            ->where('status', 'active')
+        $enrollmentIds = $request->enrollment_ids;
+        $template = $request->template ?? 'standard';
+        $customMessage = $request->custom_message ?? '';
+
+        if (empty($enrollmentIds)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No students selected.'
+            ], 400);
+        }
+
+        $enrollments = Enrollment::whereIn('id', $enrollmentIds)
             ->with(['student'])
             ->get();
 
-        $sent = 0;
-        $failed = 0;
+        $sentCount = 0;
+        $failedCount = 0;
+        $failed = [];
 
         foreach ($enrollments as $enrollment) {
-            if ($enrollment->student && $enrollment->student->phone) {
-                $balance = $enrollment->total_fees - $enrollment->amount_paid;
-                $message = "Dear {$enrollment->student->full_name},\n\n";
-                $message .= "This is a reminder that you have an outstanding balance of KES " . number_format($balance, 2) . " for your enrollment in {$enrollment->course_name}.\n\n";
-                $message .= "Please settle your fees to avoid any interruptions.\n\n";
-                $message .= "Thank you,\nKTVTC Team";
+            if (!$enrollment->student) {
+                $failedCount++;
+                $failed[] = [
+                    'name' => $enrollment->student_name ?? 'Unknown',
+                    'reason' => 'No student record found'
+                ];
+                continue;
+            }
 
-                $result = $this->smsService->sendSingleSms($enrollment->student->phone, $message);
-                if ($result['success']) {
-                    $sent++;
-                } else {
-                    $failed++;
-                }
+            if (!$enrollment->student->phone) {
+                $failedCount++;
+                $failed[] = [
+                    'name' => $enrollment->student->full_name,
+                    'reason' => 'No phone number'
+                ];
+                continue;
+            }
+
+            $balance = $enrollment->total_fees - $enrollment->amount_paid;
+            $name = $enrollment->student->full_name;
+
+            if ($template === 'custom' && !empty($customMessage)) {
+                $message = $this->parseMessage($customMessage, $name, $balance, $enrollment);
+            } else {
+                $message = $this->generateTemplateMessage($template, $name, $balance, $enrollment);
+            }
+
+            $result = $this->smsService->sendSingleSms($enrollment->student->phone, $message);
+
+            if ($result['success']) {
+                $sentCount++;
+            } else {
+                $failedCount++;
+                $failed[] = [
+                    'name' => $name,
+                    'reason' => $result['message'] ?? 'SMS sending failed'
+                ];
             }
         }
 
-        return redirect()->back()->with('success', "Fee reminders sent: {$sent} sent, {$failed} failed.");
+        return response()->json([
+            'success' => true,
+            'total_count' => $enrollments->count(),
+            'sent_count' => $sentCount,
+            'failed_count' => $failedCount,
+            'failed' => $failed
+        ]);
+    }
+
+    private function generateTemplateMessage($template, $name, $balance, $enrollment)
+    {
+        $balanceFormatted = number_format($balance, 2);
+        $link = 'www.ktvtc.ac.ke/pay';
+        $course = $enrollment->course_name ?? 'course';
+        $studentNumber = $enrollment->student_number ?? 'N/A';
+        $totalFees = number_format($enrollment->total_fees, 2);
+        $paid = number_format($enrollment->amount_paid, 2);
+
+        switch ($template) {
+            case 'urgent':
+                return "URGENT: Dear {$name}, your fee balance of KES {$balanceFormatted} is now overdue. Please clear your fees immediately to avoid interruption. Pay via {$link} or visit the finance office. KTVTC Admin.";
+            case 'friendly':
+                return "Hello {$name}! Friendly reminder: Your outstanding balance is KES {$balanceFormatted}. Pay conveniently at {$link}. Thank you for choosing KTVTC.";
+            case 'standard':
+            default:
+                return "Dear {$name}, your current fee balance is KES {$balanceFormatted}. Please clear your fees promptly. Pay online: {$link}. Thank you. KTVTC.";
+        }
+    }
+
+    private function parseMessage($message, $name, $balance, $enrollment)
+    {
+        $replacements = [
+            '{name}' => $name,
+            '{balance}' => number_format($balance, 2),
+            '{link}' => 'www.ktvtc.ac.ke/pay',
+            '{course}' => $enrollment->course_name ?? 'course',
+            '{student_number}' => $enrollment->student_number ?? 'N/A',
+            '{total_fees}' => number_format($enrollment->total_fees, 2),
+            '{paid}' => number_format($enrollment->amount_paid, 2),
+        ];
+
+        return str_replace(array_keys($replacements), array_values($replacements), $message);
     }
 
     public function sendSingleFeeReminder($id)
