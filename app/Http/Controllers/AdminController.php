@@ -214,18 +214,29 @@ class AdminController extends Controller
             ->with('success', 'Bulk action completed successfully.');
     }
 
-    public function users()
-    {
-        $users = User::latest()->paginate(25);
-        $totalUsers = User::count();
-        $activeUsers = User::where('is_approved', true)->count();
-        $pendingUsers = User::where('is_approved', false)->count();
-        $adminUsers = User::where('role', 2)->count();
+public function users(Request $request)
+{
+    // Get per_page from request or default to 100
+    $perPage = $request->input('per_page', 100);
 
-        return view('ktvtc.admin.users.index', compact(
-            'users', 'totalUsers', 'activeUsers', 'pendingUsers', 'adminUsers'
-        ));
-    }
+    // Validate per_page to prevent abuse (min 10, max 200)
+    $perPage = max(10, min(200, (int)$perPage));
+
+    // Order by name alphabetically (A-Z)
+    $users = User::orderBy('name', 'asc')->paginate($perPage);
+
+    // Alternative: If you want to sort by first name specifically
+    // $users = User::orderByRaw("SUBSTRING_INDEX(name, ' ', 1) ASC")->paginate($perPage);
+
+    $totalUsers = User::count();
+    $activeUsers = User::where('is_approved', true)->count();
+    $pendingUsers = User::where('is_approved', false)->count();
+    $adminUsers = User::where('role', 2)->count();
+
+    return view('ktvtc.admin.users.index', compact(
+        'users', 'totalUsers', 'activeUsers', 'pendingUsers', 'adminUsers', 'perPage'
+    ));
+}
 
     public function store(Request $request)
     {

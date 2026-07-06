@@ -1114,8 +1114,194 @@ Route::get('/export/all', [ReportController::class, 'exportAllReports'])->name('
 // ============================================================================
 // FINANCE ROUTES
 // ============================================================================
-Route::middleware(['auth', 'verified', 'role.finance'])->prefix('finance')->name('finance.')->group(function () {
+// ============================================================================
+// FINANCE ROUTES - CONSOLIDATED
+// ============================================================================
+Route::middleware(['auth', 'verified', 'role.finance'])
+    ->prefix('finance')
+    ->name('finance.')
+    ->group(function () {
+
+    // Dashboard
     Route::get('/dashboard', [FinanceController::class, 'dashboard'])->name('dashboard');
+
+    // ==================== 1. STUDENT FEE MANAGEMENT ====================
+    Route::prefix('student-fees')->name('student-fees.')->group(function () {
+        Route::get('/', [FinanceController::class, 'studentFees'])->name('index');
+        Route::get('/create', [FinanceController::class, 'createStudentFee'])->name('create');
+        Route::post('/', [FinanceController::class, 'storeStudentFee'])->name('store');
+        Route::get('/{payment}', [FinanceController::class, 'showStudentFee'])->name('show');
+        Route::get('/{payment}/receipt', [FinanceController::class, 'studentFeeReceipt'])->name('receipt');
+        Route::post('/{payment}/verify', [FinanceController::class, 'verifyStudentFee'])->name('verify');
+        Route::post('/{payment}/reverse', [FinanceController::class, 'reverseStudentFee'])->name('reverse');
+        Route::post('/{payment}/reconcile', [FinanceController::class, 'reconcileStudentFee'])->name('reconcile');
+        Route::post('/send-reminders', [FinanceController::class, 'sendFeeReminders'])->name('send-reminders');
+        Route::post('/send-reminder/{enrollment}', [FinanceController::class, 'sendSingleFeeReminder'])->name('send-single-reminder');
+        Route::post('/bulk-balance-reminders', [FinanceController::class, 'sendBulkBalanceReminders'])->name('bulk-balance-reminders');
+        Route::get('/eligible-for-reminder', [FinanceController::class, 'getEligibleForReminder'])->name('eligible-for-reminder');
+        Route::get('/reports/daily', [FinanceController::class, 'dailyFeeReport'])->name('reports.daily');
+        Route::get('/reports/monthly', [FinanceController::class, 'monthlyFeeReport'])->name('reports.monthly');
+        Route::get('/reports/outstanding', [FinanceController::class, 'outstandingFeeReport'])->name('reports.outstanding');
+        Route::get('/export', [FinanceController::class, 'exportStudentFees'])->name('export');
+        Route::post('/bulk/verify', [FinanceController::class, 'bulkVerifyFees'])->name('bulk.verify');
+        Route::post('/bulk/reconcile', [FinanceController::class, 'bulkReconcileFees'])->name('bulk.reconcile');
+    });
+
+    // ==================== 2. TRANSACTION MANAGEMENT ====================
+    Route::prefix('transactions')->name('transactions.')->group(function () {
+        Route::get('/', [FinanceController::class, 'transactions'])->name('index');
+        Route::get('/{transaction}', [FinanceController::class, 'showTransaction'])->name('show');
+        Route::post('/{transaction}/verify', [FinanceController::class, 'verifyTransaction'])->name('verify');
+        Route::post('/{transaction}/reverse', [FinanceController::class, 'reverseTransaction'])->name('reverse');
+        Route::post('/{transaction}/reconcile', [FinanceController::class, 'reconcileTransaction'])->name('reconcile');
+        Route::get('/{transaction}/print', [FinanceController::class, 'printTransactionReceipt'])->name('print');
+        Route::get('/mpesa', [FinanceController::class, 'mpesaTransactions'])->name('mpesa');
+        Route::post('/mpesa/callback', [FinanceController::class, 'handleMpesaCallback'])->name('mpesa.callback');
+        Route::get('/by-method/{method}', [FinanceController::class, 'transactionsByMethod'])->name('by-method');
+        Route::get('/pending', [FinanceController::class, 'pendingTransactions'])->name('pending');
+        Route::get('/today', [FinanceController::class, 'todayTransactions'])->name('today');
+        Route::get('/export', [FinanceController::class, 'exportTransactions'])->name('export');
+        Route::post('/bulk/reconcile', [FinanceController::class, 'bulkReconcileTransactions'])->name('bulk.reconcile');
+        Route::post('/bulk/process', [FinanceController::class, 'bulkProcessPayments'])->name('bulk.process');
+    });
+
+    // ==================== 3. FINANCIAL REPORTS ====================
+    Route::prefix('reports')->name('reports.')->group(function () {
+        Route::get('/profit-loss', [FinanceController::class, 'profitLossReport'])->name('profit-loss');
+        Route::get('/revenue', [FinanceController::class, 'revenueReport'])->name('revenue');
+        Route::get('/expenses', [FinanceController::class, 'expensesReport'])->name('expenses');
+        Route::get('/balance-sheet', [FinanceController::class, 'balanceSheet'])->name('balance-sheet');
+        Route::get('/cashflow', [FinanceController::class, 'cashflowReport'])->name('cashflow');
+        Route::get('/revenue-trends', [FinanceController::class, 'revenueTrends'])->name('revenue-trends');
+        Route::get('/export/{type}', [FinanceController::class, 'exportFinancialReport'])->name('export');
+    });
+
+    // ==================== 4. STUDENT FINANCIAL VIEWS (College) ====================
+    Route::prefix('students')->name('students.')->group(function () {
+        Route::get('/{student}/financial', [FinanceController::class, 'studentFinancials'])->name('financial');
+        Route::get('/{student}/transactions', [FinanceController::class, 'studentTransactions'])->name('transactions');
+        Route::get('/{student}/balance', [FinanceController::class, 'studentBalance'])->name('balance');
+        Route::get('/{student}/statement', [FinanceController::class, 'studentStatement'])->name('statement');
+        Route::get('/{student}/enrollments', [FinanceController::class, 'studentEnrollments'])->name('enrollments');
+    });
+
+    // ==================== 5. FINANCE SETTINGS ====================
+    Route::prefix('settings')->name('settings.')->group(function () {
+        Route::get('/', [FinanceController::class, 'settings'])->name('index');
+        Route::put('/general', [FinanceController::class, 'updateGeneralSettings'])->name('general.update');
+        Route::put('/payment', [FinanceController::class, 'updatePaymentSettings'])->name('payment.update');
+        Route::put('/tax', [FinanceController::class, 'updateTaxSettings'])->name('tax.update');
+        Route::get('/fee-structure', [FinanceController::class, 'feeStructure'])->name('fee-structure');
+        Route::put('/fee-structure', [FinanceController::class, 'updateFeeStructure'])->name('fee-structure.update');
+        Route::get('/financial-year', [FinanceController::class, 'financialYear'])->name('financial-year');
+        Route::put('/financial-year', [FinanceController::class, 'updateFinancialYear'])->name('financial-year.update');
+    });
+
+    // ==================== 6. STATISTICS & API ====================
+    Route::prefix('api')->name('api.')->group(function () {
+        Route::get('/stats', [FinanceController::class, 'getStats'])->name('stats');
+        Route::get('/dashboard-stats', [FinanceController::class, 'dashboardStats'])->name('dashboard-stats');
+        Route::get('/payment-stats', [FinanceController::class, 'paymentStats'])->name('payment-stats');
+        Route::get('/transaction-stats', [FinanceController::class, 'transactionStats'])->name('transaction-stats');
+        Route::get('/student/{student}/balance', [FinanceController::class, 'getStudentBalance'])->name('student-balance');
+        Route::post('/check-payment-status', [FinanceController::class, 'checkPaymentStatus'])->name('check-payment-status');
+    });
+
+    // ==================== 7. HIGH SCHOOL CARD SYSTEM ====================
+    // This is managed entirely by Finance Department
+
+    // 7.1 High School Student Management
+    // ==================== STUDENT MANAGEMENT ====================
+    Route::prefix('students')->name('students.')->group(function () {
+        Route::get('/', [HighSchoolStudentController::class, 'index'])->name('index');
+        Route::get('/create', [HighSchoolStudentController::class, 'create'])->name('create');
+        Route::post('/', [HighSchoolStudentController::class, 'store'])->name('store');
+        Route::get('/{student}', [HighSchoolStudentController::class, 'show'])->name('show');
+        Route::get('/{student}/edit', [HighSchoolStudentController::class, 'edit'])->name('edit');
+        Route::put('/{student}', [HighSchoolStudentController::class, 'update'])->name('update');
+        Route::delete('/{student}', [HighSchoolStudentController::class, 'destroy'])->name('destroy');
+
+        // Import/Export
+        Route::get('/import', [HighSchoolStudentController::class, 'importView'])->name('import');
+        Route::post('/import', [HighSchoolStudentController::class, 'importProcess'])->name('import.process');
+        Route::get('/export', [HighSchoolStudentController::class, 'export'])->name('export');
+        Route::get('/template', [HighSchoolStudentController::class, 'downloadTemplate'])->name('template');
+
+        // Bulk Actions
+        Route::post('/bulk/activate', [HighSchoolStudentController::class, 'bulkActivate'])->name('bulk.activate');
+        Route::post('/bulk/deactivate', [HighSchoolStudentController::class, 'bulkDeactivate'])->name('bulk.deactivate');
+    });
+
+    // ==================== CARD MANAGEMENT ====================
+    Route::prefix('cards')->name('cards.')->group(function () {
+        Route::get('/', [CardAccountController::class, 'index'])->name('index');
+        Route::get('/create', [CardAccountController::class, 'create'])->name('create');
+        Route::post('/', [CardAccountController::class, 'store'])->name('store');
+        Route::get('/{cardAccount}', [CardAccountController::class, 'show'])->name('show');
+        Route::get('/{cardAccount}/edit', [CardAccountController::class, 'edit'])->name('edit');
+        Route::put('/{cardAccount}', [CardAccountController::class, 'update'])->name('update');
+        Route::delete('/{cardAccount}', [CardAccountController::class, 'destroy'])->name('destroy');
+
+        // Card Actions
+        Route::post('/{cardAccount}/activate', [CardAccountController::class, 'activate'])->name('activate');
+        Route::post('/{cardAccount}/deactivate', [CardAccountController::class, 'deactivate'])->name('deactivate');
+        Route::post('/{cardAccount}/lock', [CardAccountController::class, 'lock'])->name('lock');
+        Route::post('/{cardAccount}/unlock', [CardAccountController::class, 'unlock'])->name('unlock');
+        Route::post('/{cardAccount}/block', [CardAccountController::class, 'block'])->name('block');
+        Route::post('/{cardAccount}/unblock', [CardAccountController::class, 'unblock'])->name('unblock');
+
+        // Balance Management
+        Route::post('/{cardAccount}/adjust-balance', [CardAccountController::class, 'adjustBalance'])->name('adjust-balance');
+        Route::get('/{cardAccount}/balance', [CardAccountController::class, 'getBalance'])->name('balance');
+
+        // QR Code
+        Route::post('/{cardAccount}/generate-qr', [CardQrController::class, 'generate'])->name('generate-qr');
+        Route::get('/{cardAccount}/print-qr', [CardQrController::class, 'print'])->name('print-qr');
+        Route::get('/{cardAccount}/download-qr', [CardQrController::class, 'download'])->name('download-qr');
+
+        // Bulk Operations
+        Route::post('/bulk/issue', [CardAccountController::class, 'bulkIssue'])->name('bulk.issue');
+        Route::post('/bulk/generate-qr', [CardQrController::class, 'bulkGenerate'])->name('bulk.generate-qr');
+        Route::get('/bulk/print-sheet', [CardQrController::class, 'printSheet'])->name('bulk.print-sheet');
+
+        // Card History
+        Route::get('/{cardAccount}/transactions', [CardAccountController::class, 'transactions'])->name('transactions');
+    });
+
+    // ==================== FUNDING REQUESTS ====================
+    Route::prefix('funding')->name('funding.')->group(function () {
+        Route::get('/', [CardFundingRequestController::class, 'index'])->name('index');
+        Route::get('/{cardFundingRequest}', [CardFundingRequestController::class, 'show'])->name('show');
+        Route::post('/{cardFundingRequest}/complete', [CardFundingRequestController::class, 'complete'])->name('complete');
+        Route::post('/{cardFundingRequest}/fail', [CardFundingRequestController::class, 'fail'])->name('fail');
+        Route::post('/{cardFundingRequest}/retry', [CardFundingRequestController::class, 'retry'])->name('retry');
+        Route::get('/pending', [CardFundingRequestController::class, 'pending'])->name('pending');
+        Route::get('/failed', [CardFundingRequestController::class, 'failed'])->name('failed');
+        Route::get('/completed', [CardFundingRequestController::class, 'completed'])->name('completed');
+        Route::get('/export', [CardFundingRequestController::class, 'export'])->name('export');
+    });
+
+    // ==================== REPORTS ====================
+    Route::prefix('reports')->name('reports.')->group(function () {
+        Route::get('/', [CardReportController::class, 'index'])->name('index');
+        Route::get('/daily', [CardReportController::class, 'daily'])->name('daily');
+        Route::get('/monthly', [CardReportController::class, 'monthly'])->name('monthly');
+        Route::get('/students', [CardReportController::class, 'students'])->name('students');
+        Route::get('/balances', [CardReportController::class, 'balances'])->name('balances');
+        Route::get('/low-balance', [CardReportController::class, 'lowBalance'])->name('low-balance');
+        Route::get('/inactive', [CardReportController::class, 'inactive'])->name('inactive');
+        Route::get('/export', [CardReportController::class, 'export'])->name('export');
+    });
+
+    // ==================== API ENDPOINTS (POS Scanning) ====================
+    Route::prefix('api')->name('api.')->group(function () {
+        Route::get('/student/{admission}', [CardAccountController::class, 'findByAdmission'])->name('find-by-admission');
+        Route::get('/card/{cardNumber}', [CardAccountController::class, 'findByCardNumber'])->name('find-by-card');
+        Route::post('/scan', [CardAccountController::class, 'scan'])->name('scan');
+        Route::post('/purchase', [CardAccountController::class, 'processPurchase'])->name('process-purchase');
+        Route::get('/student/{student}/transactions', [CardAccountController::class, 'studentTransactions'])->name('student-transactions');
+    });
+});
 });
 
 // ============================================================================

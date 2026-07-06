@@ -137,7 +137,7 @@ class KcbSalesService extends KcbService
     {
         // Format: 7664166-SALE-{saleId}-{shopId}-{timestamp}
         // Matches your event format: 7664166-EVT-{eventId}-{applicationId}-{timestamp}
-        return '7992414-SALE-' . $sale->id . '-' . ($sale->shop_id ?? '0') . '-' . time();
+        return '7722609-SALE-' . $sale->id . '-' . ($sale->shop_id ?? '0') . '-' . time();
     }
 
     /**
