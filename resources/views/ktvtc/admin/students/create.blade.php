@@ -108,20 +108,28 @@
                             @enderror
                         </div>
 
-                        <!-- Student Number -->
+                        <!-- 🔥 Student Number - READONLY (Auto-generated) -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">
                                 Student Number
                             </label>
+                            @php
+                                // Get the next student number starting from 947
+                                $nextStudentNumber = \App\Models\Student::getNextStudentNumber();
+                            @endphp
                             <input type="text"
                                    name="student_number"
-                                   value="{{ old('student_number') }}"
-                                   placeholder="Leave empty to auto-generate"
-                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('student_number') border-red-500 @enderror">
+                                   value="{{ old('student_number', $nextStudentNumber) }}"
+                                   readonly
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed @error('student_number') border-red-500 @enderror">
                             @error('student_number')
                                 <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                             @enderror
-                            <p class="mt-1 text-xs text-gray-500">Format: STU/YYYY/MM/XXXX</p>
+                            <p class="mt-1 text-xs text-gray-500">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Auto-generated starting from <strong>947</strong>.
+                                Will be formatted as <strong>COURSECODE/NUMBER/YEAR</strong> upon enrollment.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -1043,7 +1051,7 @@
 </div>
 @endsection
 
-@section('scripts')
+@push('scripts')
 <script>
     // ============ TAB SWITCHING ============
     function switchSource(source) {
@@ -1229,4 +1237,4 @@
         switchSource('manual');
     });
 </script>
-@endsection
+@endpush

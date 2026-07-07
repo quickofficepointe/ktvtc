@@ -41,7 +41,7 @@ class CardReportController extends Controller
             ->where('status', 'completed')
             ->count();
 
-        return view('high-school.reports.index', compact(
+        return view('ktvtc.finance.high-school.reports.index', compact(
             'totalCards',
             'totalBalance',
             'totalStudents',
@@ -71,7 +71,7 @@ class CardReportController extends Controller
 
         $topSpenders = $dailyUsage->take(10);
 
-        return view('high-school.reports.daily', compact(
+        return view('ktvtc.finance.high-school.reports.daily', compact(
             'date',
             'dailyUsage',
             'totalSpent',
@@ -105,7 +105,7 @@ class CardReportController extends Controller
         $totalTransactions = $dailyTotals->sum('transaction_count');
         $averageDaily = $dailyTotals->count() > 0 ? $totalSpent / $dailyTotals->count() : 0;
 
-        return view('high-school.reports.monthly', compact(
+        return view('ktvtc.finance.high-school.reports.monthly', compact(
             'month',
             'year',
             'dailyTotals',
@@ -137,25 +137,25 @@ class CardReportController extends Controller
             ];
         });
 
-        return view('high-school.reports.students', compact('studentData'));
+        return view('ktvtc.finance.high-school.reports.students', compact('studentData'));
     }
 
     /**
-     * Balance report
+     * Balance report - FIXED: Using paginate instead of get
      */
     public function balances(Request $request)
     {
         $cards = CardAccount::with('student')
             ->orderBy('balance', 'desc')
-            ->get();
+            ->paginate(20); // Changed from get() to paginate()
 
-        $totalBalance = $cards->sum('balance');
+        $totalBalance = CardAccount::sum('balance');
 
-        return view('high-school.reports.balances', compact('cards', 'totalBalance'));
+        return view('ktvtc.finance.high-school.reports.balances', compact('cards', 'totalBalance'));
     }
 
     /**
-     * Low balance report
+     * Low balance report - FIXED: Using paginate instead of get
      */
     public function lowBalance(Request $request)
     {
@@ -164,13 +164,13 @@ class CardReportController extends Controller
         $cards = CardAccount::with('student')
             ->where('balance', '<', $threshold)
             ->orderBy('balance', 'asc')
-            ->get();
+            ->paginate(20); // Changed from get() to paginate()
 
-        return view('high-school.reports.low-balance', compact('cards', 'threshold'));
+        return view('ktvtc.finance.high-school.reports.low-balance', compact('cards', 'threshold'));
     }
 
     /**
-     * Inactive cards report
+     * Inactive cards report - FIXED: Using paginate instead of get
      */
     public function inactive(Request $request)
     {
@@ -183,9 +183,9 @@ class CardReportController extends Controller
             })
             ->where('is_active', true)
             ->orderBy('last_used_at', 'desc')
-            ->get();
+            ->paginate(20); // Changed from get() to paginate()
 
-        return view('high-school.reports.inactive', compact('cards', 'days'));
+        return view('ktvtc.finance.high-school.reports.inactive', compact('cards', 'days'));
     }
 
     /**

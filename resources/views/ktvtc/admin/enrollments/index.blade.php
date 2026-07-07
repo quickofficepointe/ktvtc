@@ -19,15 +19,6 @@
 @endsection
 
 @section('header-actions')
-<!-- SMS Fee Reminder Button Row -->
-<div class="mb-6">
-    <button onclick="openSmsReminderModal()"
-            class="px-5 py-2.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 shadow-md">
-        <i class="fas fa-envelope-dollar text-lg"></i>
-        <span>Send Fee Reminders</span>
-        <span id="selectedFeeCount" class="ml-2 bg-white/20 px-2 py-0.5 rounded-full text-xs hidden">0</span>
-    </button>
-</div>
 <div class="flex space-x-2">
     <a href="{{ route('admin.enrollments.export') }}"
        class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors flex items-center space-x-2">
@@ -44,7 +35,7 @@
 
 @section('content')
 <!-- Statistics Cards -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-6">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
     <div class="bg-white rounded-xl border border-gray-200 p-6 card-hover">
         <div class="flex items-center justify-between">
             <div>
@@ -77,18 +68,6 @@
             </div>
             <div class="w-12 h-12 rounded-lg bg-purple-50 flex items-center justify-center">
                 <i class="fas fa-graduation-cap text-purple-600 text-xl"></i>
-            </div>
-        </div>
-    </div>
-
-    <div class="bg-white rounded-xl border border-gray-200 p-6 card-hover">
-        <div class="flex items-center justify-between">
-            <div>
-                <p class="text-sm font-medium text-gray-600">Pending Payment</p>
-                <p class="text-2xl font-bold text-amber-600 mt-2">{{ number_format($pendingPayment ?? 0) }}</p>
-            </div>
-            <div class="w-12 h-12 rounded-lg bg-amber-50 flex items-center justify-center">
-                <i class="fas fa-clock text-amber-600 text-xl"></i>
             </div>
         </div>
     </div>
@@ -331,9 +310,6 @@
                                     {{ $enrollment->student_name ?? ($enrollment->student->full_name ?? 'N/A') }}
                                 </p>
                                 <p class="text-xs text-gray-500">{{ $enrollment->student_number ?? ($enrollment->student->student_number ?? 'No ID') }}</p>
-                                @if($enrollment->legacy_code)
-                                    <span class="text-xs text-gray-400">Legacy: {{ $enrollment->legacy_code }}</span>
-                                @endif
                             </div>
                         </div>
                     </td>
@@ -570,152 +546,10 @@
         </div>
     </div>
 </div>
-<!-- SMS Fee Reminder Modal -->
-<div id="smsReminderModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
-    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onclick="closeSmsModal()"></div>
-        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-            <div class="bg-white px-6 pt-5 pb-4">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800 flex items-center">
-                        <i class="fas fa-envelope-dollar text-green-600 mr-2"></i>
-                        Send Fee Reminders
-                    </h3>
-                    <button onclick="closeSmsModal()" class="text-gray-400 hover:text-gray-600">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
 
-                <!-- Balance Summary -->
-                <div id="balanceSummary" class="mb-4 p-3 bg-blue-50 rounded-lg hidden">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center">
-                            <i class="fas fa-chart-line text-blue-600 mr-2"></i>
-                            <span class="text-sm font-medium text-blue-800">Selected Students</span>
-                        </div>
-                        <span id="totalSelectedBalance" class="text-sm font-bold text-blue-800">KES 0</span>
-                    </div>
-                    <div class="mt-2 text-xs text-blue-700">
-                        <span id="selectedCountInfo">0</span> student(s) selected |
-                        Average balance: <span id="avgBalance">KES 0</span>
-                    </div>
-                </div>
+<!-- NOTE: SMS Fee Reminders have been removed from Admin -->
+<!-- They belong in the Finance module under finance.student-fees -->
 
-                <div id="singleStudentInfo" class="mb-4 p-3 bg-purple-50 rounded-lg hidden">
-                    <div class="flex items-start">
-                        <i class="fas fa-user-graduate text-purple-600 mr-2 mt-0.5"></i>
-                        <div>
-                            <p class="text-sm font-medium text-purple-800">
-                                Sending to: <span id="singleStudentName" class="font-bold"></span>
-                            </p>
-                            <p class="text-xs text-purple-700 mt-1">
-                                Balance: KES <span id="singleStudentBalance"></span>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <form id="smsReminderForm">
-                    @csrf
-                    <div id="smsEnrollmentIds"></div>
-
-                    <!-- Template Selection -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Message Template</label>
-                        <select id="smsTemplate" onchange="updateSmsPreview()"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
-                            <option value="standard">📱 Standard Reminder</option>
-                            <option value="urgent">⚠️ Urgent Reminder (Overdue)</option>
-                            <option value="friendly">😊 Friendly Reminder</option>
-                            <option value="custom">✏️ Custom Message</option>
-                        </select>
-                    </div>
-
-                    <!-- Custom Message -->
-                    <div id="customMessageDiv" class="mb-4 hidden">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Custom Message</label>
-                        <textarea id="customMessage" rows="4"
-                                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                  placeholder="Type your custom message here..."></textarea>
-                        <div class="mt-2 text-xs text-gray-500">
-                            <p><strong>Available placeholders:</strong></p>
-                            <p>{name} - Student name | {balance} - Outstanding balance | {link} - Payment link</p>
-                            <p>{course} - Course name | {student_number} - Student ID | {total_fees} - Total fees | {paid} - Amount paid</p>
-                        </div>
-                    </div>
-
-                    <!-- Message Preview -->
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Message Preview</label>
-                        <div id="smsMessagePreview" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg font-mono text-sm text-gray-700 min-h-[120px] whitespace-pre-wrap"></div>
-                        <p class="text-xs text-gray-500 mt-1">
-                            <i class="fas fa-info-circle mr-1"></i>
-                            Students will receive this message with their personal details
-                        </p>
-                    </div>
-
-                    <!-- Payment Link Info -->
-                    <div class="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-3 mb-4 border border-green-200">
-                        <div class="flex items-center">
-                            <i class="fas fa-globe text-green-600 mr-2"></i>
-                            <div class="text-sm">
-                                <span class="font-medium">Payment Portal:</span>
-                                <span class="text-primary font-mono">www.ktvtc.ac.ke/pay</span>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="bg-gray-50 px-6 py-4 flex justify-end space-x-3">
-                <button onclick="closeSmsModal()"
-                        class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                    Cancel
-                </button>
-                <button onclick="sendFeeReminders()"
-                        class="px-5 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg transition-all duration-200 flex items-center space-x-2">
-                    <i class="fas fa-paper-plane"></i>
-                    <span>Send Reminders</span>
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- SMS Result Modal -->
-<div id="smsResultModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
-    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onclick="closeSmsResultModal()"></div>
-        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full">
-            <div class="bg-white px-6 pt-5 pb-4">
-                <div class="text-center">
-                    <div id="smsResultIcon" class="mx-auto flex items-center justify-center h-12 w-12 rounded-full mb-4">
-                        <i class="fas fa-check-circle text-green-600 text-2xl"></i>
-                    </div>
-                    <h3 id="smsResultTitle" class="text-lg font-semibold text-gray-800 mb-2">SMS Sent Successfully</h3>
-                    <p id="smsResultMessage" class="text-sm text-gray-600">Fee reminders have been sent to students.</p>
-                    <div id="smsResultDetails" class="mt-4 text-left bg-gray-50 rounded-lg p-3 text-sm hidden max-h-60 overflow-y-auto">
-                        <p class="font-medium mb-2">Delivery Report:</p>
-                        <ul id="smsResultList" class="text-xs text-gray-600 space-y-1"></ul>
-                    </div>
-                </div>
-            </div>
-            <div class="bg-gray-50 px-6 py-4 flex justify-center">
-                <button onclick="closeSmsResultModal()"
-                        class="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg">
-                    Close
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Loading Overlay -->
-<div id="smsLoadingOverlay" class="hidden fixed inset-0 z-50 bg-gray-900 bg-opacity-50 flex items-center justify-center">
-    <div class="bg-white rounded-lg p-6 flex items-center space-x-3">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
-        <span class="text-gray-700">Sending reminders...</span>
-    </div>
-</div>
 @endsection
 
 @section('scripts')
@@ -724,235 +558,7 @@
     function viewEnrollment(id) {
         window.location.href = `/admin/enrollments/${id}`;
     }
-// ============ SMS FEE REMINDER FUNCTIONS ============
-let currentSelectedEnrollments = [];
 
-function openSmsReminderModal() {
-    // Get selected enrollments from checkboxes
-    const selectedCheckboxes = document.querySelectorAll('.enrollment-checkbox:checked');
-
-    if (selectedCheckboxes.length === 0) {
-        alert('Please select at least one student from the table to send a fee reminder.');
-        return;
-    }
-
-    // Gather selected enrollment data
-    currentSelectedEnrollments = [];
-    let totalBalance = 0;
-
-    selectedCheckboxes.forEach(cb => {
-        const row = cb.closest('tr');
-        const name = row.querySelector('td:nth-child(2) .text-sm.font-medium')?.textContent || 'Unknown';
-        const balanceText = row.querySelector('td:nth-child(6) .text-xs')?.textContent || '';
-        const balanceMatch = balanceText.match(/KES\s+([\d,]+\.?\d*)/);
-        const balance = balanceMatch ? parseFloat(balanceMatch[1].replace(/,/g, '')) : 0;
-
-        currentSelectedEnrollments.push({
-            id: cb.value,
-            name: name,
-            balance: balance
-        });
-        totalBalance += balance;
-    });
-
-    // Create hidden inputs
-    const container = document.getElementById('smsEnrollmentIds');
-    container.innerHTML = '';
-    currentSelectedEnrollments.forEach(e => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'enrollment_ids[]';
-        input.value = e.id;
-        container.appendChild(input);
-    });
-
-    // Show summary
-    if (currentSelectedEnrollments.length === 1) {
-        document.getElementById('singleStudentInfo').classList.remove('hidden');
-        document.getElementById('singleStudentName').textContent = currentSelectedEnrollments[0].name;
-        document.getElementById('singleStudentBalance').textContent = currentSelectedEnrollments[0].balance.toLocaleString();
-        document.getElementById('balanceSummary').classList.add('hidden');
-    } else {
-        document.getElementById('balanceSummary').classList.remove('hidden');
-        document.getElementById('selectedCountInfo').textContent = currentSelectedEnrollments.length;
-        document.getElementById('totalSelectedBalance').textContent = 'KES ' + totalBalance.toLocaleString();
-        const avgBalance = totalBalance / currentSelectedEnrollments.length;
-        document.getElementById('avgBalance').textContent = 'KES ' + avgBalance.toLocaleString(undefined, {maximumFractionDigits: 0});
-        document.getElementById('singleStudentInfo').classList.add('hidden');
-    }
-
-    // Reset and show preview
-    document.getElementById('smsTemplate').value = 'standard';
-    document.getElementById('customMessageDiv').classList.add('hidden');
-    document.getElementById('customMessage').value = '';
-    updateSmsPreview();
-
-    document.getElementById('smsReminderModal').classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-}
-
-function updateSmsPreview() {
-    const template = document.getElementById('smsTemplate').value;
-    const customMsg = document.getElementById('customMessage').value;
-    const previewDiv = document.getElementById('smsMessagePreview');
-
-    if (template === 'custom') {
-        document.getElementById('customMessageDiv').classList.remove('hidden');
-        let preview = customMsg || 'Enter your custom message above...';
-        // Show placeholder preview
-        if (currentSelectedEnrollments[0]) {
-            preview = preview
-                .replace(/{name}/g, currentSelectedEnrollments[0].name)
-                .replace(/{balance}/g, currentSelectedEnrollments[0].balance.toLocaleString())
-                .replace(/{link}/g, 'www.ktvtc.ac.ke/pay')
-                .replace(/{course}/g, '[Course Name]')
-                .replace(/{student_number}/g, '[STU001]');
-        }
-        previewDiv.textContent = preview;
-    } else {
-        document.getElementById('customMessageDiv').classList.add('hidden');
-
-        if (currentSelectedEnrollments.length === 0) return;
-
-        const student = currentSelectedEnrollments[0];
-        const balance = student.balance.toLocaleString();
-
-        let message = '';
-        switch(template) {
-            case 'urgent':
-                message = `URGENT: Dear ${student.name}, your fee balance of KES ${balance} is now overdue. Please clear your fees immediately to avoid interruption. Pay via www.ktvtc.ac.ke/pay or visit the finance office. KTVTC Admin.`;
-                break;
-            case 'friendly':
-                message = `Hello ${student.name}! Friendly reminder: Your outstanding balance is KES ${balance}. Pay conveniently at www.ktvtc.ac.ke/pay. Thank you for choosing KTVTC.`;
-                break;
-            case 'standard':
-            default:
-                message = `Dear ${student.name}, your current fee balance is KES ${balance}. Please clear your fees promptly. Pay online: www.ktvtc.ac.ke/pay. Thank you. KTVTC.`;
-                break;
-        }
-        previewDiv.textContent = message;
-    }
-}
-
-// Listen for custom message changes
-document.getElementById('customMessage')?.addEventListener('input', function() {
-    if (document.getElementById('smsTemplate').value === 'custom') {
-        updateSmsPreview();
-    }
-});
-
-function sendFeeReminders() {
-    const form = document.getElementById('smsReminderForm');
-    const formData = new FormData(form);
-    const template = document.getElementById('smsTemplate').value;
-    formData.append('template', template);
-
-    if (template === 'custom') {
-        const customMsg = document.getElementById('customMessage').value;
-        if (!customMsg.trim()) {
-            alert('Please enter a custom message or select a different template.');
-            return;
-        }
-        formData.append('custom_message', customMsg);
-    }
-
-    // Show loading
-    document.getElementById('smsLoadingOverlay').classList.remove('hidden');
-
-    fetch('{{ route("admin.enrollments.send-fee-reminders") }}', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
-            'Accept': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        document.getElementById('smsLoadingOverlay').classList.add('hidden');
-        closeSmsModal();
-
-        // Show result
-        if (data.success) {
-            document.getElementById('smsResultIcon').innerHTML = '<i class="fas fa-check-circle text-green-600 text-2xl"></i>';
-            document.getElementById('smsResultTitle').textContent = 'Reminders Sent Successfully';
-            document.getElementById('smsResultMessage').innerHTML = `✅ Sent to ${data.sent_count} of ${data.total_count} students.`;
-
-            if (data.failed_count > 0) {
-                document.getElementById('smsResultDetails').classList.remove('hidden');
-                let listHtml = '';
-                data.failed.forEach(fail => {
-                    listHtml += `<li class="flex items-start space-x-2"><i class="fas fa-exclamation-triangle text-amber-500 mt-0.5"></i><span><strong>${fail.name}</strong>: ${fail.reason}</span></li>`;
-                });
-                document.getElementById('smsResultList').innerHTML = listHtml;
-            } else {
-                document.getElementById('smsResultDetails').classList.add('hidden');
-            }
-        } else {
-            document.getElementById('smsResultIcon').innerHTML = '<i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>';
-            document.getElementById('smsResultTitle').textContent = 'Sending Failed';
-            document.getElementById('smsResultMessage').innerHTML = data.message || 'Failed to send reminders. Please try again.';
-            document.getElementById('smsResultDetails').classList.add('hidden');
-        }
-
-        document.getElementById('smsResultModal').classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-    })
-    .catch(error => {
-        document.getElementById('smsLoadingOverlay').classList.add('hidden');
-        closeSmsModal();
-
-        console.error('Error:', error);
-        document.getElementById('smsResultIcon').innerHTML = '<i class="fas fa-times-circle text-red-600 text-2xl"></i>';
-        document.getElementById('smsResultTitle').textContent = 'Error';
-        document.getElementById('smsResultMessage').innerHTML = 'An error occurred. Please check your connection and try again.';
-        document.getElementById('smsResultDetails').classList.add('hidden');
-        document.getElementById('smsResultModal').classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-    });
-}
-
-function closeSmsModal() {
-    document.getElementById('smsReminderModal').classList.add('hidden');
-    document.body.style.overflow = 'auto';
-}
-
-function closeSmsResultModal() {
-    document.getElementById('smsResultModal').classList.add('hidden');
-    document.body.style.overflow = 'auto';
-}
-
-// Update selected count on the button
-function updateSelectedFeeCount() {
-    const selected = document.querySelectorAll('.enrollment-checkbox:checked').length;
-    const badge = document.getElementById('selectedFeeCount');
-    if (selected > 0) {
-        badge.classList.remove('hidden');
-        badge.textContent = selected;
-    } else {
-        badge.classList.add('hidden');
-    }
-}
-
-// Override the existing updateSelectedCount function
-const originalUpdateSelectedCount = window.updateSelectedCount;
-window.updateSelectedCount = function() {
-    if (originalUpdateSelectedCount) originalUpdateSelectedCount();
-    updateSelectedFeeCount();
-};
-
-// Initialize
-document.addEventListener('DOMContentLoaded', function() {
-    updateSelectedFeeCount();
-});
-
-// Close modals with Escape key
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        closeSmsModal();
-        closeSmsResultModal();
-    }
-});
     function refreshTable() {
         location.reload();
     }

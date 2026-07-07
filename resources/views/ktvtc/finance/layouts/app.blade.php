@@ -77,13 +77,11 @@
             overscroll-behavior: contain;
         }
 
-        /* Sidebar open state (mobile & tablet) */
         .sidebar.open {
             transform: translateX(0);
             box-shadow: 4px 0 24px rgba(185, 28, 28, 0.15);
         }
 
-        /* Desktop breakpoint */
         @media (min-width: 1024px) {
             .sidebar {
                 transform: translateX(0);
@@ -101,7 +99,6 @@
             }
         }
 
-        /* Tablet & small desktop */
         @media (min-width: 768px) and (max-width: 1023px) {
             .sidebar {
                 width: 260px;
@@ -111,7 +108,6 @@
             }
         }
 
-        /* Mobile first - sidebar hidden by default */
         @media (max-width: 767px) {
             .sidebar {
                 width: 280px;
@@ -126,7 +122,6 @@
             }
         }
 
-        /* Mobile overlay */
         .mobile-overlay {
             display: none;
             position: fixed;
@@ -146,7 +141,6 @@
             opacity: 1;
         }
 
-        /* Nav links */
         .nav-link {
             transition: all 0.15s ease;
             border-radius: 8px;
@@ -174,7 +168,6 @@
             font-size: 1rem;
         }
 
-        /* Buttons */
         .btn-primary {
             background: #B91C1C;
             transition: all 0.15s ease;
@@ -183,7 +176,6 @@
             background: #991B1B;
         }
 
-        /* Card Styles */
         .finance-card {
             background: white;
             border-radius: 12px;
@@ -197,7 +189,12 @@
             box-shadow: 0 12px 30px rgba(185, 28, 28, 0.1);
         }
 
-        /* Status Badges */
+        .badge-card-active { background: #D1FAE5; color: #065F46; }
+        .badge-card-inactive { background: #F3F4F6; color: #374151; }
+        .badge-card-locked { background: #FEF3C7; color: #92400E; }
+        .badge-card-blocked { background: #FEE2E2; color: #B91C1C; }
+        .badge-card-funded { background: #DBEAFE; color: #1E40AF; }
+
         .status-badge {
             font-size: 0.7rem;
             font-weight: 600;
@@ -219,7 +216,6 @@
         .status-warning { background: #FEF3C7; color: #92400E; }
         .status-success { background: #D1FAE5; color: #065F46; }
 
-        /* Loading Overlay */
         #loadingOverlay {
             display: none;
             position: fixed;
@@ -250,7 +246,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Scrollbar */
         .sidebar::-webkit-scrollbar {
             width: 3px;
         }
@@ -262,24 +257,20 @@
             border-radius: 8px;
         }
 
-        /* Touch-friendly spacing */
         .touch-target {
             min-height: 44px;
             min-width: 44px;
         }
 
-        /* Responsive table wrapper */
         .table-responsive {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
         }
 
-        /* Card adjustments */
         .card-shadow {
             box-shadow: 0 2px 12px rgba(0,0,0,0.05);
         }
 
-        /* Breadcrumb mobile */
         .breadcrumb-scroll {
             overflow-x: auto;
             white-space: nowrap;
@@ -322,11 +313,9 @@
 <nav class="fixed top-0 left-0 right-0 h-16 bg-primary shadow-lg z-50">
     <div class="flex items-center justify-between h-full px-3 sm:px-4 md:px-6">
         <div class="flex items-center min-w-0 flex-1">
-            <!-- Mobile Menu Button -->
             <button id="mobileMenuBtn" class="mobile-menu-btn touch-target mr-2 text-white w-10 h-10 rounded-lg hover:bg-white/10 active:bg-white/20 transition-colors flex-shrink-0" aria-label="Toggle menu">
                 <i class="fas fa-bars text-xl"></i>
             </button>
-            <!-- Logo -->
             <a href="{{ route('finance.dashboard') }}" class="flex items-center min-w-0 flex-shrink">
                 <div class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center mr-2 flex-shrink-0">
                     <i class="fas fa-coins text-white text-lg"></i>
@@ -336,7 +325,6 @@
         </div>
 
         <div class="flex items-center space-x-1 sm:space-x-3 flex-shrink-0">
-            <!-- User Dropdown -->
             <div class="relative">
                 <button id="userBtn" class="flex items-center text-white hover:bg-white/10 px-2 py-1.5 rounded-lg transition-colors touch-target" aria-label="User menu">
                     <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
@@ -380,7 +368,7 @@
                 </a>
             </li>
 
-            <!-- Student Fees -->
+            <!-- ============ STUDENT FEES ============ -->
             <li class="mt-4">
                 <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider">Student Fees</p>
             </li>
@@ -393,9 +381,7 @@
                         $pendingVerification = \App\Models\FeePayment::where('status', 'completed')->where('is_verified', false)->count();
                     @endphp
                     @if($pendingVerification > 0)
-                        <span class="ml-auto bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full">
-                            {{ $pendingVerification }}
-                        </span>
+                        <span class="ml-auto bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full">{{ $pendingVerification }}</span>
                     @endif
                 </a>
             </li>
@@ -414,7 +400,7 @@
                 </a>
             </li>
 
-            <!-- Transactions -->
+            <!-- ============ TRANSACTIONS ============ -->
             <li class="mt-4">
                 <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider">Transactions</p>
             </li>
@@ -441,16 +427,14 @@
                         $pendingTransactions = \App\Models\PaymentTransaction::where('status', 'pending')->count();
                     @endphp
                     @if($pendingTransactions > 0)
-                        <span class="ml-auto bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full">
-                            {{ $pendingTransactions }}
-                        </span>
+                        <span class="ml-auto bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full">{{ $pendingTransactions }}</span>
                     @endif
                 </a>
             </li>
 
-            <!-- Reports -->
+            <!-- ============ FINANCE REPORTS ============ -->
             <li class="mt-4">
-                <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider">Reports</p>
+                <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider">Finance Reports</p>
             </li>
             <li>
                 <a href="{{ route('finance.reports.profit-loss') }}"
@@ -488,7 +472,78 @@
                 </a>
             </li>
 
-            <!-- Student Lookup -->
+            <!-- ============ FEE STRUCTURE ============ -->
+            <li class="mt-4">
+                <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider bg-white/10 py-1 rounded">Course Management</p>
+            </li>
+            <li>
+                <a href="{{ route('finance.fee-structure.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.fee-structure.*') ? 'active' : '' }}">
+                    <i class="fas fa-file-invoice-dollar w-5 mr-3 text-center"></i>
+                    <span>Fee Structure</span>
+                    @php
+                        $pendingFeeChanges = \App\Models\Course::whereNotNull('fee_modified_by')
+                            ->whereNull('fee_modification_approved_by')
+                            ->count();
+                    @endphp
+                    @if($pendingFeeChanges > 0)
+                        <span class="ml-auto bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full">{{ $pendingFeeChanges }}</span>
+                    @endif
+                </a>
+            </li>
+
+            <!-- ============ HIGH SCHOOL CARD SYSTEM ============ -->
+            <li class="mt-4">
+                <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider bg-white/10 py-1 rounded">High School Cards</p>
+            </li>
+            <li>
+                <a href="{{ route('finance.hs-students.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.hs-students.*') ? 'active' : '' }}">
+                    <i class="fas fa-user-graduate w-5 mr-3 text-center"></i>
+                    <span>Students</span>
+                    @php
+                        $noCardCount = \App\Models\HighSchoolStudent::doesntHave('cardAccount')->count();
+                    @endphp
+                    @if($noCardCount > 0)
+                        <span class="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{{ $noCardCount }}</span>
+                    @endif
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('finance.cards.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.cards.*') ? 'active' : '' }}">
+                    <i class="fas fa-id-card w-5 mr-3 text-center"></i>
+                    <span>Cards</span>
+                    @php
+                        $blockedCards = \App\Models\CardAccount::where('is_blocked', true)->count();
+                    @endphp
+                    @if($blockedCards > 0)
+                        <span class="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{{ $blockedCards }}</span>
+                    @endif
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('finance.funding.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.funding.*') ? 'active' : '' }}">
+                    <i class="fas fa-hand-holding-usd w-5 mr-3 text-center"></i>
+                    <span>Funding Requests</span>
+                    @php
+                        $pendingFunding = \App\Models\CardFundingRequest::where('status', 'pending')->count();
+                    @endphp
+                    @if($pendingFunding > 0)
+                        <span class="ml-auto bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full">{{ $pendingFunding }}</span>
+                    @endif
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('finance.card-reports.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.card-reports.*') ? 'active' : '' }}">
+                    <i class="fas fa-chart-pie w-5 mr-3 text-center"></i>
+                    <span>Card Reports</span>
+                </a>
+            </li>
+
+            <!-- ============ STUDENT LOOKUP ============ -->
             <li class="mt-4">
                 <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider">Student Lookup</p>
             </li>
@@ -500,7 +555,7 @@
                 </a>
             </li>
 
-            <!-- Settings -->
+            <!-- ============ SETTINGS ============ -->
             <li class="mt-4">
                 <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider">Settings</p>
             </li>
@@ -509,13 +564,6 @@
                    class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.settings.*') && !request()->routeIs('finance.settings.fee-structure') && !request()->routeIs('finance.settings.financial-year') ? 'active' : '' }}">
                     <i class="fas fa-cog w-5 mr-3 text-center"></i>
                     <span>Settings</span>
-                </a>
-            </li>
-            <li>
-                <a href="{{ route('finance.settings.fee-structure') }}"
-                   class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.settings.fee-structure') ? 'active' : '' }}">
-                    <i class="fas fa-file-invoice w-5 mr-3 text-center"></i>
-                    <span>Fee Structure</span>
                 </a>
             </li>
             <li>
@@ -542,7 +590,6 @@
                 @yield('header-actions')
             </div>
         </div>
-        <!-- Breadcrumb -->
         <div class="mt-1.5 breadcrumb-scroll">
             <ol class="flex text-xs sm:text-sm text-gray-500">
                 <li><a href="{{ route('finance.dashboard') }}" class="hover:text-primary transition whitespace-nowrap">Home</a></li>
@@ -601,12 +648,10 @@
 <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
-<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
     (function() {
-        // Toastr configuration
         toastr.options = {
             closeButton: true,
             progressBar: true,
@@ -616,7 +661,6 @@
             preventDuplicates: true
         };
 
-        // Loading overlay functions
         window.showLoading = function(message = 'Processing...') {
             const overlay = document.getElementById('loadingOverlay');
             const messageEl = document.getElementById('loadingMessage');
@@ -635,7 +679,6 @@
             }
         };
 
-        // Auto show loading on form submit
         document.addEventListener('submit', function(e) {
             const form = e.target;
             if (form.tagName === 'FORM' && !form.hasAttribute('data-no-loading')) {
@@ -646,7 +689,6 @@
             }
         });
 
-        // Mobile sidebar toggle
         const mobileBtn = document.getElementById('mobileMenuBtn');
         const sidebar = document.getElementById('sidebar');
         const mobileOverlay = document.getElementById('mobileOverlay');
@@ -679,7 +721,6 @@
             mobileOverlay.addEventListener('touchstart', function(e) {});
         }
 
-        // Close sidebar on window resize when switching to desktop
         let resizeTimer;
         window.addEventListener('resize', function() {
             clearTimeout(resizeTimer);
@@ -690,14 +731,12 @@
             }, 100);
         });
 
-        // Close sidebar on escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 closeSidebar();
             }
         });
 
-        // User dropdown
         const userBtn = document.getElementById('userBtn');
         const userMenu = document.getElementById('userMenu');
 
@@ -716,7 +755,6 @@
             });
         }
 
-        // Initialize DataTables with responsive handling
         $(document).ready(function() {
             $('.datatable').each(function() {
                 if (!$.fn.DataTable.isDataTable(this)) {
@@ -738,7 +776,6 @@
                 }
             });
 
-            // Initialize Select2 with responsive width
             $('select:not(.no-select2)').each(function() {
                 $(this).select2({
                     theme: 'classic',
@@ -748,7 +785,6 @@
             });
         });
 
-        // Helper function for AJAX requests with loading
         window.ajaxWithLoading = function(url, options = {}) {
             showLoading(options.loadingMessage || 'Loading...');
 

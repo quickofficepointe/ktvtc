@@ -287,7 +287,7 @@
                 </div>
             </div>
 
-            <!-- Financial Summary -->
+            <!-- Financial Summary (View Only - No Payment Actions) -->
             <div>
                 <h4 class="text-md font-medium text-gray-800 mb-4 flex items-center">
                     <i class="fas fa-money-bill-wave text-primary mr-2"></i>
@@ -317,15 +317,7 @@
                             <div class="bg-primary rounded-full h-2" style="width: {{ $enrollment->payment_progress }}%"></div>
                         </div>
                     </dl>
-                    @if($enrollment->balance > 0)
-                    <div class="mt-4">
-                        <a href="{{ route('admin.fee-payments.create', ['enrollment_id' => $enrollment->id]) }}"
-                           class="w-full px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg text-sm flex items-center justify-center">
-                            <i class="fas fa-plus-circle mr-2"></i>
-                            Record Payment
-                        </a>
-                    </div>
-                    @endif
+                    <!-- ❌ REMOVED: "Record Payment" button - belongs in Finance module -->
                 </div>
             </div>
 
@@ -382,20 +374,14 @@
         </div>
     </div>
 
-    <!-- Tab: Payment History -->
+    <!-- Tab: Payment History (View Only) -->
     <div id="tab-payments" class="tab-pane hidden p-6">
         <div class="flex items-center justify-between mb-6">
             <h4 class="text-md font-medium text-gray-800 flex items-center">
                 <i class="fas fa-credit-card text-primary mr-2"></i>
                 Payment History
             </h4>
-            @if($enrollment->balance > 0)
-            <a href="{{ route('admin.fee-payments.create', ['enrollment_id' => $enrollment->id]) }}"
-               class="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg text-sm flex items-center">
-                <i class="fas fa-plus-circle mr-2"></i>
-                Record Payment
-            </a>
-            @endif
+            <!-- ❌ REMOVED: "Record Payment" button - belongs in Finance module -->
         </div>
 
         @if($payments && $payments->count() > 0)
@@ -409,7 +395,6 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Method</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reference</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-200">
@@ -452,12 +437,6 @@
                                     </span>
                                 @endif
                             </td>
-                            <td class="px-6 py-4">
-                                <a href="{{ route('admin.fee-payments.show', $payment) }}"
-                                   class="text-primary hover:text-primary-dark text-sm">
-                                    View
-                                </a>
-                            </td>
                         </tr>
                         @endforeach
                     </tbody>
@@ -467,13 +446,7 @@
             <div class="text-center py-8">
                 <i class="fas fa-credit-card text-gray-300 text-4xl mb-3"></i>
                 <p class="text-gray-500">No payments recorded for this enrollment</p>
-                @if($enrollment->balance > 0)
-                <a href="{{ route('admin.fee-payments.create', ['enrollment_id' => $enrollment->id]) }}"
-                   class="mt-4 inline-flex items-center px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg text-sm">
-                    <i class="fas fa-plus-circle mr-2"></i>
-                    Record First Payment
-                </a>
-                @endif
+                <!-- ❌ REMOVED: "Record First Payment" button - belongs in Finance module -->
             </div>
         @endif
     </div>
@@ -644,15 +617,8 @@
     </div>
 </div>
 
-<!-- Quick Actions -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-    <a href="{{ route('admin.fee-payments.create', ['enrollment_id' => $enrollment->id]) }}"
-       class="block p-4 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition-colors">
-        <i class="fas fa-credit-card text-green-600 text-xl mb-2"></i>
-        <p class="text-sm font-medium text-gray-900">Record Payment</p>
-        <p class="text-xs text-gray-600 mt-1">Add a new payment for this enrollment</p>
-    </a>
-
+<!-- Quick Actions (No Fee Actions) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
     @if($enrollment->requires_external_exam)
     <a href="{{ route('admin.exam-registrations.create', ['enrollment_id' => $enrollment->id]) }}"
        class="block p-4 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors">
@@ -680,7 +646,21 @@
         <p class="text-sm font-medium text-gray-900">Edit Enrollment</p>
         <p class="text-xs text-gray-600 mt-1">Update enrollment details</p>
     </a>
+
+    <!-- ❌ REMOVED: "Record Payment" quick action - belongs in Finance module -->
 </div>
+
+<!-- Info Note -->
+<div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+    <div class="flex items-center">
+        <i class="fas fa-info-circle text-blue-600 text-lg mr-3"></i>
+        <div>
+            <p class="text-sm font-medium text-blue-800">Financial Management</p>
+            <p class="text-xs text-blue-700">All fee-related operations (payments, receipts, reconciliation) are managed in the <strong>Finance Department</strong> module. Please navigate to Finance for payment processing.</p>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @section('scripts')

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class HighSchoolStudent extends Model
 {
@@ -18,6 +19,10 @@ class HighSchoolStudent extends Model
         'parent_phone',
         'parent_name',
         'status',
+    ];
+
+    protected $casts = [
+        'status' => 'string',
     ];
 
     /**
@@ -47,14 +52,17 @@ class HighSchoolStudent extends Model
 
     /**
      * Get all transactions for this student through their card
+     * Fixed: Changed return type to HasManyThrough
      */
-    public function transactions(): HasMany
+    public function transactions(): HasManyThrough  // Changed from HasMany to HasManyThrough
     {
         return $this->hasManyThrough(
             CardTransaction::class,
             CardAccount::class,
-            'high_school_student_id',
-            'card_account_id'
+            'high_school_student_id', // Foreign key on card_accounts
+            'card_account_id',        // Foreign key on card_transactions
+            'id',                     // Local key on high_school_students
+            'id'                      // Local key on card_accounts
         );
     }
 
@@ -64,5 +72,13 @@ class HighSchoolStudent extends Model
     public function scopeActive($query)
     {
         return $query->where('status', 'active');
+    }
+
+    /**
+     * Scope for students by class
+     */
+    public function scopeInClass($query, $class)
+    {
+        return $query->where('class', $class);
     }
 }

@@ -1,6 +1,6 @@
 @extends('ktvtc.admin.layout.adminlayout')
 
-@section('title', 'New Enrollment')
+@section('title', 'Create Enrollment')
 @section('subtitle', 'Enroll a student in a course')
 
 @section('breadcrumb')
@@ -18,151 +18,205 @@
 </li>
 @endsection
 
-@section('header-actions')
-<div class="flex space-x-2">
-    <a href="{{ route('admin.enrollments.index') }}"
-       class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors flex items-center space-x-2">
-        <i class="fas fa-arrow-left"></i>
-        <span>Back to Enrollments</span>
-    </a>
-</div>
-@endsection
+@push('styles')
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .select2-container--classic .select2-selection--single {
+        height: 42px;
+        padding: 6px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+    }
+    .select2-container--classic .select2-selection--single .select2-selection__rendered {
+        line-height: 28px;
+    }
+    .select2-container--classic .select2-selection--single .select2-selection__arrow {
+        height: 40px;
+    }
+    .select2-container--classic .select2-dropdown {
+        border-color: #d1d5db;
+        border-radius: 8px;
+    }
+    .select2-container--classic .select2-search--dropdown .select2-search__field {
+        border-radius: 6px;
+        border-color: #d1d5db;
+    }
+    .select2-container--classic.select2-container--open .select2-dropdown {
+        border-color: #B91C1C;
+    }
+    .select2-container--classic .select2-results__option--highlighted[aria-selected] {
+        background-color: #B91C1C;
+    }
+    .fee-breakdown-popup {
+        display: none;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-top: 8px;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+    .fee-breakdown-popup.show {
+        display: block;
+    }
+    .fee-breakdown-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 0;
+        border-bottom: 1px solid #f3f4f6;
+        font-size: 14px;
+    }
+    .fee-breakdown-item:last-child {
+        border-bottom: none;
+    }
+    .fee-breakdown-total {
+        font-weight: bold;
+        border-top: 2px solid #e5e7eb;
+        padding-top: 8px;
+        margin-top: 4px;
+    }
+    .fee-breakdown-total .amount {
+        color: #B91C1C;
+    }
+</style>
+@endpush
 
 @section('content')
-<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-    <div class="p-6 border-b border-gray-200">
-        <div class="flex items-center justify-between">
-            <div>
-                <h3 class="text-lg font-semibold text-gray-800">New Course Enrollment</h3>
-                <p class="text-sm text-gray-600 mt-1">Enroll a student in a course and set their fee structure</p>
-            </div>
-            <div class="flex items-center space-x-3">
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    <i class="fas fa-info-circle mr-1"></i>
-                    Fields marked with <span class="text-red-500">*</span> are required
-                </span>
-            </div>
+<div class="max-w-3xl mx-auto">
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-800">Student Enrollment</h3>
+            <p class="text-sm text-gray-600 mt-1">Enroll a student in a course program</p>
         </div>
-    </div>
 
-    <form action="{{ route('admin.enrollments.store') }}" method="POST" id="enrollmentForm">
-        @csrf
+        <form action="{{ route('admin.enrollments.store') }}" method="POST">
+            @csrf
 
-        <div class="p-6 space-y-8">
-            <!-- ============ STUDENT SELECTION ============ -->
-            <div class="bg-gray-50 p-4 rounded-lg">
-                <h4 class="text-md font-medium text-gray-800 mb-4 flex items-center">
-                    <i class="fas fa-user-graduate text-primary mr-2"></i>
-                    Student Information
-                </h4>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Student Selection -->
-                    <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-2 required">
-                            Select Student
-                        </label>
-                        <div class="relative">
-                            <select name="student_id" id="student_id" required
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('student_id') border-red-500 @enderror">
-                                <option value="">-- Search for a student --</option>
-                                @foreach($students as $student)
-                                    <option value="{{ $student->id }}"
-                                            data-name="{{ $student->full_name }}"
-                                            data-number="{{ $student->student_number }}"
-                                            data-email="{{ $student->email }}"
-                                            data-phone="{{ $student->phone }}"
-                                            {{ old('student_id') == $student->id ? 'selected' : '' }}>
-                                        {{ $student->full_name }} - {{ $student->student_number ?? 'No ID' }} ({{ $student->email ?? 'No email' }})
-                                    </option>
-                                @endforeach
-                            </select>
-                            <i class="fas fa-search absolute right-3 top-3 text-gray-400"></i>
-                        </div>
-                        @error('student_id')
-                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <!-- Student Quick Info Preview -->
-                    <div id="studentPreview" class="md:col-span-2 hidden">
-                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                            <div class="flex items-start">
-                                <div class="flex-shrink-0">
-                                    <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                                        <i class="fas fa-user-graduate text-blue-600"></i>
-                                    </div>
-                                </div>
-                                <div class="ml-3 flex-1">
-                                    <h5 class="text-sm font-medium text-blue-800" id="previewName"></h5>
-                                    <div class="mt-1 text-xs text-blue-600 space-y-1">
-                                        <p id="previewNumber"></p>
-                                        <p id="previewEmail"></p>
-                                        <p id="previewPhone"></p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Campus (Auto-filled based on user role) -->
-                    @if(auth()->user()->role == 2)
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2 required">Campus</label>
-                        <select name="campus_id" required
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('campus_id') border-red-500 @enderror">
-                            <option value="">Select Campus</option>
-                            @foreach($campuses as $campus)
-                                <option value="{{ $campus->id }}" {{ old('campus_id') == $campus->id ? 'selected' : '' }}>
-                                    {{ $campus->name }}
+            <div class="p-6 space-y-6">
+                <!-- 🔥 STUDENT SELECTION - SEARCHABLE -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Select Student <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <select name="student_id" id="student_id" required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('student_id') border-red-500 @enderror">
+                            <option value="">-- Search for a student --</option>
+                            @foreach($students as $student)
+                                <option value="{{ $student->id }}" {{ old('student_id') == $student->id ? 'selected' : '' }}>
+                                    {{ $student->full_name }} ({{ $student->student_number ?? 'No ID' }})
                                 </option>
                             @endforeach
                         </select>
-                        @error('campus_id')
-                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                        @enderror
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                            <i class="fas fa-search text-gray-400"></i>
+                        </div>
                     </div>
-                    @else
-                        <input type="hidden" name="campus_id" value="{{ auth()->user()->campus_id }}">
-                    @endif
+                    @error('student_id')
+                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                    @enderror
+                    <p class="mt-1 text-xs text-gray-500">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Only students who are not currently enrolled in an active course are shown.
+                    </p>
                 </div>
-            </div>
 
-            <!-- ============ COURSE & INTAKE ============ -->
-            <div class="bg-gray-50 p-4 rounded-lg">
-                <h4 class="text-md font-medium text-gray-800 mb-4 flex items-center">
-                    <i class="fas fa-book-open text-primary mr-2"></i>
-                    Course & Intake
-                </h4>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <!-- Course -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2 required">Course</label>
+                <!-- 🔥 Course Selection - WITH FEE DATA -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Select Course <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative">
                         <select name="course_id" id="course_id" required
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('course_id') border-red-500 @enderror">
-                            <option value="">Select Course</option>
+                            <option value="">-- Search for a course --</option>
                             @foreach($courses as $course)
                                 <option value="{{ $course->id }}"
-                                        data-code="{{ $course->code }}"
-                                        data-duration="{{ $course->duration_months ?? 0 }}"
+                                        data-fee-breakdown='@json($course->fee_breakdown ?? [])'
+                                        data-total-fee="{{ $course->total_fee ?? 0 }}"
                                         {{ old('course_id') == $course->id ? 'selected' : '' }}>
-                                    {{ $course->name }} ({{ $course->code }})
+                                    {{ $course->name }} ({{ $course->code ?? 'N/A' }}) - KES {{ number_format($course->total_fee ?? 0, 2) }}
                                 </option>
                             @endforeach
                         </select>
-                        @error('course_id')
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                            <i class="fas fa-search text-gray-400"></i>
+                        </div>
+                    </div>
+                    @error('course_id')
+                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <!-- 🔥 Fee Breakdown Display -->
+                <div id="feeBreakdown" class="fee-breakdown-popup">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">Fee Breakdown</h4>
+                    <div id="feeBreakdownItems"></div>
+                    <div class="fee-breakdown-total flex justify-between">
+                        <span>Total:</span>
+                        <span class="amount font-bold" id="feeTotalDisplay">KES 0.00</span>
+                    </div>
+                </div>
+
+                <!-- Campus -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Campus</label>
+                    <select name="campus_id" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('campus_id') border-red-500 @enderror">
+                        <option value="">Select Campus</option>
+                        @foreach($campuses as $campus)
+                            <option value="{{ $campus->id }}" {{ old('campus_id') == $campus->id ? 'selected' : '' }}>
+                                {{ $campus->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('campus_id')
+                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                <!-- Financial Information -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Total Fees <span class="text-red-500">*</span></label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span class="text-gray-500">KES</span>
+                        </div>
+                        <input type="number" name="total_fees" id="total_fees" value="{{ old('total_fees') }}" step="0.01" min="0" required
+                               class="w-full pl-12 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('total_fees') border-red-500 @enderror">
+                    </div>
+                    @error('total_fees')
+                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                    @enderror
+                    <p class="mt-1 text-xs text-gray-500">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Fees will be auto-filled when you select a course. You can manually adjust if needed.
+                    </p>
+                </div>
+
+                <!-- Intake Information -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Intake Year <span class="text-red-500">*</span></label>
+                        <select name="intake_year" id="intake_year" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('intake_year') border-red-500 @enderror">
+                            <option value="">Select Year</option>
+                            @php
+                                $currentYear = date('Y');
+                                for($y = $currentYear - 1; $y <= $currentYear + 3; $y++) {
+                                    $selected = old('intake_year', $currentYear) == $y ? 'selected' : '';
+                                    echo "<option value=\"{$y}\" {$selected}>{$y}</option>";
+                                }
+                            @endphp
+                        </select>
+                        @error('intake_year')
                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
 
-                    <!-- Intake Month -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2 required">Intake Month</label>
-                        <select name="intake_month" required
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('intake_month') border-red-500 @enderror">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Intake Month <span class="text-red-500">*</span></label>
+                        <select name="intake_month" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('intake_month') border-red-500 @enderror">
                             <option value="">Select Month</option>
-                            @foreach(['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] as $month)
+                            @foreach(['January','February','March','April','May','June','July','August','September','October','November','December'] as $month)
                                 <option value="{{ $month }}" {{ old('intake_month') == $month ? 'selected' : '' }}>
                                     {{ $month }}
                                 </option>
@@ -172,494 +226,323 @@
                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
-
-                    <!-- Intake Year -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2 required">Intake Year</label>
-                        <select name="intake_year" required
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('intake_year') border-red-500 @enderror">
-                            @for($year = date('Y') - 1; $year <= date('Y') + 2; $year++)
-                                <option value="{{ $year }}" {{ old('intake_year', date('Y')) == $year ? 'selected' : '' }}>
-                                    {{ $year }}
-                                </option>
-                            @endfor
-                        </select>
-                        @error('intake_year')
-                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <!-- Study Mode -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2 required">Study Mode</label>
-                        <select name="study_mode" required
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('study_mode') border-red-500 @enderror">
-                            <option value="">Select Mode</option>
-                            @foreach(['full_time', 'part_time', 'evening', 'weekend', 'online'] as $mode)
-                                <option value="{{ $mode }}" {{ old('study_mode', 'full_time') == $mode ? 'selected' : '' }}>
-                                    {{ ucfirst(str_replace('_', ' ', $mode)) }}
-                                </option>
-                            @endforeach
-                        </select>
-                        @error('study_mode')
-                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <!-- Student Type -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2 required">Student Type</label>
-                        <select name="student_type" required
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('student_type') border-red-500 @enderror">
-                            <option value="">Select Type</option>
-                            @foreach(['new', 'continuing', 'alumnus', 'transfer'] as $type)
-                                <option value="{{ $type }}" {{ old('student_type', 'new') == $type ? 'selected' : '' }}>
-                                    {{ ucfirst($type) }}
-                                </option>
-                            @endforeach
-                        </select>
-                        @error('student_type')
-                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <!-- Sponsorship Type -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2 required">Sponsorship</label>
-                        <select name="sponsorship_type" required
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('sponsorship_type') border-red-500 @enderror">
-                            <option value="">Select Sponsorship</option>
-                            @foreach(['self', 'sponsored', 'government', 'scholarship', 'company'] as $type)
-                                <option value="{{ $type }}" {{ old('sponsorship_type', 'self') == $type ? 'selected' : '' }}>
-                                    {{ ucfirst($type) }}
-                                </option>
-                            @endforeach
-                        </select>
-                        @error('sponsorship_type')
-                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
-                </div>
-            </div>
-
-            <!-- ============ FEES ============ -->
-            <div class="bg-gray-50 p-4 rounded-lg">
-                <h4 class="text-md font-medium text-gray-800 mb-4 flex items-center">
-                    <i class="fas fa-money-bill-wave text-primary mr-2"></i>
-                    Fee Information
-                </h4>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Total Fees -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2 required">Total Fees (KES)</label>
-                        <div class="relative">
-                            <span class="absolute left-3 top-2 text-gray-500">KES</span>
-                            <input type="number"
-                                   name="total_fees"
-                                   id="total_fees"
-                                   value="{{ old('total_fees') }}"
-                                   min="0"
-                                   step="1"
-                                   required
-                                   class="w-full pl-12 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('total_fees') border-red-500 @enderror"
-                                   placeholder="0.00">
-                        </div>
-                        <p class="mt-1 text-xs text-gray-500">Any fee amount is accepted (e.g., 10000, 10001, 15050, 255.50)</p>
-                        @error('total_fees')
-                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <!-- Amount Paid (Optional - for arrears) -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Amount Paid (KES)</label>
-                        <div class="relative">
-                            <span class="absolute left-3 top-2 text-gray-500">KES</span>
-                            <input type="number"
-                                   name="amount_paid"
-                                   id="amount_paid"
-                                   value="{{ old('amount_paid', 0) }}"
-                                   min="0"
-                                   step="1"
-                                   class="w-full pl-12 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('amount_paid') border-red-500 @enderror"
-                                   placeholder="0.00">
-                        </div>
-                        @error('amount_paid')
-                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <!-- Balance (Calculated) -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Balance (KES)</label>
-                        <div class="relative">
-                            <span class="absolute left-3 top-2 text-gray-500">KES</span>
-                            <input type="text"
-                                   id="balance"
-                                   readonly
-                                   value="0.00"
-                                   class="w-full pl-12 pr-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700">
-                        </div>
-                        <p class="mt-1 text-xs text-gray-500">Calculated automatically</p>
-                    </div>
-
-                    <!-- External Exam Required -->
-                    <div class="flex items-center mt-6">
-                        <input type="checkbox"
-                               name="requires_external_exam"
-                               id="requires_external_exam"
-                               value="1"
-                               {{ old('requires_external_exam') ? 'checked' : '' }}
-                               class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary">
-                        <label for="requires_external_exam" class="ml-2 text-sm text-gray-700">
-                            Requires External Examination
-                        </label>
-                    </div>
                 </div>
 
-                <!-- Exam Body (Shown if exam required) -->
-                <div id="exam_body_container" class="mt-4 {{ !old('requires_external_exam') ? 'hidden' : '' }}">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Exam Body</label>
-                            <select name="exam_body" id="exam_body"
-                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
-                                <option value="">Select Exam Body</option>
-                                <option value="KNEC" {{ old('exam_body') == 'KNEC' ? 'selected' : '' }}>KNEC</option>
-                                <option value="NITA" {{ old('exam_body') == 'NITA' ? 'selected' : '' }}>NITA</option>
-                                <option value="CDACC" {{ old('exam_body') == 'CDACC' ? 'selected' : '' }}>CDACC</option>
-                                <option value="TVETA" {{ old('exam_body') == 'TVETA' ? 'selected' : '' }}>TVETA</option>
-                                <option value="OTHER" {{ old('exam_body') == 'OTHER' ? 'selected' : '' }}>Other</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ============ DATES ============ -->
-            <div class="bg-gray-50 p-4 rounded-lg">
-                <h4 class="text-md font-medium text-gray-800 mb-4 flex items-center">
-                    <i class="fas fa-calendar-alt text-primary mr-2"></i>
-                    Enrollment Dates
-                </h4>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <!-- Enrollment Date -->
+                <!-- Dates -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2 required">Enrollment Date</label>
-                        <input type="date"
-                               name="enrollment_date"
-                               value="{{ old('enrollment_date', date('Y-m-d')) }}"
-                               required
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Enrollment Date <span class="text-red-500">*</span></label>
+                        <input type="date" name="enrollment_date" value="{{ old('enrollment_date', date('Y-m-d')) }}" required
                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('enrollment_date') border-red-500 @enderror">
                         @error('enrollment_date')
                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
 
-                    <!-- Start Date -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
-                        <input type="date"
-                               name="start_date"
-                               id="start_date"
-                               value="{{ old('start_date') }}"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <input type="date" name="start_date" value="{{ old('start_date') }}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('start_date') border-red-500 @enderror">
+                        @error('start_date')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
                     </div>
 
-                    <!-- Expected End Date -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Expected End Date</label>
-                        <input type="date"
-                               name="expected_end_date"
-                               id="expected_end_date"
-                               value="{{ old('expected_end_date') }}"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <input type="date" name="expected_end_date" value="{{ old('expected_end_date') }}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('expected_end_date') border-red-500 @enderror">
+                        @error('expected_end_date')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
                     </div>
                 </div>
-            </div>
 
-            <!-- ============ DURATION ============ -->
-            <div class="bg-gray-50 p-4 rounded-lg">
-                <h4 class="text-md font-medium text-gray-800 mb-4 flex items-center">
-                    <i class="fas fa-clock text-primary mr-2"></i>
-                    Course Duration
-                </h4>
+                <!-- Status & Study Mode -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Status <span class="text-red-500">*</span></label>
+                        <select name="status" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('status') border-red-500 @enderror">
+                            <option value="active" {{ old('status') == 'active' ? 'selected' : '' }}>Active</option>
+                            <option value="pending" {{ old('status') == 'pending' ? 'selected' : '' }}>Pending</option>
+                            <option value="completed" {{ old('status') == 'completed' ? 'selected' : '' }}>Completed</option>
+                            <option value="dropped" {{ old('status') == 'dropped' ? 'selected' : '' }}>Dropped</option>
+                            <option value="suspended" {{ old('status') == 'suspended' ? 'selected' : '' }}>Suspended</option>
+                            <option value="graduated" {{ old('status') == 'graduated' ? 'selected' : '' }}>Graduated</option>
+                        </select>
+                        @error('status')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Duration Months -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Study Mode <span class="text-red-500">*</span></label>
+                        <select name="study_mode" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('study_mode') border-red-500 @enderror">
+                            <option value="full_time" {{ old('study_mode') == 'full_time' ? 'selected' : '' }}>Full Time</option>
+                            <option value="part_time" {{ old('study_mode') == 'part_time' ? 'selected' : '' }}>Part Time</option>
+                            <option value="evening" {{ old('study_mode') == 'evening' ? 'selected' : '' }}>Evening</option>
+                            <option value="weekend" {{ old('study_mode') == 'weekend' ? 'selected' : '' }}>Weekend</option>
+                            <option value="online" {{ old('study_mode') == 'online' ? 'selected' : '' }}>Online</option>
+                            <option value="hybrid" {{ old('study_mode') == 'hybrid' ? 'selected' : '' }}>Hybrid</option>
+                        </select>
+                        @error('study_mode')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+
+                <!-- Student Type & Sponsorship -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Student Type <span class="text-red-500">*</span></label>
+                        <select name="student_type" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('student_type') border-red-500 @enderror">
+                            <option value="new" {{ old('student_type') == 'new' ? 'selected' : '' }}>New</option>
+                            <option value="continuing" {{ old('student_type') == 'continuing' ? 'selected' : '' }}>Continuing</option>
+                            <option value="alumnus" {{ old('student_type') == 'alumnus' ? 'selected' : '' }}>Alumnus</option>
+                            <option value="transfer" {{ old('student_type') == 'transfer' ? 'selected' : '' }}>Transfer</option>
+                        </select>
+                        @error('student_type')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Sponsorship Type <span class="text-red-500">*</span></label>
+                        <select name="sponsorship_type" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('sponsorship_type') border-red-500 @enderror">
+                            <option value="self" {{ old('sponsorship_type') == 'self' ? 'selected' : '' }}>Self Sponsored</option>
+                            <option value="sponsored" {{ old('sponsorship_type') == 'sponsored' ? 'selected' : '' }}>Sponsored</option>
+                            <option value="government" {{ old('sponsorship_type') == 'government' ? 'selected' : '' }}>Government</option>
+                            <option value="scholarship" {{ old('sponsorship_type') == 'scholarship' ? 'selected' : '' }}>Scholarship</option>
+                            <option value="company" {{ old('sponsorship_type') == 'company' ? 'selected' : '' }}>Company</option>
+                        </select>
+                        @error('sponsorship_type')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+
+                <!-- Duration & Exam -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Duration (Months)</label>
-                        <input type="number"
-                               name="duration_months"
-                               id="duration_months"
-                               value="{{ old('duration_months') }}"
-                               min="1"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                               placeholder="e.g., 12">
+                        <input type="number" name="duration_months" value="{{ old('duration_months') }}" min="0"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('duration_months') border-red-500 @enderror">
+                        @error('duration_months')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
                     </div>
-                </div>
-            </div>
 
-            <!-- ============ ADDITIONAL INFO ============ -->
-            <div class="bg-gray-50 p-4 rounded-lg">
-                <h4 class="text-md font-medium text-gray-800 mb-4 flex items-center">
-                    <i class="fas fa-sticky-note text-primary mr-2"></i>
-                    Additional Information
-                </h4>
-
-                <div class="grid grid-cols-1 gap-6">
-                    <!-- Status -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Initial Status</label>
-                        <select name="status" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
-                            <option value="active" {{ old('status', 'active') == 'active' ? 'selected' : '' }}>Active</option>
-                            <option value="pending" {{ old('status') == 'pending' ? 'selected' : '' }}>Pending</option>
-                            <option value="registered" {{ old('status') == 'registered' ? 'selected' : '' }}>Registered</option>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Requires External Exam</label>
+                        <select name="requires_external_exam" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="0" {{ old('requires_external_exam') == '0' ? 'selected' : '' }}>No</option>
+                            <option value="1" {{ old('requires_external_exam') == '1' ? 'selected' : '' }}>Yes</option>
                         </select>
+                        @error('requires_external_exam')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
                     </div>
+                </div>
 
-                    <!-- Remarks -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Remarks / Notes</label>
-                        <textarea name="remarks"
-                                  rows="3"
-                                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                                  placeholder="Any additional notes about this enrollment...">{{ old('remarks') }}</textarea>
-                    </div>
+                <!-- Remarks -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Remarks</label>
+                    <textarea name="remarks" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('remarks') border-red-500 @enderror">{{ old('remarks') }}</textarea>
+                    @error('remarks')
+                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                    @enderror
+                </div>
 
-                    <!-- Import/Legacy Info -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Legacy Code (Optional)</label>
-                        <input type="text"
-                               name="legacy_code"
-                               value="{{ old('legacy_code') }}"
-                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                               placeholder="e.g., HDBT/021/2021">
-                        <p class="mt-1 text-xs text-gray-500">Original code from CSV import if applicable</p>
+                <!-- 🔥 Info Box -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div class="flex items-start">
+                        <i class="fas fa-info-circle text-blue-600 mt-0.5 mr-3"></i>
+                        <div>
+                            <h4 class="text-sm font-medium text-blue-800">Student Number Formatting</h4>
+                            <p class="text-xs text-blue-700 mt-1">
+                                When you enroll a student, their student number will be automatically formatted as:
+                                <strong class="text-primary">COURSECODE/STUDENT_NUMBER/YEAR</strong>
+                            </p>
+                            <p class="text-xs text-blue-700 mt-1">
+                                Example: If the student number is <strong>947</strong> and they enroll in <strong>ICT</strong> for <strong>2026</strong>,
+                                the new student number will be <strong>ICT/947/2026</strong>.
+                            </p>
+                            <p class="text-xs text-blue-700 mt-1">
+                                <i class="fas fa-arrow-up text-green-600 mr-1"></i>
+                                Student numbers increment from <strong>947</strong> automatically.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- ============ QUICK TIPS ============ -->
-            <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                <div class="flex items-start">
-                    <div class="flex-shrink-0">
-                        <i class="fas fa-lightbulb text-yellow-500 text-xl"></i>
-                    </div>
-                    <div class="ml-3">
-                        <h4 class="text-sm font-medium text-blue-800">Quick Tips</h4>
-                        <ul class="mt-2 text-xs text-blue-700 space-y-1">
-                            <li><i class="fas fa-check-circle mr-1 text-green-500"></i> Balance is automatically calculated as Total Fees - Amount Paid</li>
-                            <li><i class="fas fa-check-circle mr-1 text-green-500"></i> You can record payments later from the enrollment detail page</li>
-                            <li><i class="fas fa-check-circle mr-1 text-green-500"></i> If the student has already paid some fees, enter the amount in "Amount Paid"</li>
-                            <li><i class="fas fa-check-circle mr-1 text-green-500"></i> For CSV imports, you can enter the original legacy code for tracking</li>
-                            <li><i class="fas fa-check-circle mr-1 text-green-500"></i> Any fee amount is accepted (doesn't need to end with 00)</li>
-                        </ul>
-                    </div>
-                </div>
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-end space-x-3">
+                <a href="{{ route('admin.enrollments.index') }}"
+                   class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+                    Cancel
+                </a>
+                <button type="submit"
+                        class="px-6 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors flex items-center">
+                    <i class="fas fa-save mr-2"></i>
+                    Create Enrollment
+                </button>
             </div>
-        </div>
-
-        <!-- Form Actions -->
-        <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-end space-x-3">
-            <a href="{{ route('admin.enrollments.index') }}"
-               class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
-                Cancel
-            </a>
-            <button type="submit"
-                    class="px-6 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors flex items-center">
-                <i class="fas fa-save mr-2"></i>
-                Create Enrollment
-            </button>
-        </div>
-    </form>
+        </form>
+    </div>
 </div>
 @endsection
 
-@section('scripts')
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // ============ STUDENT PREVIEW ============
-        const studentSelect = document.getElementById('student_id');
-        const studentPreview = document.getElementById('studentPreview');
-        const previewName = document.getElementById('previewName');
-        const previewNumber = document.getElementById('previewNumber');
-        const previewEmail = document.getElementById('previewEmail');
-        const previewPhone = document.getElementById('previewPhone');
-
-        studentSelect.addEventListener('change', function() {
-            const selected = this.options[this.selectedIndex];
-            if (selected.value) {
-                const name = selected.dataset.name;
-                const number = selected.dataset.number;
-                const email = selected.dataset.email;
-                const phone = selected.dataset.phone;
-
-                previewName.textContent = name;
-                previewNumber.textContent = number ? `Student #: ${number}` : 'Student #: Not assigned';
-                previewEmail.textContent = email ? `Email: ${email}` : 'Email: Not provided';
-                previewPhone.textContent = phone ? `Phone: ${phone}` : 'Phone: Not provided';
-
-                studentPreview.classList.remove('hidden');
-            } else {
-                studentPreview.classList.add('hidden');
+    $(document).ready(function() {
+        // 🔥 Initialize Select2 for Student dropdown with AJAX
+        $('#student_id').select2({
+            placeholder: 'Search for a student...',
+            allowClear: true,
+            width: '100%',
+            ajax: {
+                url: '{{ route("admin.enrollments.api.students") }}',
+                dataType: 'json',
+                delay: 250,
+                data: function(params) {
+                    return {
+                        q: params.term,
+                        exclude_enrolled: true
+                    };
+                },
+                processResults: function(data) {
+                    return {
+                        results: data.map(function(student) {
+                            return {
+                                id: student.id,
+                                text: student.full_name + ' (' + (student.student_number || 'No ID') + ')'
+                            };
+                        })
+                    };
+                },
+                cache: true
             }
         });
 
-        // Trigger change if there's a selected value
-        if (studentSelect.value) {
-            studentSelect.dispatchEvent(new Event('change'));
-        }
-
-        // ============ BALANCE CALCULATION ============
-        const totalFees = document.getElementById('total_fees');
-        const amountPaid = document.getElementById('amount_paid');
-        const balanceField = document.getElementById('balance');
-
-        function calculateBalance() {
-            const total = parseFloat(totalFees.value) || 0;
-            const paid = parseFloat(amountPaid.value) || 0;
-            const balance = total - paid;
-
-            balanceField.value = balance.toFixed(2);
-
-            // Highlight if balance is positive (still owes money)
-            if (balance > 0) {
-                balanceField.classList.add('text-red-600');
-                balanceField.classList.remove('text-gray-700');
-            } else {
-                balanceField.classList.remove('text-red-600');
-                balanceField.classList.add('text-gray-700');
-            }
-        }
-
-        if (totalFees && amountPaid) {
-            totalFees.addEventListener('input', calculateBalance);
-            amountPaid.addEventListener('input', calculateBalance);
-
-            // Initial calculation
-            calculateBalance();
-        }
-
-        // ============ EXAM BODY TOGGLE ============
-        const examCheckbox = document.getElementById('requires_external_exam');
-        const examBodyContainer = document.getElementById('exam_body_container');
-        const examBodySelect = document.getElementById('exam_body');
-
-        examCheckbox.addEventListener('change', function() {
-            if (this.checked) {
-                examBodyContainer.classList.remove('hidden');
-                examBodySelect.setAttribute('required', 'required');
-            } else {
-                examBodyContainer.classList.add('hidden');
-                examBodySelect.removeAttribute('required');
-                examBodySelect.value = '';
-            }
+        // 🔥 Initialize Select2 for Course dropdown
+        $('#course_id').select2({
+            placeholder: 'Search for a course...',
+            allowClear: true,
+            width: '100%'
         });
 
-        // Trigger if already checked
-        if (examCheckbox.checked) {
-            examBodyContainer.classList.remove('hidden');
-            examBodySelect.setAttribute('required', 'required');
+        // 🔥 Course selection handler - Auto-fill fees
+        $('#course_id').on('change', function() {
+            const selected = $(this).find(':selected');
+            const feeBreakdown = selected.data('fee-breakdown');
+            const totalFee = selected.data('total-fee') || 0;
+
+            // Auto-fill total fees
+            $('#total_fees').val(totalFee);
+
+            // Display fee breakdown
+            if (feeBreakdown && Object.keys(feeBreakdown).length > 0) {
+                let html = '';
+                let total = 0;
+
+                for (const [key, value] of Object.entries(feeBreakdown)) {
+                    let amount = 0;
+                    let description = '';
+
+                    if (typeof value === 'object' && value !== null) {
+                        amount = value.amount || 0;
+                        description = value.description || '';
+                    } else {
+                        amount = parseFloat(value) || 0;
+                    }
+
+                    total += amount;
+                    const formattedAmount = 'KES ' + amount.toFixed(2);
+
+                    html += `
+                        <div class="fee-breakdown-item">
+                            <span>${key}${description ? ' <span class="text-gray-500 text-xs">' + description + '</span>' : ''}</span>
+                            <span class="font-medium">${formattedAmount}</span>
+                        </div>
+                    `;
+                }
+
+                $('#feeBreakdownItems').html(html);
+                $('#feeTotalDisplay').text('KES ' + total.toFixed(2));
+                $('#feeBreakdown').addClass('show');
+            } else {
+                $('#feeBreakdown').removeClass('show');
+                $('#feeBreakdownItems').html('');
+                $('#feeTotalDisplay').text('KES 0.00');
+            }
+
+            // Update preview
+            updatePreview();
+        });
+
+        // 🔥 Preview student number format when course is selected
+        function updatePreview() {
+            const courseText = $('#course_id option:selected').text();
+            const courseCode = courseText.split('(').pop()?.replace(')', '').trim() || 'COURSE';
+
+            // Get the student number from the student dropdown
+            const studentText = $('#student_id option:selected').text();
+            const studentNumber = studentText.match(/\(([^)]+)\)/)?.[1] || '947';
+
+            // Get the year
+            const year = $('#intake_year').val() || new Date().getFullYear();
+
+            if (courseCode && studentNumber) {
+                $('#previewStudentNumber').text(courseCode.toUpperCase() + '/' + studentNumber + '/' + year);
+                $('#coursePreview').removeClass('hidden');
+            } else {
+                $('#coursePreview').addClass('hidden');
+            }
         }
 
-        // ============ DATE VALIDATION ============
-        const startDate = document.getElementById('start_date');
-        const endDate = document.getElementById('expected_end_date');
+        // 🔥 Update preview when year changes
+        $('#intake_year').on('change', updatePreview);
 
-        if (startDate && endDate) {
-            startDate.addEventListener('change', function() {
-                if (this.value && endDate.value) {
-                    if (new Date(endDate.value) < new Date(this.value)) {
-                        alert('End date cannot be before start date');
-                        endDate.value = '';
-                    }
-                }
-            });
+        // 🔥 Update preview when student changes
+        $('#student_id').on('change', updatePreview);
 
-            endDate.addEventListener('change', function() {
-                if (startDate.value && this.value) {
-                    if (new Date(this.value) < new Date(startDate.value)) {
-                        alert('End date cannot be before start date');
-                        this.value = '';
-                    }
-                }
-            });
+        // 🔥 Trigger initial load if course is pre-selected
+        if ($('#course_id').val()) {
+            $('#course_id').trigger('change');
         }
 
-        // ============ AUTO-CALCULATE END DATE ============
-        const durationMonths = document.getElementById('duration_months');
+        // Initial preview if values exist
+        updatePreview();
 
-        if (startDate && durationMonths) {
-            startDate.addEventListener('change', function() {
-                if (this.value && durationMonths.value) {
-                    const start = new Date(this.value);
-                    start.setMonth(start.getMonth() + parseInt(durationMonths.value));
+        // 🔥 Manual total fees input - show warning if different from course fee
+        $('#total_fees').on('change', function() {
+            const selected = $('#course_id').find(':selected');
+            const courseFee = selected.data('total-fee') || 0;
+            const enteredFee = parseFloat($(this).val()) || 0;
 
-                    const year = start.getFullYear();
-                    const month = String(start.getMonth() + 1).padStart(2, '0');
-                    const day = String(start.getDate()).padStart(2, '0');
+            if (courseFee > 0 && enteredFee !== courseFee) {
+                // Show a subtle warning but don't block submission
+                const warning = `
+                    <div class="mt-1 text-xs text-amber-600 flex items-center">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                        Fee differs from course fee (KES ${courseFee.toFixed(2)}).
+                        This will be recorded in the audit trail.
+                    </div>
+                `;
 
-                    endDate.value = `${year}-${month}-${day}`;
-                }
-            });
-
-            durationMonths.addEventListener('input', function() {
-                if (startDate.value && this.value) {
-                    const start = new Date(startDate.value);
-                    start.setMonth(start.getMonth() + parseInt(this.value));
-
-                    const year = start.getFullYear();
-                    const month = String(start.getMonth() + 1).padStart(2, '0');
-                    const day = String(start.getDate()).padStart(2, '0');
-
-                    endDate.value = `${year}-${month}-${day}`;
-                }
-            });
-        }
-
-        // ============ COURSE SELECTION ============
-        const courseSelect = document.getElementById('course_id');
-
-        courseSelect.addEventListener('change', function() {
-            const selected = this.options[this.selectedIndex];
-            if (selected.value && selected.dataset.duration) {
-                const duration = parseInt(selected.dataset.duration);
-                if (duration > 0) {
-                    durationMonths.value = duration;
-
-                    // Trigger end date calculation if start date is set
-                    if (startDate.value) {
-                        const start = new Date(startDate.value);
-                        start.setMonth(start.getMonth() + duration);
-
-                        const year = start.getFullYear();
-                        const month = String(start.getMonth() + 1).padStart(2, '0');
-                        const day = String(start.getDate()).padStart(2, '0');
-
-                        endDate.value = `${year}-${month}-${day}`;
-                    }
-                }
+                // Remove existing warning
+                $(this).siblings('.fee-warning').remove();
+                $(this).after(`<div class="fee-warning mt-1 text-xs text-amber-600 flex items-center">
+                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                    Fee differs from course fee (KES ${courseFee.toFixed(2)}).
+                    This will be recorded in the audit trail.
+                </div>`);
+            } else {
+                $(this).siblings('.fee-warning').remove();
             }
         });
     });
 </script>
-
-<style>
-    .required:after {
-        content: " *";
-        color: #EF4444;
-    }
-
-    /* Smooth transitions */
-    .hidden {
-        display: none !important;
-    }
-
-    #exam_body_container {
-        transition: all 0.3s ease;
-    }
-</style>
-@endsection
+@endpush

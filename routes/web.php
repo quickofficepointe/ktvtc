@@ -36,6 +36,7 @@ use App\Http\Controllers\EventPaymentController;
 use App\Http\Controllers\ExamRegistrationController;
 use App\Http\Controllers\FeePaymentController;
 use App\Http\Controllers\FinanceController;
+use App\Http\Controllers\FeeStructureController;
 use App\Http\Controllers\FineRuleController;
 use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\GoodsReceivedNoteController;
@@ -485,6 +486,15 @@ Route::middleware(['auth', 'verified', 'role.admin'])
         Route::get('/reports/enrollment', [EnrollmentController::class, 'enrollmentReport'])->name('reports.enrollment');
         Route::get('/api/by-student', [EnrollmentController::class, 'getByStudent'])->name('api.by-student');
         Route::get('/api/stats', [EnrollmentController::class, 'getStats'])->name('api.stats');
+        Route::get('/api/students', [EnrollmentController::class, 'apiStudents'])->name('api.students');
+
+        // 🔒 Fee lock management
+        Route::post('/{enrollment}/lock-fees', [EnrollmentController::class, 'lockFees'])->name('lock-fees');
+        Route::post('/{enrollment}/unlock-fees', [EnrollmentController::class, 'unlockFees'])->name('unlock-fees');
+
+        // 🔒 API endpoints
+        Route::get('/api/{enrollment}/fee-modifiable', [EnrollmentController::class, 'checkFeeModifiable'])->name('api.fee-modifiable');
+        Route::get('/api/fee-lock-status', [EnrollmentController::class, 'getFeeLockStatus'])->name('api.fee-lock-status');
     });
 
     // Exam Registrations
@@ -1005,9 +1015,6 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])
 // ============================================================================
 // FINANCE ROUTES - COMPLETE (All Fee, Payment, Transaction Routes Here)
 // ============================================================================
-// ============================================================================
-// FINANCE ROUTES - COMPLETE (All Fee, Payment, Transaction Routes Here)
-// ============================================================================
 Route::middleware(['auth', 'verified', 'role.finance'])
     ->prefix('finance')
     ->name('finance.')
@@ -1015,19 +1022,20 @@ Route::middleware(['auth', 'verified', 'role.finance'])
 
     // Dashboard
     Route::get('/dashboard', [FinanceController::class, 'dashboard'])->name('dashboard');
-// ==================== 4. STUDENT FINANCIAL VIEWS ====================
-Route::prefix('students')->name('students.')->group(function () {
-    // Add this search route
-    Route::get('/search', [FinanceController::class, 'searchStudents'])->name('search');
-    Route::get('/list', [FinanceController::class, 'studentList'])->name('list');
 
-    Route::get('/{student}/financial', [FinanceController::class, 'studentFinancials'])->name('financial');
-    Route::get('/{student}/transactions', [FinanceController::class, 'studentTransactions'])->name('transactions');
-    Route::get('/{student}/balance', [FinanceController::class, 'studentBalance'])->name('balance');
-    Route::get('/{student}/statement', [FinanceController::class, 'studentStatement'])->name('statement');
-    Route::get('/{student}/enrollments', [FinanceController::class, 'studentEnrollments'])->name('enrollments');
-});
-    // ==================== 1. STUDENT FEE MANAGEMENT ====================
+    // ==================== STUDENT FINANCIAL VIEWS ====================
+    Route::prefix('students')->name('students.')->group(function () {
+        Route::get('/search', [FinanceController::class, 'searchStudents'])->name('search');
+        Route::get('/list', [FinanceController::class, 'studentList'])->name('list');
+
+        Route::get('/{student}/financial', [FinanceController::class, 'studentFinancials'])->name('financial');
+        Route::get('/{student}/transactions', [FinanceController::class, 'studentTransactions'])->name('transactions');
+        Route::get('/{student}/balance', [FinanceController::class, 'studentBalance'])->name('balance');
+        Route::get('/{student}/statement', [FinanceController::class, 'studentStatement'])->name('statement');
+        Route::get('/{student}/enrollments', [FinanceController::class, 'studentEnrollments'])->name('enrollments');
+    });
+
+    // ==================== STUDENT FEE MANAGEMENT ====================
     Route::prefix('student-fees')->name('student-fees.')->group(function () {
         Route::get('/', [FinanceController::class, 'studentFees'])->name('index');
         Route::get('/create', [FinanceController::class, 'createStudentFee'])->name('create');
@@ -1057,7 +1065,7 @@ Route::prefix('students')->name('students.')->group(function () {
         Route::post('/bulk/reconcile', [FinanceController::class, 'bulkReconcileFees'])->name('bulk.reconcile');
     });
 
-    // ==================== 2. PAYMENT TRANSACTIONS ====================
+    // ==================== PAYMENT TRANSACTIONS ====================
     Route::prefix('transactions')->name('transactions.')->group(function () {
         Route::get('/', [FinanceController::class, 'transactions'])->name('index');
         Route::get('/{transaction}', [FinanceController::class, 'showTransaction'])->name('show');
@@ -1075,7 +1083,7 @@ Route::prefix('students')->name('students.')->group(function () {
         Route::post('/bulk/process', [FinanceController::class, 'bulkProcessPayments'])->name('bulk.process');
     });
 
-    // ==================== 3. FINANCIAL REPORTS ====================
+    // ==================== FINANCIAL REPORTS ====================
     Route::prefix('reports')->name('reports.')->group(function () {
         Route::get('/profit-loss', [FinanceController::class, 'profitLossReport'])->name('profit-loss');
         Route::get('/revenue', [FinanceController::class, 'revenueReport'])->name('revenue');
@@ -1087,16 +1095,23 @@ Route::prefix('students')->name('students.')->group(function () {
         Route::get('/enrollment-financial', [FinanceController::class, 'enrollmentFinancialReport'])->name('enrollment-financial');
     });
 
-    // ==================== 4. STUDENT FINANCIAL VIEWS ====================
-    Route::prefix('students')->name('students.')->group(function () {
-        Route::get('/{student}/financial', [FinanceController::class, 'studentFinancials'])->name('financial');
-        Route::get('/{student}/transactions', [FinanceController::class, 'studentTransactions'])->name('transactions');
-        Route::get('/{student}/balance', [FinanceController::class, 'studentBalance'])->name('balance');
-        Route::get('/{student}/statement', [FinanceController::class, 'studentStatement'])->name('statement');
-        Route::get('/{student}/enrollments', [FinanceController::class, 'studentEnrollments'])->name('enrollments');
+    // ==================== FEE STRUCTURE MANAGEMENT ====================
+    Route::prefix('fee-structure')->name('fee-structure.')->group(function () {
+        Route::get('/', [FeeStructureController::class, 'index'])->name('index');
+        Route::get('/stats', [FeeStructureController::class, 'stats'])->name('stats');
+        Route::get('/export', [FeeStructureController::class, 'export'])->name('export');
+
+        Route::get('/{course}', [FeeStructureController::class, 'show'])->name('show');
+        Route::get('/{course}/edit', [FeeStructureController::class, 'edit'])->name('edit');
+        Route::put('/{course}', [FeeStructureController::class, 'update'])->name('update');
+
+        Route::post('/{course}/approve', [FeeStructureController::class, 'approve'])->name('approve');
+        Route::post('/{course}/reject', [FeeStructureController::class, 'reject'])->name('reject');
+        Route::post('/{course}/rollback', [FeeStructureController::class, 'rollback'])->name('rollback');
+        Route::get('/{course}/history', [FeeStructureController::class, 'history'])->name('history');
     });
 
-    // ==================== 5. FINANCE SETTINGS ====================
+    // ==================== FINANCE SETTINGS ====================
     Route::prefix('settings')->name('settings.')->group(function () {
         Route::get('/', [FinanceController::class, 'settings'])->name('index');
         Route::put('/general', [FinanceController::class, 'updateGeneralSettings'])->name('general.update');
@@ -1108,7 +1123,7 @@ Route::prefix('students')->name('students.')->group(function () {
         Route::put('/financial-year', [FinanceController::class, 'updateFinancialYear'])->name('financial-year.update');
     });
 
-    // ==================== 6. STATISTICS & API ====================
+    // ==================== STATISTICS & API ====================
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/stats', [FinanceController::class, 'getStats'])->name('stats');
         Route::get('/dashboard-stats', [FinanceController::class, 'dashboardStats'])->name('dashboard-stats');
@@ -1118,7 +1133,7 @@ Route::prefix('students')->name('students.')->group(function () {
         Route::post('/check-payment-status', [FinanceController::class, 'checkPaymentStatus'])->name('check-payment-status');
     });
 
-    // ==================== 7. HIGH SCHOOL CARD SYSTEM ====================
+    // ==================== HIGH SCHOOL CARD SYSTEM ====================
     // Student Management
     Route::prefix('hs-students')->name('hs-students.')->group(function () {
         Route::get('/', [HighSchoolStudentController::class, 'index'])->name('index');

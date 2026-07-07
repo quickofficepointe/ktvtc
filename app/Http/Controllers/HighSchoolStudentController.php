@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\HighSchoolStudent;
 use App\Models\CardAccount;
+use App\Models\CardFundingRequest;
 use App\Services\CardService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -39,7 +40,7 @@ class HighSchoolStudentController extends Controller
             ->limit(5)
             ->get();
 
-        return view('high-school.dashboard', compact(
+        return view('ktvtc.finance.high-school.dashboard', compact(
             'totalStudents',
             'activeStudents',
             'totalCards',
@@ -86,7 +87,7 @@ class HighSchoolStudentController extends Controller
         // Get distinct classes for filter
         $classes = HighSchoolStudent::select('class')->distinct()->pluck('class');
 
-        return view('high-school.students.index', compact(
+        return view('ktvtc.finance.high-school.students.index', compact(
             'students',
             'totalStudents',
             'activeStudents',
@@ -101,7 +102,7 @@ class HighSchoolStudentController extends Controller
      */
     public function create()
     {
-        return view('high-school.students.create');
+        return view('ktvtc.finance.high-school.students.create');
     }
 
     /**
@@ -147,7 +148,7 @@ class HighSchoolStudentController extends Controller
 
             DB::commit();
 
-            return redirect()->route('high-school.students.show', $student)
+            return redirect()->route('finance.hs-students.show', $student)
                 ->with('success', 'Student created and card issued successfully! Card number: ' . $card->card_number);
 
         } catch (\Exception $e) {
@@ -166,7 +167,7 @@ class HighSchoolStudentController extends Controller
         $student->load(['cardAccount', 'contacts']);
         $transactions = $student->transactions()->orderBy('created_at', 'desc')->limit(20)->get();
 
-        return view('high-school.students.show', compact('student', 'transactions'));
+        return view('ktvtc.finance.high-school.students.show', compact('student', 'transactions'));
     }
 
     /**
@@ -174,7 +175,7 @@ class HighSchoolStudentController extends Controller
      */
     public function edit(HighSchoolStudent $student)
     {
-        return view('high-school.students.edit', compact('student'));
+        return view('ktvtc.finance.high-school.students.edit', compact('student'));
     }
 
     /**
@@ -220,7 +221,7 @@ class HighSchoolStudentController extends Controller
                 ]);
             }
 
-            return redirect()->route('high-school.students.show', $student)
+            return redirect()->route('finance.hs-students.show', $student)
                 ->with('success', 'Student updated successfully');
 
         } catch (\Exception $e) {
@@ -242,7 +243,7 @@ class HighSchoolStudentController extends Controller
 
             $student->delete();
 
-            return redirect()->route('high-school.students.index')
+            return redirect()->route('finance.hs-students.index')
                 ->with('success', 'Student deleted successfully');
 
         } catch (\Exception $e) {
@@ -256,7 +257,7 @@ class HighSchoolStudentController extends Controller
      */
     public function importView()
     {
-        return view('high-school.students.import');
+        return view('ktvtc.finance.high-school.students.import');
     }
 
     /**
@@ -272,7 +273,7 @@ class HighSchoolStudentController extends Controller
             $import = new HighSchoolStudentsImport();
             Excel::import($import, $request->file('file'));
 
-            return redirect()->route('high-school.students.index')
+            return redirect()->route('finance.hs-students.index')
                 ->with('success', $import->getRowCount() . ' students imported successfully');
 
         } catch (\Exception $e) {

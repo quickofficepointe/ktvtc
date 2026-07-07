@@ -103,7 +103,47 @@ class Student extends Model
         'other_documents' => 'array',
         'requires_cleanup' => 'boolean',
     ];
+ public static function getNextStudentNumber()
+    {
+        // Get the last student number
+        $lastStudent = self::orderBy('id', 'desc')->first();
 
+        if (!$lastStudent || !$lastStudent->student_number) {
+            return '947';
+        }
+
+        // Extract the number from the student number if it's just a number
+        // If it's a formatted number like "ICT/947/2026", extract the middle part
+        $parts = explode('/', $lastStudent->student_number);
+
+        if (count($parts) === 3 && is_numeric($parts[1])) {
+            // Format: COURSE/NUMBER/YEAR
+            $nextNumber = (int) $parts[1] + 1;
+        } elseif (is_numeric($lastStudent->student_number)) {
+            // Format: just a number
+            $nextNumber = (int) $lastStudent->student_number + 1;
+        } else {
+            // Fallback
+            $nextNumber = 947;
+        }
+
+        return (string) $nextNumber;
+    }
+
+    /**
+     * Generate a student number with course code and year
+     */
+    public static function generateStudentNumber($courseCode = null)
+    {
+        $number = self::getNextStudentNumber();
+        $year = date('Y');
+
+        if ($courseCode) {
+            return strtoupper($courseCode) . '/' . $number . '/' . $year;
+        }
+
+        return $number;
+    }
     /**
      * Get the campus that the student belongs to.
      */

@@ -48,7 +48,7 @@ class CardQrController extends Controller
     public function print(CardAccount $cardAccount)
     {
         $card = $cardAccount;
-        return view('high-school.cards.print-qr', compact('card'));
+        return view('ktvtc.finance.high-school.cards.print-qr', compact('card'));
     }
 
     /**
@@ -109,6 +109,6 @@ class CardQrController extends Controller
             ->whereIn('id', $cardIds)
             ->get();
 
-        return view('high-school.cards.qr-sheet', compact('cards'));
+        return view('ktvtc.finance.high-school.cards.qr-sheet', compact('cards'));
     }
 }

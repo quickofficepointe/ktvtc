@@ -64,7 +64,7 @@ class CardAccountController extends Controller
 
         $classes = CardAccount::select('student_class')->distinct()->whereNotNull('student_class')->pluck('student_class');
 
-        return view('high-school.cards.index', compact(
+        return view('ktvtc.finance.high-school.cards.index', compact(
             'cards',
             'totalCards',
             'activeCards',
@@ -90,7 +90,7 @@ class CardAccountController extends Controller
             ->orderBy('full_name')
             ->get();
 
-        return view('high-school.cards.create', compact('students', 'student'));
+        return view('ktvtc.finance.high-school.cards.create', compact('students', 'student'));
     }
 
     /**
@@ -144,7 +144,7 @@ class CardAccountController extends Controller
 
         $dailyUsage = $card->dailyUsage()->where('usage_date', today())->first();
 
-        return view('high-school.cards.show', compact('card', 'dailyUsage'));
+        return view('ktvtc.finance.high-school.cards.show', compact('card', 'dailyUsage'));
     }
 
     /**
@@ -152,7 +152,7 @@ class CardAccountController extends Controller
      */
     public function edit(CardAccount $cardAccount)
     {
-        return view('high-school.cards.edit', compact('cardAccount'));
+        return view('ktvtc.finance.high-school.cards.edit', compact('cardAccount'));
     }
 
     /**
@@ -364,7 +364,7 @@ class CardAccountController extends Controller
             return response()->json($transactions);
         }
 
-        return view('high-school.cards.transactions', compact('cardAccount', 'transactions'));
+        return view('ktvtc.finance.high-school.cards.transactions', compact('cardAccount', 'transactions'));
     }
 
     /**

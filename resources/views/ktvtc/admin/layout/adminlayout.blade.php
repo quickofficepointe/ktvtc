@@ -308,17 +308,13 @@
         <div class="flex items-center justify-between h-full px-4 lg:px-6">
             <!-- Left Section -->
             <div class="flex items-center space-x-4">
-                <!-- Mobile Menu Toggle -->
                 <button id="mobileMenuToggle" class="lg:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors">
                     <i class="fas fa-bars text-lg"></i>
                 </button>
-
-                <!-- Sidebar Toggle (Desktop) -->
                 <button id="sidebarToggle" class="hidden lg:block p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors">
                     <i class="fas fa-bars text-lg"></i>
                 </button>
 
-                <!-- Logo -->
                 <div class="flex items-center">
                     <div class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center mr-3 shadow-md">
                         <i class="fas fa-graduation-cap text-white text-lg"></i>
@@ -382,13 +378,23 @@
                                 </div>
                             </a>
 
-                            <a href="{{ route('admin.fee-payments.create') }}" class="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                                <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mr-3">
-                                    <i class="fas fa-credit-card text-primary"></i>
+                            <a href="{{ route('admin.applications.index') }}" class="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                                <div class="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center mr-3">
+                                    <i class="fas fa-file-alt text-purple-600"></i>
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-gray-800 text-sm">Record Payment</p>
-                                    <p class="text-xs text-gray-500">Record fee payment</p>
+                                    <p class="font-semibold text-gray-800 text-sm">Review Applications</p>
+                                    <p class="text-xs text-gray-500">Manage course applications</p>
+                                </div>
+                            </a>
+
+                            <a href="{{ route('admin.exam-registrations.index') }}" class="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                                <div class="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center mr-3">
+                                    <i class="fas fa-pencil-alt text-amber-600"></i>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-gray-800 text-sm">Exam Registrations</p>
+                                    <p class="text-xs text-gray-500">Manage exam registrations</p>
                                 </div>
                             </a>
                         </div>
@@ -564,13 +570,7 @@
                     <span class="nav-text">Enrollments</span>
                 </a>
 
-                <!-- Fee Payments -->
-                <a href="{{ route('admin.fee-payments.index') }}"
-                   class="admin-nav-link flex items-center px-4 py-3 rounded-xl {{ request()->routeIs('admin.fee-payments.*') ? 'active' : '' }}">
-                    <i class="fas fa-credit-card mr-3 text-lg"></i>
-                    <span class="nav-text">Fee Payments</span>
-                </a>
-
+              
                 <!-- Examinations Section -->
                 <div class="mt-6 mb-2">
                     <p class="px-4 py-2 text-xs font-bold text-white/60 uppercase tracking-wider group-title">
@@ -893,7 +893,6 @@
                 }
             });
 
-            // Close dropdowns when clicking outside
             document.addEventListener('click', function(e) {
                 Object.keys(dropdowns).forEach(buttonId => {
                     const dropdown = document.getElementById(dropdowns[buttonId]);
@@ -923,7 +922,6 @@
                 });
             }
 
-            // Close modals on Escape key
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape') {
                     document.querySelectorAll('[id$="Modal"]:not(.hidden), [id$="Dropdown"]:not(.hidden)').forEach(element => {
@@ -953,7 +951,6 @@
             }
         };
 
-        // Button Loading State
         window.setButtonLoading = function(button, isLoading = true, loadingText = 'Processing') {
             if (!button) return;
 
@@ -971,7 +968,6 @@
             }
         };
 
-        // Form Submit With Loading
         window.submitFormWithLoading = function(formId, options = {}) {
             const form = document.getElementById(formId);
             if (!form) return;
@@ -994,7 +990,6 @@
             form.submit();
         };
 
-        // AJAX Request With Loading
         window.ajaxWithLoading = async function(url, options = {}) {
             const showLoader = options.showLoader !== false;
             const loadingMessage = options.loadingMessage || 'Loading';
@@ -1020,7 +1015,6 @@
             }
         };
 
-        // Table Row Selection
         window.selectAllRows = function(tableId) {
             const selectAll = document.querySelector(`#${tableId} .select-all`);
             const checkboxes = document.querySelectorAll(`#${tableId} .row-checkbox`);
@@ -1110,7 +1104,6 @@
             }
         };
 
-        // Confirm Dialog
         window.confirmAction = function(message, callback) {
             if (confirm(message)) {
                 if (callback) callback();

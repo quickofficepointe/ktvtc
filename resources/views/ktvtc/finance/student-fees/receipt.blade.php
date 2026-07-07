@@ -1,170 +1,245 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Payment Receipt - {{ $payment->receipt_number }}</title>
+
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            font-family: 'Courier New', monospace;
-            background: #fff;
+            font-family: Arial, sans-serif;
+            background: #f8f9fa;
             padding: 20px;
             font-size: 14px;
+            color: #111827;
         }
+
         .receipt {
-            max-width: 350px;
+            max-width: 380px;
             margin: 0 auto;
-            border: 1px solid #ddd;
+            background: #fff;
+            border: 1px solid #e5e7eb;
             padding: 20px;
-            border-radius: 8px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
         }
+
         .header {
             text-align: center;
-            border-bottom: 2px dashed #333;
+            border-bottom: 2px dashed #991B1B;
             padding-bottom: 15px;
             margin-bottom: 15px;
         }
+
         .header h1 {
-            font-size: 20px;
-            color: #059669;
+            font-size: 22px;
+            color: #B91C1C;
             text-transform: uppercase;
             letter-spacing: 2px;
         }
+
         .header p {
             font-size: 12px;
-            color: #666;
-            margin-top: 2px;
+            color: #6b7280;
+            margin-top: 3px;
         }
+
         .receipt-number {
             text-align: center;
-            background: #f3f4f6;
-            padding: 8px;
-            border-radius: 4px;
-            margin: 10px 0;
+            background: #FEE2E2;
+            color: #991B1B;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 12px 0;
             font-weight: bold;
-            font-size: 16px;
+            font-size: 15px;
         }
+
         .row {
             display: flex;
             justify-content: space-between;
-            padding: 4px 0;
-            border-bottom: 1px dotted #eee;
+            gap: 12px;
+            padding: 6px 0;
+            border-bottom: 1px dotted #e5e7eb;
         }
-        .row:last-child { border-bottom: none; }
-        .label { color: #666; }
-        .value { font-weight: bold; }
+
+        .label {
+            color: #6b7280;
+            flex-shrink: 0;
+        }
+
+        .value {
+            font-weight: bold;
+            text-align: right;
+            word-break: break-word;
+        }
+
         .amount {
             font-size: 24px;
             text-align: center;
-            padding: 15px 0;
-            color: #059669;
+            padding: 18px 0;
+            color: #B91C1C;
             font-weight: bold;
         }
+
+        .status {
+            text-align: center;
+            padding: 9px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        .status-verified {
+            background: #D1FAE5;
+            color: #065F46;
+        }
+
+        .status-pending {
+            background: #FEF3C7;
+            color: #92400E;
+        }
+
+        .summary {
+            margin: 12px 0;
+            padding: 10px 0;
+            border-top: 1px dotted #ddd;
+        }
+
+        .balance-row {
+            font-weight: bold;
+            font-size: 16px;
+        }
+
         .footer {
             margin-top: 20px;
             padding-top: 15px;
-            border-top: 2px dashed #333;
+            border-top: 2px dashed #991B1B;
             text-align: center;
             font-size: 12px;
-            color: #666;
+            color: #6b7280;
         }
-        .status {
-            text-align: center;
-            padding: 8px;
-            border-radius: 4px;
-            margin: 10px 0;
-            font-weight: bold;
-        }
-        .status-verified { background: #d1fae5; color: #065f46; }
-        .status-pending { background: #fef3c7; color: #92400e; }
+
         .print-btn {
             display: block;
+            max-width: 380px;
             width: 100%;
+            margin: 15px auto 0;
             padding: 12px;
-            background: #059669;
+            background: #B91C1C;
             color: white;
             border: none;
-            border-radius: 6px;
-            font-size: 16px;
+            border-radius: 8px;
+            font-size: 15px;
             cursor: pointer;
-            margin-top: 15px;
+            font-weight: bold;
         }
-        .print-btn:hover { background: #047857; }
+
+        .print-btn:hover {
+            background: #991B1B;
+        }
+
         @media print {
-            .no-print { display: none !important; }
-            body { padding: 0; }
-            .receipt { border: none; border-radius: 0; }
+            body {
+                background: #fff;
+                padding: 0;
+            }
+
+            .receipt {
+                border: none;
+                box-shadow: none;
+                border-radius: 0;
+                max-width: 100%;
+            }
+
+            .no-print {
+                display: none !important;
+            }
         }
     </style>
 </head>
+
 <body>
-    <div class="receipt" id="receipt">
+    <div class="receipt">
         <div class="header">
             <h1>KTVTC</h1>
             <p>Kenswed Technical & Vocational Training College</p>
-            <p style="font-size: 11px;">P.O. Box 12345, Nairobi</p>
-            <p style="font-size: 11px;">Tel: 0700 000 000</p>
+            <p>P.O. Box 12345, Nairobi</p>
+            <p>Tel: 0700 000 000</p>
         </div>
 
         <div class="receipt-number">
             RECEIPT: {{ $payment->receipt_number }}
         </div>
 
-        <div style="margin: 10px 0;">
+        <div>
             <div class="row">
                 <span class="label">Date:</span>
-                <span class="value">{{ $payment->payment_date->format('d M Y H:i') }}</span>
+                <span class="value">
+                    {{ optional($payment->payment_date)->format('d M Y H:i') ?? 'N/A' }}
+                </span>
             </div>
+
             <div class="row">
                 <span class="label">Student:</span>
                 <span class="value">{{ $payment->student->full_name ?? 'N/A' }}</span>
             </div>
+
             <div class="row">
                 <span class="label">Student No:</span>
                 <span class="value">{{ $payment->student->student_number ?? 'N/A' }}</span>
             </div>
+
             <div class="row">
                 <span class="label">Course:</span>
                 <span class="value">{{ $payment->enrollment->course->name ?? 'N/A' }}</span>
             </div>
+
             <div class="row">
                 <span class="label">Payment Method:</span>
-                <span class="value">{{ strtoupper($payment->payment_method) }}</span>
+                <span class="value">{{ strtoupper($payment->payment_method ?? 'N/A') }}</span>
             </div>
-            @if($payment->transaction_code)
-            <div class="row">
-                <span class="label">Transaction Code:</span>
-                <span class="value">{{ $payment->transaction_code }}</span>
-            </div>
+
+            @if(!empty($payment->transaction_code))
+                <div class="row">
+                    <span class="label">Transaction Code:</span>
+                    <span class="value">{{ $payment->transaction_code }}</span>
+                </div>
             @endif
-            @if($payment->payer_name)
-            <div class="row">
-                <span class="label">Payer:</span>
-                <span class="value">{{ $payment->payer_name }}</span>
-            </div>
+
+            @if(!empty($payment->payer_name))
+                <div class="row">
+                    <span class="label">Payer:</span>
+                    <span class="value">{{ $payment->payer_name }}</span>
+                </div>
             @endif
         </div>
 
         <div class="amount">
-            KES {{ number_format($payment->amount, 2) }}
+            KES {{ number_format($payment->amount ?? 0, 2) }}
         </div>
 
-        <div class="status status-{{ $payment->is_verified ? 'verified' : 'pending' }}">
-            {{ $payment->is_verified ? '✓ VERIFIED' : '⏳ PENDING VERIFICATION' }}
+        <div class="status {{ $payment->is_verified ? 'status-verified' : 'status-pending' }}">
+            {{ $payment->is_verified ? 'VERIFIED' : 'PENDING VERIFICATION' }}
         </div>
 
-        <div style="margin: 10px 0; padding: 10px 0; border-top: 1px dotted #ddd;">
+        <div class="summary">
             <div class="row">
                 <span class="label">Total Fees:</span>
-                <span>KES {{ number_format($payment->enrollment->total_fees ?? 0, 2) }}</span>
+                <span class="value">KES {{ number_format($payment->enrollment->total_fees ?? 0, 2) }}</span>
             </div>
+
             <div class="row">
                 <span class="label">Amount Paid:</span>
-                <span>KES {{ number_format($payment->enrollment->amount_paid ?? 0, 2) }}</span>
+                <span class="value">KES {{ number_format($payment->enrollment->amount_paid ?? 0, 2) }}</span>
             </div>
-            <div class="row" style="font-weight: bold; font-size: 16px;">
+
+            <div class="row balance-row">
                 <span class="label">Balance:</span>
-                <span>KES {{ number_format($payment->enrollment->balance ?? 0, 2) }}</span>
+                <span class="value">KES {{ number_format($payment->enrollment->balance ?? 0, 2) }}</span>
             </div>
         </div>
 
@@ -176,14 +251,15 @@
     </div>
 
     <button class="print-btn no-print" onclick="window.print()">
-        <i class="fas fa-print"></i> Print Receipt
+        Print Receipt
     </button>
 
-    <script>
-        // Auto print if requested
-        @if(request('print'))
-            window.print();
-        @endif
-    </script>
+    @if(request('print'))
+        <script>
+            window.onload = function () {
+                window.print();
+            };
+        </script>
+    @endif
 </body>
 </html>

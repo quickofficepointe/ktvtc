@@ -43,7 +43,7 @@ class CardFundingRequestController extends Controller
         $completed = CardFundingRequest::where('status', 'completed')->count();
         $failed = CardFundingRequest::where('status', 'failed')->count();
 
-        return view('high-school.funding.index', compact('requests', 'pending', 'completed', 'failed'));
+        return view('ktvtc.finance.high-school.funding.index', compact('requests', 'pending', 'completed', 'failed'));
     }
 
     /**
@@ -52,7 +52,7 @@ class CardFundingRequestController extends Controller
     public function show(CardFundingRequest $cardFundingRequest)
     {
         $cardFundingRequest->load('cardAccount.student');
-        return view('high-school.funding.show', compact('cardFundingRequest'));
+        return view('ktvtc.finance.high-school.funding.show', compact('cardFundingRequest'));
     }
 
     /**
@@ -79,7 +79,7 @@ class CardFundingRequestController extends Controller
         );
 
         if ($result['success']) {
-            return redirect()->route('high-school.funding.show', $cardFundingRequest)
+            return redirect()->route('finance.funding.show', $cardFundingRequest)  // FIXED: finance.funding.show
                 ->with('success', 'Funding completed successfully');
         } else {
             return redirect()->back()->with('error', $result['message']);
@@ -103,7 +103,7 @@ class CardFundingRequestController extends Controller
         $cardFundingRequest->failure_reason = $request->reason;
         $cardFundingRequest->save();
 
-        return redirect()->route('high-school.funding.show', $cardFundingRequest)
+        return redirect()->route('finance.funding.show', $cardFundingRequest)  // FIXED: finance.funding.show
             ->with('success', 'Funding marked as failed');
     }
 
@@ -143,7 +143,7 @@ class CardFundingRequestController extends Controller
         $cardFundingRequest->status = 'processing';
         $cardFundingRequest->save();
 
-        return redirect()->route('high-school.funding.show', $cardFundingRequest)
+        return redirect()->route('finance.funding.show', $cardFundingRequest)  // FIXED: finance.funding.show
             ->with('success', 'Retry initiated successfully');
     }
 
@@ -157,7 +157,7 @@ class CardFundingRequestController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        return view('high-school.funding.pending', compact('requests'));
+        return view('ktvtc.finance.high-school.funding.pending', compact('requests'));
     }
 
     /**
@@ -170,7 +170,7 @@ class CardFundingRequestController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        return view('high-school.funding.failed', compact('requests'));
+        return view('ktvtc.finance.high-school.funding.failed', compact('requests'));
     }
 
     /**
@@ -183,7 +183,7 @@ class CardFundingRequestController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        return view('high-school.funding.completed', compact('requests'));
+        return view('ktvtc.finance.high-school.funding.completed', compact('requests'));  // FIXED: full path
     }
 
     /**

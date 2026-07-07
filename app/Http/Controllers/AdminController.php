@@ -2,7 +2,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Enrollment;
-use App\Models\FeePayment;
 use App\Models\Student;
 use Illuminate\Http\Request;
 use App\Models\User;
@@ -22,8 +21,6 @@ class AdminController extends Controller
 
     public function dashboard()
     {
-        $user = auth()->user();
-
         // Student statistics
         $totalStudents = Student::count();
         $activeStudents = Student::where('status', 'active')->count();
@@ -40,32 +37,12 @@ class AdminController extends Controller
         $activeEnrollments = Enrollment::where('status', 'active')->count();
         $inProgressEnrollments = Enrollment::where('status', 'in_progress')->count();
         $completedEnrollments = Enrollment::where('status', 'completed')->count();
-        $pendingPaymentEnrollments = Enrollment::whereRaw('total_fees > amount_paid')->count();
 
-        $enrollmentTotal = max($totalEnrollments, 1);
-        $inProgressPercentage = round(($inProgressEnrollments / $enrollmentTotal) * 100);
-        $completedPercentage = round(($completedEnrollments / $enrollmentTotal) * 100);
-        $pendingPaymentPercentage = round(($pendingPaymentEnrollments / $enrollmentTotal) * 100);
+        // Students without enrollments
+        $studentsWithoutEnrollments = Student::whereDoesntHave('enrollments')->count();
 
-        // Payment statistics
-        $totalCollected = FeePayment::where('status', 'completed')->sum('amount');
-        $totalPaid = FeePayment::where('status', 'completed')->sum('amount');
-        $outstandingBalance = Enrollment::sum(DB::raw('total_fees - amount_paid'));
-
-        $todayCollection = FeePayment::whereDate('payment_date', today())
-            ->where('status', 'completed')
-            ->sum('amount');
-
-        $todayPayments = FeePayment::whereDate('payment_date', today())
-            ->where('status', 'completed')
-            ->count();
-
-        $todayPaymentsList = FeePayment::with('student')
-            ->whereDate('payment_date', today())
-            ->where('status', 'completed')
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get();
+        // Pending applications
+        $pendingApplications = \App\Models\Application::where('status', 'pending')->count();
 
         // Recent data for tables
         $recentEnrollments = Enrollment::with('student')
@@ -73,7 +50,7 @@ class AdminController extends Controller
             ->limit(5)
             ->get();
 
-        $recentPayments = FeePayment::with('student')
+        $recentApplications = \App\Models\Application::with('course')
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get();
@@ -81,7 +58,7 @@ class AdminController extends Controller
         // Chart data (last 6 months)
         $chartLabels = [];
         $enrollmentChartData = [];
-        $paymentChartData = [];
+        $studentGrowthData = [];
 
         for ($i = 5; $i >= 0; $i--) {
             $month = now()->subMonths($i);
@@ -91,10 +68,9 @@ class AdminController extends Controller
                 ->whereMonth('created_at', $month->month)
                 ->count();
 
-            $paymentChartData[] = FeePayment::whereYear('payment_date', $month->year)
-                ->whereMonth('payment_date', $month->month)
-                ->where('status', 'completed')
-                ->sum('amount');
+            $studentGrowthData[] = Student::whereYear('created_at', $month->year)
+                ->whereMonth('created_at', $month->month)
+                ->count();
         }
 
         return view('ktvtc.admin.dashboard', compact(
@@ -109,20 +85,83 @@ class AdminController extends Controller
             'activeEnrollments',
             'inProgressEnrollments',
             'completedEnrollments',
-            'pendingPaymentEnrollments',
-            'inProgressPercentage',
-            'completedPercentage',
-            'pendingPaymentPercentage',
-            'totalCollected',
-            'outstandingBalance',
-            'todayCollection',
-            'todayPayments',
-            'todayPaymentsList',
+            'studentsWithoutEnrollments',
+            'pendingApplications',
             'recentEnrollments',
-            'recentPayments',
+            'recentApplications',
             'chartLabels',
             'enrollmentChartData',
-            'paymentChartData'
+            'studentGrowthData'
+        ));
+    }
+
+    /**
+     * Display a listing of users with search functionality
+     */
+    public function users(Request $request)
+    {
+        $query = User::query();
+
+        // 🔥 GLOBAL SEARCH - Search across all fields
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('phone_number', 'like', "%{$search}%")
+                  ->orWhere('bio', 'like', "%{$search}%")
+                  ->orWhere('id', 'like', "%{$search}%");
+            });
+        }
+
+        // Role filter
+        if ($request->filled('role')) {
+            $query->where('role', $request->role);
+        }
+
+        // Status filter
+        if ($request->filled('status')) {
+            if ($request->status === 'active') {
+                $query->where('is_approved', true);
+            } elseif ($request->status === 'pending') {
+                $query->where('is_approved', false);
+            }
+        }
+
+        // Sort
+        $sortField = $request->get('sort', 'name');
+        $sortDirection = $request->get('direction', 'asc');
+        $query->orderBy($sortField, $sortDirection);
+
+        $perPage = $request->input('per_page', 20);
+        $users = $query->paginate($perPage)->withQueryString();
+
+        $totalUsers = User::count();
+        $activeUsers = User::where('is_approved', true)->count();
+        $pendingUsers = User::where('is_approved', false)->count();
+        $adminUsers = User::where('role', 2)->count();
+
+        // Role names for filter dropdown
+        $roleNames = [
+            1 => 'Main School',
+            2 => 'Admin',
+            3 => 'Scholarship',
+            4 => 'Library',
+            5 => 'Student',
+            6 => 'Cafeteria',
+            7 => 'Finance',
+            8 => 'Trainers',
+            9 => 'Website'
+        ];
+
+        return view('ktvtc.admin.users.index', compact(
+            'users',
+            'totalUsers',
+            'activeUsers',
+            'pendingUsers',
+            'adminUsers',
+            'perPage',
+            'roleNames'
         ));
     }
 
@@ -214,30 +253,6 @@ class AdminController extends Controller
             ->with('success', 'Bulk action completed successfully.');
     }
 
-public function users(Request $request)
-{
-    // Get per_page from request or default to 100
-    $perPage = $request->input('per_page', 100);
-
-    // Validate per_page to prevent abuse (min 10, max 200)
-    $perPage = max(10, min(200, (int)$perPage));
-
-    // Order by name alphabetically (A-Z)
-    $users = User::orderBy('name', 'asc')->paginate($perPage);
-
-    // Alternative: If you want to sort by first name specifically
-    // $users = User::orderByRaw("SUBSTRING_INDEX(name, ' ', 1) ASC")->paginate($perPage);
-
-    $totalUsers = User::count();
-    $activeUsers = User::where('is_approved', true)->count();
-    $pendingUsers = User::where('is_approved', false)->count();
-    $adminUsers = User::where('role', 2)->count();
-
-    return view('ktvtc.admin.users.index', compact(
-        'users', 'totalUsers', 'activeUsers', 'pendingUsers', 'adminUsers', 'perPage'
-    ));
-}
-
     public function store(Request $request)
     {
         $request->validate([
@@ -277,7 +292,7 @@ public function users(Request $request)
             }
         );
 
-        return redirect()->route('admin.dashboard')
+        return redirect()->route('admin.users.index')
             ->with('success', 'User approved successfully and email sent.');
     }
 

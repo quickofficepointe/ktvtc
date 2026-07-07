@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CardDailyUsage extends Model
 {
+    // Add this line to specify the correct table name
+    protected $table = 'card_daily_usage';
+
     protected $fillable = [
         'card_account_id',
         'usage_date',

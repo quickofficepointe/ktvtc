@@ -82,22 +82,7 @@ class StudentController extends Controller
                 return $q->where('campus_id', $user->campus_id);
             });
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
-        if ($request->filled('campus_id') && $user->role == 2) {
-            $query->where('campus_id', $request->campus_id);
-        }
-
-        if ($request->filled('gender')) {
-            $query->where('gender', $request->gender);
-        }
-
-        if ($request->filled('student_category')) {
-            $query->where('student_category', $request->student_category);
-        }
-
+        // GLOBAL SEARCH - Search across all fields
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -108,10 +93,41 @@ class StudentController extends Controller
                   ->orWhere('legacy_student_code', 'like', "%{$search}%")
                   ->orWhere('id_number', 'like', "%{$search}%")
                   ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
+                  ->orWhere('phone', 'like', "%{$search}%")
+                  ->orWhere('address', 'like', "%{$search}%")
+                  ->orWhere('city', 'like', "%{$search}%")
+                  ->orWhere('county', 'like', "%{$search}%")
+                  ->orWhere('postal_code', 'like', "%{$search}%")
+                  ->orWhere('kcse_index_number', 'like', "%{$search}%")
+                  ->orWhere('next_of_kin_name', 'like', "%{$search}%")
+                  ->orWhere('next_of_kin_phone', 'like', "%{$search}%")
+                  ->orWhere('emergency_contact_name', 'like', "%{$search}%")
+                  ->orWhere('emergency_contact_phone', 'like', "%{$search}%")
+                  ->orWhere('remarks', 'like', "%{$search}%");
             });
         }
 
+        // Status filter
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Campus filter
+        if ($request->filled('campus_id') && $user->role == 2) {
+            $query->where('campus_id', $request->campus_id);
+        }
+
+        // Gender filter
+        if ($request->filled('gender')) {
+            $query->where('gender', $request->gender);
+        }
+
+        // Category filter
+        if ($request->filled('student_category')) {
+            $query->where('student_category', $request->student_category);
+        }
+
+        // Registration date range
         if ($request->filled('registration_date_from')) {
             $query->whereDate('registration_date', '>=', $request->registration_date_from);
         }
@@ -120,43 +136,52 @@ class StudentController extends Controller
             $query->whereDate('registration_date', '<=', $request->registration_date_to);
         }
 
+        // Cleanup status
         if ($request->filled('requires_cleanup')) {
             $query->where('requires_cleanup', $request->requires_cleanup === 'yes');
         }
 
-        $totalStudents = (clone $query)->count();
-        $activeStudents = (clone $query)->where('status', 'active')->count();
-        $graduatedStudents = (clone $query)->where('status', 'graduated')->count();
-        $historicalStudents = (clone $query)->where('status', 'historical')->count();
-        $requiresCleanup = (clone $query)->where('requires_cleanup', true)->count();
+        // Sorting
+        $sortField = $request->get('sort', 'created_at');
+        $sortDirection = $request->get('direction', 'desc');
+        $query->orderBy($sortField, $sortDirection);
+
+        $perPage = $request->input('per_page', 15);
+        $students = $query->paginate($perPage)->withQueryString();
+
+        // Statistics
+        $totalStudents = Student::count();
+        $activeStudents = Student::where('status', 'active')->count();
+        $graduatedStudents = Student::where('status', 'graduated')->count();
+        $historicalStudents = Student::where('status', 'historical')->count();
+        $requiresCleanup = Student::where('requires_cleanup', true)->count();
 
         $statusBreakdown = [
-            'active' => (clone $query)->where('status', 'active')->count(),
-            'inactive' => (clone $query)->where('status', 'inactive')->count(),
-            'graduated' => (clone $query)->where('status', 'graduated')->count(),
-            'dropped' => (clone $query)->where('status', 'dropped')->count(),
-            'suspended' => (clone $query)->where('status', 'suspended')->count(),
-            'alumnus' => (clone $query)->where('status', 'alumnus')->count(),
-            'prospective' => (clone $query)->where('status', 'prospective')->count(),
-            'historical' => (clone $query)->where('status', 'historical')->count(),
+            'active' => Student::where('status', 'active')->count(),
+            'inactive' => Student::where('status', 'inactive')->count(),
+            'graduated' => Student::where('status', 'graduated')->count(),
+            'dropped' => Student::where('status', 'dropped')->count(),
+            'suspended' => Student::where('status', 'suspended')->count(),
+            'alumnus' => Student::where('status', 'alumnus')->count(),
+            'prospective' => Student::where('status', 'prospective')->count(),
+            'historical' => Student::where('status', 'historical')->count(),
         ];
 
         $genderBreakdown = [
-            'male' => (clone $query)->where('gender', 'male')->count(),
-            'female' => (clone $query)->where('gender', 'female')->count(),
-            'other' => (clone $query)->where('gender', 'other')->count(),
+            'male' => Student::where('gender', 'male')->count(),
+            'female' => Student::where('gender', 'female')->count(),
+            'other' => Student::where('gender', 'other')->count(),
         ];
 
         $categoryBreakdown = [
-            'regular' => (clone $query)->where('student_category', 'regular')->count(),
-            'alumnus' => (clone $query)->where('student_category', 'alumnus')->count(),
-            'staff_child' => (clone $query)->where('student_category', 'staff_child')->count(),
-            'sponsored' => (clone $query)->where('student_category', 'sponsored')->count(),
-            'scholarship' => (clone $query)->where('student_category', 'scholarship')->count(),
+            'regular' => Student::where('student_category', 'regular')->count(),
+            'alumnus' => Student::where('student_category', 'alumnus')->count(),
+            'staff_child' => Student::where('student_category', 'staff_child')->count(),
+            'sponsored' => Student::where('student_category', 'sponsored')->count(),
+            'scholarship' => Student::where('student_category', 'scholarship')->count(),
         ];
 
-        $students = $query->orderBy('created_at', 'desc')->paginate(15);
-
+        // Campuses for filter
         if ($user->role == 2) {
             $campuses = Campus::orderBy('name')->get();
         } else {
@@ -192,6 +217,9 @@ class StudentController extends Controller
         return view('ktvtc.admin.students.create', compact('campuses', 'courses', 'applications'));
     }
 
+    /**
+     * Store a new student - Generates student number starting from 947
+     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -213,7 +241,8 @@ class StudentController extends Controller
                 ->withInput();
         }
 
-        $studentNumber = $this->generateStudentNumber();
+        // 🔥 Generate student number starting from 947
+        $studentNumber = $this->getNextStudentNumber();
 
         $student = Student::create([
             'first_name' => $request->first_name,
@@ -264,6 +293,35 @@ class StudentController extends Controller
 
         return redirect()->route('admin.students.index')
             ->with('success', "Student created successfully. Student Number: {$studentNumber}");
+    }
+
+    /**
+     * Get the next student number starting from 947
+     */
+    private function getNextStudentNumber()
+    {
+        // Get the last student number
+        $lastStudent = Student::orderBy('id', 'desc')->first();
+
+        if (!$lastStudent || !$lastStudent->student_number) {
+            return '947';
+        }
+
+        // Extract the number from the student number
+        $parts = explode('/', $lastStudent->student_number);
+
+        // Check if it's a formatted number like "ICT/947/2026"
+        if (count($parts) === 3 && is_numeric($parts[1])) {
+            $nextNumber = (int) $parts[1] + 1;
+        } elseif (is_numeric($lastStudent->student_number)) {
+            // Simple number format
+            $nextNumber = (int) $lastStudent->student_number + 1;
+        } else {
+            // Fallback
+            $nextNumber = 947;
+        }
+
+        return (string) $nextNumber;
     }
 
     public function show($id)
@@ -814,27 +872,6 @@ class StudentController extends Controller
                 'message' => 'SMS sending failed: ' . $e->getMessage()
             ];
         }
-    }
-
-    private function generateStudentNumber()
-    {
-        $prefix = 'STU';
-        $year = date('Y');
-        $month = date('m');
-
-        $lastStudent = Student::where('student_number', 'LIKE', "{$prefix}/{$year}/{$month}/%")
-            ->orderBy('student_number', 'desc')
-            ->first();
-
-        if ($lastStudent) {
-            $parts = explode('/', $lastStudent->student_number);
-            $lastNumber = (int) end($parts);
-            $newNumber = str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
-        } else {
-            $newNumber = '0001';
-        }
-
-        return "{$prefix}/{$year}/{$month}/{$newNumber}";
     }
 
     private function generateStudentNumberWithPrefix($prefix = 'STU')
