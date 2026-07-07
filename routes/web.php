@@ -13,8 +13,7 @@ use App\Http\Controllers\AuthorController;
 use App\Http\Controllers\BannerController;
 use App\Http\Controllers\BlogCategoryController;
 use App\Http\Controllers\BlogController;
-
-use App\Http\Controllers\BookCategoryController;  // ✅ CORRECT
+use App\Http\Controllers\BookCategoryController;
 use App\Http\Controllers\BookController;
 use App\Http\Controllers\BookPopularityController;
 use App\Http\Controllers\BranchController;
@@ -88,6 +87,12 @@ use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\UsageStatisticController;
 use App\Http\Controllers\WebsiteController;
 use App\Http\Controllers\WeedingCandidateController;
+use App\Http\Controllers\HighSchoolStudentController;
+use App\Http\Controllers\CardAccountController;
+use App\Http\Controllers\CardFundingRequestController;
+use App\Http\Controllers\CardQrController;
+use App\Http\Controllers\CardReportController;
+use App\Http\Controllers\KcbIpnController;
 use Illuminate\Support\Facades\Route;
 
 // ============================================================================
@@ -97,60 +102,49 @@ Route::get('/', [AboutPageController::class, 'welcome'])->name('welcome');
 Auth::routes(['verify' => true]);
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    // Profile completion
     Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::post('/profile/update', [ProfileController::class, 'update'])->name('profile.update');
 });
-// Public route for certifications display
+
 Route::get('/certifications', [CertificationController::class, 'publicIndex'])->name('certifications.public');
+
 Route::get('/home', function () {
     $user = Auth::user();
 
-    // Force profile completion first
     if (!$user->phone_number || !$user->bio || !$user->profile_picture) {
         return redirect()->route('profile.edit');
     }
 
-    // If not approved yet → student dashboard only
     if (!$user->is_approved) {
         return redirect()->route('student.dashboard');
     }
 
-    // If approved → use role-based dashboard
     switch ($user->role) {
-         case 0: // Super Admin
-            return redirect()->route('super-admin.dashboard');
-        case 1:
-            return redirect()->route('mschool.dashboard');
-        case 2:
-            return redirect()->route('admin.dashboard');
-        case 3:
-            return redirect()->route('scholarship.dashboard');
-        case 4:
-            return redirect()->route('library.dashboard');
-        case 5:
-            return redirect()->route('student.dashboard');
-        case 6:
-            return redirect()->route('cafeteria.dashboard');
-        case 7:
-            return redirect()->route('finance.dashboard');
-        case 8:
-            return redirect()->route('trainers.dashboard');
-        case 9:
-            return redirect()->route('website.dashboard');
-        default:
-            return redirect()->route('student.dashboard');
+        case 0: return redirect()->route('super-admin.dashboard');
+        case 1: return redirect()->route('mschool.dashboard');
+        case 2: return redirect()->route('admin.dashboard');
+        case 3: return redirect()->route('scholarship.dashboard');
+        case 4: return redirect()->route('library.dashboard');
+        case 5: return redirect()->route('student.dashboard');
+        case 6: return redirect()->route('cafeteria.dashboard');
+        case 7: return redirect()->route('finance.dashboard');
+        case 8: return redirect()->route('trainers.dashboard');
+        case 9: return redirect()->route('website.dashboard');
+        default: return redirect()->route('student.dashboard');
     }
 })->name('home');
 
 // ============================================================================
 // SUPER ADMIN ROUTES
 // ============================================================================
-Route::middleware(['auth', 'verified', 'super.admin.access'])->prefix('super-admin')->name('super-admin.')->group(function () {
-    // Dashboard
+Route::middleware(['auth', 'verified', 'super.admin.access'])
+    ->prefix('super-admin')
+    ->name('super-admin.')
+    ->group(function () {
+
     Route::get('/dashboard', [SuperAdminController::class, 'dashboard'])->name('dashboard');
 
-    // ==================== USER MANAGEMENT ====================
+    // User Management
     Route::prefix('users')->name('users.')->group(function () {
         Route::get('/', [SuperAdminController::class, 'users'])->name('index');
         Route::get('/create', [SuperAdminController::class, 'createUser'])->name('create');
@@ -160,36 +154,28 @@ Route::middleware(['auth', 'verified', 'super.admin.access'])->prefix('super-adm
         Route::put('/{user}', [SuperAdminController::class, 'updateUser'])->name('update');
         Route::delete('/{user}', [SuperAdminController::class, 'destroyUser'])->name('destroy');
         Route::patch('/{user}/restore', [SuperAdminController::class, 'restoreUser'])->name('restore');
-
-        // User actions
         Route::post('/{user}/toggle-status', [SuperAdminController::class, 'toggleUserStatus'])->name('toggle-status');
         Route::post('/{user}/toggle-approval', [SuperAdminController::class, 'toggleApproval'])->name('toggle-approval');
         Route::post('/{user}/reset-password', [SuperAdminController::class, 'resetPassword'])->name('reset-password');
         Route::post('/{user}/impersonate', [SuperAdminController::class, 'impersonate'])->name('impersonate');
         Route::get('/{user}/activity', [SuperAdminController::class, 'userActivity'])->name('activity');
-
-        // Bulk actions
         Route::post('/bulk-actions', [SuperAdminController::class, 'bulkUserActions'])->name('bulk-actions');
         Route::get('/export', [SuperAdminController::class, 'exportUsers'])->name('export');
     });
 
-    // ==================== ROLE MANAGEMENT ====================
+    // Role Management
     Route::prefix('roles')->name('roles.')->group(function () {
         Route::get('/', [SuperAdminController::class, 'roles'])->name('index');
         Route::post('/', [SuperAdminController::class, 'storeRole'])->name('store');
         Route::get('/{role}/edit', [SuperAdminController::class, 'editRole'])->name('edit');
         Route::put('/{role}', [SuperAdminController::class, 'updateRole'])->name('update');
         Route::delete('/{role}', [SuperAdminController::class, 'destroyRole'])->name('destroy');
-
-        // Role permissions
         Route::get('/{role}/permissions', [SuperAdminController::class, 'rolePermissions'])->name('permissions');
         Route::post('/{role}/permissions', [SuperAdminController::class, 'updatePermissions'])->name('update-permissions');
-
-        // Assign role to users
         Route::post('/{role}/assign', [SuperAdminController::class, 'assignRole'])->name('assign');
     });
 
-    // ==================== CAMPUS MANAGEMENT ====================
+    // Campus Management
     Route::prefix('campuses')->name('campuses.')->group(function () {
         Route::get('/', [CampusController::class, 'index'])->name('index');
         Route::post('/', [CampusController::class, 'store'])->name('store');
@@ -198,43 +184,30 @@ Route::middleware(['auth', 'verified', 'super.admin.access'])->prefix('super-adm
         Route::post('/{campus}/toggle-status', [CampusController::class, 'toggleStatus'])->name('toggle-status');
     });
 
-    // ==================== SYSTEM MANAGEMENT ====================
+    // System Management
     Route::prefix('system')->name('system.')->group(function () {
-        // System settings
         Route::get('/settings', [SuperAdminController::class, 'systemSettings'])->name('settings');
         Route::put('/settings', [SuperAdminController::class, 'updateSystemSettings'])->name('update-settings');
-
-        // Database management
         Route::get('/database', [SuperAdminController::class, 'database'])->name('database');
         Route::post('/database/backup', [SuperAdminController::class, 'createBackup'])->name('backup');
         Route::post('/database/restore', [SuperAdminController::class, 'restoreBackup'])->name('restore');
         Route::post('/database/optimize', [SuperAdminController::class, 'optimizeDatabase'])->name('optimize');
         Route::get('/database/migrations', [SuperAdminController::class, 'migrations'])->name('migrations');
         Route::post('/database/migrate', [SuperAdminController::class, 'runMigration'])->name('migrate');
-
-        // System logs
         Route::get('/logs', [SuperAdminController::class, 'systemLogs'])->name('logs');
         Route::get('/logs/{type}', [SuperAdminController::class, 'viewLog'])->name('view-log');
         Route::delete('/logs/clear', [SuperAdminController::class, 'clearLogs'])->name('clear-logs');
-
-        // System information
         Route::get('/info', [SuperAdminController::class, 'systemInfo'])->name('info');
         Route::get('/phpinfo', [SuperAdminController::class, 'phpInfo'])->name('phpinfo');
-
-        // Server monitoring
         Route::get('/monitor', [SuperAdminController::class, 'serverMonitor'])->name('monitor');
         Route::get('/monitor/stats', [SuperAdminController::class, 'serverStats'])->name('monitor.stats');
-
-        // Maintenance mode
         Route::post('/maintenance/enable', [SuperAdminController::class, 'enableMaintenance'])->name('maintenance.enable');
         Route::post('/maintenance/disable', [SuperAdminController::class, 'disableMaintenance'])->name('maintenance.disable');
-
-        // Cache management
         Route::post('/cache/clear', [SuperAdminController::class, 'clearCache'])->name('cache.clear');
         Route::post('/cache/optimize', [SuperAdminController::class, 'optimizeCache'])->name('cache.optimize');
     });
 
-    // ==================== MODULE MANAGEMENT ====================
+    // Module Management
     Route::prefix('modules')->name('modules.')->group(function () {
         Route::get('/', [SuperAdminController::class, 'modules'])->name('index');
         Route::get('/{module}/stats', [SuperAdminController::class, 'moduleStats'])->name('stats');
@@ -243,7 +216,7 @@ Route::middleware(['auth', 'verified', 'super.admin.access'])->prefix('super-adm
         Route::post('/{module}/toggle', [SuperAdminController::class, 'toggleModule'])->name('toggle');
     });
 
-    // ==================== REPORTS & AUDIT ====================
+    // Reports & Audit
     Route::prefix('reports')->name('reports.')->group(function () {
         Route::get('/audit', [SuperAdminController::class, 'auditTrail'])->name('audit');
         Route::get('/audit/export', [SuperAdminController::class, 'exportAudit'])->name('audit.export');
@@ -253,7 +226,7 @@ Route::middleware(['auth', 'verified', 'super.admin.access'])->prefix('super-adm
         Route::get('/security/login-attempts', [SuperAdminController::class, 'loginAttempts'])->name('security.login-attempts');
     });
 
-    // ==================== SYSTEM TOOLS ====================
+    // System Tools
     Route::prefix('utilities')->name('utilities.')->group(function () {
         Route::get('/bulk-operations', [SuperAdminController::class, 'bulkOperations'])->name('bulk-operations');
         Route::post('/bulk-operations/execute', [SuperAdminController::class, 'executeBulkOperation'])->name('execute-bulk-operation');
@@ -264,7 +237,7 @@ Route::middleware(['auth', 'verified', 'super.admin.access'])->prefix('super-adm
         Route::post('/tools/run', [SuperAdminController::class, 'runTool'])->name('tools.run');
     });
 
-    // ==================== API ENDPOINTS ====================
+    // API Endpoints
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/notifications', [SuperAdminController::class, 'getNotifications'])->name('notifications');
         Route::post('/notifications/mark-read', [SuperAdminController::class, 'markNotificationsRead'])->name('notifications.mark-read');
@@ -275,7 +248,7 @@ Route::middleware(['auth', 'verified', 'super.admin.access'])->prefix('super-adm
         Route::get('/system/checks', [SuperAdminController::class, 'systemChecks'])->name('system.checks');
     });
 
-    // ==================== EMERGENCY ACCESS ====================
+    // Emergency Access
     Route::prefix('emergency')->name('emergency.')->group(function () {
         Route::get('/access/{module}', [SuperAdminController::class, 'emergencyAccess'])->name('access');
         Route::post('/force-action', [SuperAdminController::class, 'forceAction'])->name('force-action');
@@ -287,7 +260,11 @@ Route::middleware(['auth', 'verified', 'super.admin.access'])->prefix('super-adm
 // ============================================================================
 // MSCHOOL ROUTES
 // ============================================================================
-Route::middleware(['auth', 'verified', 'role.mschool'])->prefix('mschool')->name('mschool.')->group(function () {
+Route::middleware(['auth', 'verified', 'role.mschool'])
+    ->prefix('mschool')
+    ->name('mschool.')
+    ->group(function () {
+
     Route::get('/dashboard', [MschoolController::class, 'dashboard'])->name('dashboard');
 
     Route::prefix('course-categories')->name('course-categories.')->group(function () {
@@ -351,14 +328,15 @@ Route::middleware(['auth', 'verified', 'role.mschool'])->prefix('mschool')->name
         Route::delete('/{examResult}', [MExamResultController::class, 'destroy'])->name('destroy');
     });
 
-   Route::prefix('certificate-templates')->name('certificate-templates.')->group(function () {
-    Route::get('/', [MCertificateTemplateController::class, 'index'])->name('index');
-    Route::post('/', [MCertificateTemplateController::class, 'store'])->name('store');
-    Route::get('/{certificateTemplate}/edit', [MCertificateTemplateController::class, 'edit'])->name('edit'); // Add this
-    Route::put('/{certificateTemplate}', [MCertificateTemplateController::class, 'update'])->name('update');
-    Route::delete('/{certificateTemplate}', [MCertificateTemplateController::class, 'destroy'])->name('destroy');
-    Route::post('/{certificateTemplate}/test', [MCertificateTemplateController::class, 'testCoordinates'])->name('test'); // Add this
-});
+    Route::prefix('certificate-templates')->name('certificate-templates.')->group(function () {
+        Route::get('/', [MCertificateTemplateController::class, 'index'])->name('index');
+        Route::post('/', [MCertificateTemplateController::class, 'store'])->name('store');
+        Route::get('/{certificateTemplate}/edit', [MCertificateTemplateController::class, 'edit'])->name('edit');
+        Route::put('/{certificateTemplate}', [MCertificateTemplateController::class, 'update'])->name('update');
+        Route::delete('/{certificateTemplate}', [MCertificateTemplateController::class, 'destroy'])->name('destroy');
+        Route::post('/{certificateTemplate}/test', [MCertificateTemplateController::class, 'testCoordinates'])->name('test');
+    });
+
     Route::prefix('certificates')->name('certificates.')->group(function () {
         Route::get('/', [MCertificateController::class, 'index'])->name('index');
         Route::post('/', [MCertificateController::class, 'store'])->name('store');
@@ -382,74 +360,70 @@ Route::middleware(['auth', 'verified', 'role.mschool'])->prefix('mschool')->name
 });
 
 // ============================================================================
-// ADMIN ROUTES (SIMPLIFIED - NO TVET COMPLEXITY)
+// ADMIN ROUTES (Core Admin - No Fee/Payment Routes)
 // ============================================================================
 Route::middleware(['auth', 'verified', 'role.admin'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
 
-    // Dashboard
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
 
-    // ==================== USER MANAGEMENT ====================
+    // User Management
     Route::prefix('users')->name('users.')->group(function () {
         Route::get('/', [AdminController::class, 'users'])->name('index');
         Route::post('/', [AdminController::class, 'store'])->name('store');
         Route::get('/{id}', [AdminController::class, 'showUser'])->name('show');
-        Route::get('/{id}/edit', [AdminController::class, 'editUser'])->name('edit');           // ✅ ADD THIS
-        Route::put('/{id}', [AdminController::class, 'updateUser'])->name('update');           // ✅ ADD THIS
-        Route::post('/bulk-actions', [AdminController::class, 'bulkUserActions'])->name('bulk-actions'); // ✅ ADD THIS
+        Route::get('/{id}/edit', [AdminController::class, 'editUser'])->name('edit');
+        Route::put('/{id}', [AdminController::class, 'updateUser'])->name('update');
+        Route::post('/bulk-actions', [AdminController::class, 'bulkUserActions'])->name('bulk-actions');
         Route::put('/{id}/role', [AdminController::class, 'updateRole'])->name('updateRole');
         Route::put('/{id}/status', [AdminController::class, 'updateStatus'])->name('updateStatus');
         Route::delete('/{id}', [AdminController::class, 'destroy'])->name('destroy');
         Route::put('/{id}/approve', [AdminController::class, 'approve'])->name('approve');
-   Route::put('/{id}/reset-password', [AdminController::class, 'resetPassword'])->name('reset-password');
-    Route::post('/bulk-reset-passwords', [AdminController::class, 'bulkResetPasswords'])->name('bulk-reset-passwords');
-        });
+        Route::put('/{id}/reset-password', [AdminController::class, 'resetPassword'])->name('reset-password');
+        Route::post('/bulk-reset-passwords', [AdminController::class, 'bulkResetPasswords'])->name('bulk-reset-passwords');
+    });
 
-    // ==================== APPLICATIONS MANAGEMENT ====================
+    // Applications Management
     Route::prefix('applications')->name('applications.')->group(function () {
         Route::get('/', [ApplicationController::class, 'list'])->name('index');
         Route::get('/{id}', [ApplicationController::class, 'show'])->name('show');
         Route::put('/{id}/status', [ApplicationController::class, 'updateStatus'])->name('updateStatus');
     });
 
-    // ==================== EVENT APPLICATIONS ====================
+    // Event Applications
     Route::prefix('event-applications')->name('event-applications.')->group(function () {
         Route::get('/', [EventApplicationController::class, 'adminindex'])->name('index');
         Route::get('/{application}', [EventApplicationController::class, 'adminshow'])->name('show');
         Route::put('/{application}/status', [EventApplicationController::class, 'updateStatus'])->name('updateStatus');
     });
 
-    // ==================== SUBSCRIPTIONS MANAGEMENT ====================
+    // Subscriptions Management
     Route::prefix('subscriptions')->name('subscriptions.')->group(function () {
         Route::get('/', [SubscriptionController::class, 'index'])->name('index');
         Route::delete('/{id}', [SubscriptionController::class, 'destroy'])->name('destroy');
     });
 
-    // ==================== MESSAGES MANAGEMENT ====================
+    // Messages Management
     Route::prefix('messages')->name('messages.')->group(function () {
         Route::get('/', [MessageController::class, 'index'])->name('index');
         Route::put('/{id}', [MessageController::class, 'update'])->name('update');
         Route::delete('/{id}', [MessageController::class, 'destroy'])->name('destroy');
     });
 
-    // ==================== ANALYTICS ====================
-    Route::get('/analytics/export', [AnalyticController::class, 'export'])->name('analytics.export');
-
+    // Analytics
     Route::prefix('analytics')->name('analytics.')->group(function () {
         Route::get('/dashboard', [AnalyticController::class, 'dashboard'])->name('dashboard');
         Route::get('/enrollment-trends', [AnalyticController::class, 'enrollmentTrends'])->name('enrollment-trends');
         Route::get('/revenue-trends', [AnalyticController::class, 'revenueTrends'])->name('revenue-trends');
+        Route::get('/export', [AnalyticController::class, 'export'])->name('export');
 
-        // Export
         Route::prefix('export')->name('export.')->group(function () {
             Route::get('/enrollment', [AnalyticController::class, 'exportEnrollment'])->name('enrollment');
             Route::get('/revenue', [AnalyticController::class, 'exportRevenue'])->name('revenue');
         });
 
-        // Stats API
         Route::prefix('stats')->name('stats.')->group(function () {
             Route::get('/enrollment', [AnalyticController::class, 'enrollmentStats'])->name('enrollment');
             Route::get('/students', [AnalyticController::class, 'studentStats'])->name('students');
@@ -457,7 +431,7 @@ Route::middleware(['auth', 'verified', 'role.admin'])
         });
     });
 
-    // ==================== SIMPLIFIED STUDENT MANAGEMENT ====================
+    // Student Management (No Fee/Payment routes here)
     Route::prefix('students')->name('students.')->group(function () {
         Route::get('/', [StudentController::class, 'index'])->name('index');
         Route::get('/create', [StudentController::class, 'create'])->name('create');
@@ -466,145 +440,78 @@ Route::middleware(['auth', 'verified', 'role.admin'])
         Route::get('/{student}/edit', [StudentController::class, 'edit'])->name('edit');
         Route::put('/{student}', [StudentController::class, 'update'])->name('update');
         Route::delete('/{student}', [StudentController::class, 'destroy'])->name('destroy');
-  Route::post('/{student}/fix-student-number', [StudentController::class, 'fixStudentNumber'])->name('fix-student-number');
-    Route::post('/bulk-sync-numbers', [StudentController::class, 'bulkSyncStudentNumbers'])->name('bulk-sync-numbers');
-    Route::post('/{student}/sync-password', [StudentController::class, 'syncPassword'])->name('sync-password');
-        // Status Actions
+        Route::post('/{student}/fix-student-number', [StudentController::class, 'fixStudentNumber'])->name('fix-student-number');
+        Route::post('/bulk-sync-numbers', [StudentController::class, 'bulkSyncStudentNumbers'])->name('bulk-sync-numbers');
+        Route::post('/{student}/sync-password', [StudentController::class, 'syncPassword'])->name('sync-password');
         Route::post('/{student}/activate', [StudentController::class, 'activate'])->name('activate');
         Route::post('/{student}/suspend', [StudentController::class, 'suspend'])->name('suspend');
         Route::post('/{student}/archive', [StudentController::class, 'archive'])->name('archive');
-
-        // Student details
         Route::get('/{student}/details', [StudentController::class, 'details'])->name('details');
         Route::get('/{student}/details/edit', [StudentController::class, 'editDetails'])->name('details.edit');
         Route::put('/{student}/details', [StudentController::class, 'updateDetails'])->name('details.update');
-
-        // Bulk Actions
         Route::post('/bulk/activate', [StudentController::class, 'bulkActivate'])->name('bulk.activate');
         Route::post('/bulk/suspend', [StudentController::class, 'bulkSuspend'])->name('bulk.suspend');
         Route::post('/bulk/archive', [StudentController::class, 'bulkArchive'])->name('bulk.archive');
         Route::post('/bulk/delete', [StudentController::class, 'bulkDelete'])->name('bulk.delete');
-
-        // Import/Export
         Route::get('/export', [StudentController::class, 'export'])->name('export');
         Route::get('/import', [StudentController::class, 'importView'])->name('import.view');
         Route::post('/import', [StudentController::class, 'importProcess'])->name('import.process');
         Route::get('/download-template', [StudentController::class, 'downloadTemplate'])->name('download-template');
-
-        // Reports
         Route::get('/reports/enrollment', [StudentController::class, 'enrollmentReport'])->name('reports.enrollment');
         Route::get('/reports/demographics', [StudentController::class, 'demographicsReport'])->name('reports.demographics');
-
-        // API Endpoints
         Route::get('/api/search', [StudentController::class, 'search'])->name('api.search');
         Route::get('/api/for-select', [StudentController::class, 'getForSelect'])->name('api.for-select');
         Route::get('/{student}/api/enrollments', [StudentController::class, 'getEnrollments'])->name('api.enrollments');
     });
 
-    // ==================== SIMPLIFIED ENROLLMENT MANAGEMENT ====================
-  // ==================== SIMPLIFIED ENROLLMENT MANAGEMENT ====================
-Route::prefix('enrollments')->name('enrollments.')->group(function () {
-    Route::get('/', [EnrollmentController::class, 'index'])->name('index');
-    Route::get('/create', [EnrollmentController::class, 'create'])->name('create');
-    Route::post('/', [EnrollmentController::class, 'store'])->name('store');
-    Route::get('/{enrollment}', [EnrollmentController::class, 'show'])->name('show');
-    Route::get('/{enrollment}/edit', [EnrollmentController::class, 'edit'])->name('edit');
-    Route::put('/{enrollment}', [EnrollmentController::class, 'update'])->name('update');
-    Route::delete('/{enrollment}', [EnrollmentController::class, 'destroy'])->name('destroy');
-
-    // ============ SMS FEE REMINDER ROUTES - ADD THESE ============
-    Route::post('/send-fee-reminders', [EnrollmentController::class, 'sendFeeReminders'])->name('send-fee-reminders');
-    Route::post('/send-single-reminder/{enrollment}', [EnrollmentController::class, 'sendSingleFeeReminder'])->name('send-single-reminder');
-    Route::post('/bulk-balance-reminders', [EnrollmentController::class, 'sendBulkBalanceReminders'])->name('bulk-balance-reminders');
-    Route::get('/eligible-for-reminder', [EnrollmentController::class, 'getEligibleForReminder'])->name('eligible-for-reminder');
-
-    // Status actions
-    Route::post('/{enrollment}/activate', [EnrollmentController::class, 'activate'])->name('activate');
-    Route::post('/{enrollment}/suspend', [EnrollmentController::class, 'suspend'])->name('suspend');
-    Route::post('/{enrollment}/complete', [EnrollmentController::class, 'complete'])->name('complete');
-    Route::post('/{enrollment}/defer', [EnrollmentController::class, 'defer'])->name('defer');
-
-    // Exam registration
-    Route::post('/{enrollment}/register-exam', [EnrollmentController::class, 'registerExam'])->name('register-exam');
-
-    // Bulk actions
-    Route::post('/bulk/activate', [EnrollmentController::class, 'bulkActivate'])->name('bulk.activate');
-    Route::post('/bulk/complete', [EnrollmentController::class, 'bulkComplete'])->name('bulk.complete');
-    Route::post('/bulk/delete', [EnrollmentController::class, 'bulkDelete'])->name('bulk.delete');
-
-    // Export & Reports
-    Route::get('/export', [EnrollmentController::class, 'export'])->name('export');
-    Route::get('/reports/enrollment', [EnrollmentController::class, 'enrollmentReport'])->name('reports.enrollment');
-    Route::get('/reports/financial', [EnrollmentController::class, 'financialReport'])->name('reports.financial');
-
-    // API Endpoints
-    Route::get('/api/by-student', [EnrollmentController::class, 'getByStudent'])->name('api.by-student');
-    Route::get('/api/stats', [EnrollmentController::class, 'getStats'])->name('api.stats');
-});
-
-    // ==================== SIMPLIFIED FEE PAYMENT MANAGEMENT ====================
-    Route::prefix('fee-payments')->name('fee-payments.')->group(function () {
-        Route::get('/', [FeePaymentController::class, 'index'])->name('index');
-        Route::get('/create', [FeePaymentController::class, 'create'])->name('create');
-        Route::post('/', [FeePaymentController::class, 'store'])->name('store');
-        Route::get('/{feePayment}', [FeePaymentController::class, 'show'])->name('show');
-        Route::get('/{feePayment}/receipt', [FeePaymentController::class, 'receipt'])->name('receipt');
-        Route::delete('/{feePayment}', [FeePaymentController::class, 'destroy'])->name('destroy');
-  Route::get('/export', [FeePaymentController::class, 'export'])->name('export');
-        // Payment actions
-        Route::post('/{feePayment}/verify', [FeePaymentController::class, 'verify'])->name('verify');
-        Route::post('/{feePayment}/reverse', [FeePaymentController::class, 'reverse'])->name('reverse');
-
-        // Bulk actions
-        Route::post('/bulk/verify', [FeePaymentController::class, 'bulkVerify'])->name('bulk.verify');
-
-        // Reports
-        Route::get('/reports/daily', [FeePaymentController::class, 'dailyReport'])->name('reports.daily');
-        Route::get('/reports/monthly', [FeePaymentController::class, 'monthlyReport'])->name('reports.monthly');
-
-        // API Endpoints
-        Route::get('/api/by-student', [FeePaymentController::class, 'getByStudent'])->name('api.by-student');
-        Route::get('/api/today-stats', [FeePaymentController::class, 'getTodayStats'])->name('api.today-stats');
-
-        // M-Pesa Callback
-        Route::post('/mpesa/callback', [FeePaymentController::class, 'mpesaCallback'])
-            ->name('mpesa-callback')
-            ->withoutMiddleware(['csrf']);
+    // Enrollment Management (No Fee/Payment routes here)
+    Route::prefix('enrollments')->name('enrollments.')->group(function () {
+        Route::get('/', [EnrollmentController::class, 'index'])->name('index');
+        Route::get('/create', [EnrollmentController::class, 'create'])->name('create');
+        Route::post('/', [EnrollmentController::class, 'store'])->name('store');
+        Route::get('/{enrollment}', [EnrollmentController::class, 'show'])->name('show');
+        Route::get('/{enrollment}/edit', [EnrollmentController::class, 'edit'])->name('edit');
+        Route::put('/{enrollment}', [EnrollmentController::class, 'update'])->name('update');
+        Route::delete('/{enrollment}', [EnrollmentController::class, 'destroy'])->name('destroy');
+        Route::post('/{enrollment}/activate', [EnrollmentController::class, 'activate'])->name('activate');
+        Route::post('/{enrollment}/suspend', [EnrollmentController::class, 'suspend'])->name('suspend');
+        Route::post('/{enrollment}/complete', [EnrollmentController::class, 'complete'])->name('complete');
+        Route::post('/{enrollment}/defer', [EnrollmentController::class, 'defer'])->name('defer');
+        Route::post('/{enrollment}/register-exam', [EnrollmentController::class, 'registerExam'])->name('register-exam');
+        Route::post('/bulk/activate', [EnrollmentController::class, 'bulkActivate'])->name('bulk.activate');
+        Route::post('/bulk/complete', [EnrollmentController::class, 'bulkComplete'])->name('bulk.complete');
+        Route::post('/bulk/delete', [EnrollmentController::class, 'bulkDelete'])->name('bulk.delete');
+        Route::get('/export', [EnrollmentController::class, 'export'])->name('export');
+        Route::get('/reports/enrollment', [EnrollmentController::class, 'enrollmentReport'])->name('reports.enrollment');
+        Route::get('/api/by-student', [EnrollmentController::class, 'getByStudent'])->name('api.by-student');
+        Route::get('/api/stats', [EnrollmentController::class, 'getStats'])->name('api.stats');
     });
 
-    // ==================== SIMPLIFIED EXAM REGISTRATION ====================
-// ==================== SIMPLIFIED EXAM REGISTRATION ====================
-Route::prefix('exam-registrations')->name('exam-registrations.')->group(function () {
-    // CRUD Operations
-    Route::get('/', [ExamRegistrationController::class, 'index'])->name('index');
-    Route::get('/create', [ExamRegistrationController::class, 'create'])->name('create');
-    Route::post('/', [ExamRegistrationController::class, 'store'])->name('store');
-    Route::get('/{examRegistration}', [ExamRegistrationController::class, 'show'])->name('show');
-    Route::get('/{examRegistration}/edit', [ExamRegistrationController::class, 'edit'])->name('edit');
-    Route::put('/{examRegistration}', [ExamRegistrationController::class, 'update'])->name('update');
-    Route::delete('/{examRegistration}', [ExamRegistrationController::class, 'destroy'])->name('destroy');
+    // Exam Registrations
+    Route::prefix('exam-registrations')->name('exam-registrations.')->group(function () {
+        Route::get('/', [ExamRegistrationController::class, 'index'])->name('index');
+        Route::get('/create', [ExamRegistrationController::class, 'create'])->name('create');
+        Route::post('/', [ExamRegistrationController::class, 'store'])->name('store');
+        Route::get('/{examRegistration}', [ExamRegistrationController::class, 'show'])->name('show');
+        Route::get('/{examRegistration}/edit', [ExamRegistrationController::class, 'edit'])->name('edit');
+        Route::put('/{examRegistration}', [ExamRegistrationController::class, 'update'])->name('update');
+        Route::delete('/{examRegistration}', [ExamRegistrationController::class, 'destroy'])->name('destroy');
+        Route::post('/{examRegistration}/mark-registered', [ExamRegistrationController::class, 'markRegistered'])->name('mark-registered');
+        Route::post('/{examRegistration}/enter-results', [ExamRegistrationController::class, 'enterResults'])->name('enter-results');
+        Route::get('/{examRegistration}/print-slip', [ExamRegistrationController::class, 'printSlip'])->name('print-slip');
 
-    // Single Registration Actions
-    Route::post('/{examRegistration}/mark-registered', [ExamRegistrationController::class, 'markRegistered'])->name('mark-registered');
-    Route::post('/{examRegistration}/enter-results', [ExamRegistrationController::class, 'enterResults'])->name('enter-results');
-    Route::get('/{examRegistration}/print-slip', [ExamRegistrationController::class, 'printSlip'])->name('print-slip');
+        Route::prefix('bulk')->name('bulk.')->group(function () {
+            Route::post('/status', [ExamRegistrationController::class, 'bulkUpdateStatus'])->name('status');
+            Route::post('/generate-slips', [ExamRegistrationController::class, 'bulkGenerateSlips'])->name('generate-slips');
+        });
 
-    // BULK ACTIONS - ADD THIS SECTION
-    Route::prefix('bulk')->name('bulk.')->group(function () {
-        Route::post('/status', [ExamRegistrationController::class, 'bulkUpdateStatus'])->name('status');
-        Route::post('/generate-slips', [ExamRegistrationController::class, 'bulkGenerateSlips'])->name('generate-slips');
+        Route::get('/reports/summary', [ExamRegistrationController::class, 'summaryReport'])->name('reports.summary');
+        Route::get('/export', [ExamRegistrationController::class, 'export'])->name('export');
+        Route::get('/api/by-enrollment', [ExamRegistrationController::class, 'getByEnrollment'])->name('api.by-enrollment');
+        Route::get('/api/pending', [ExamRegistrationController::class, 'getPending'])->name('api.pending');
     });
 
-    // Reports & Export (These already exist in your code)
-    Route::get('/reports/summary', [ExamRegistrationController::class, 'summaryReport'])->name('reports.summary');
-    Route::get('/export', [ExamRegistrationController::class, 'export'])->name('export');
-
-    // API Endpoints (Optional)
-    Route::get('/api/by-enrollment', [ExamRegistrationController::class, 'getByEnrollment'])->name('api.by-enrollment');
-    Route::get('/api/pending', [ExamRegistrationController::class, 'getPending'])->name('api.pending');
-});
-
-    // ==================== SETTINGS ====================
+    // Settings
     Route::prefix('settings')->name('settings.')->group(function () {
         Route::get('/general', [SettingController::class, 'general'])->name('general');
         Route::put('/general', [SettingController::class, 'updateGeneral'])->name('general.update');
@@ -622,14 +529,21 @@ Route::prefix('exam-registrations')->name('exam-registrations.')->group(function
 // ============================================================================
 // SCHOLARSHIP ROUTES
 // ============================================================================
-Route::middleware(['auth', 'verified', 'role.scholarship'])->prefix('scholarship')->name('scholarship.')->group(function () {
+Route::middleware(['auth', 'verified', 'role.scholarship'])
+    ->prefix('scholarship')
+    ->name('scholarship.')
+    ->group(function () {
     Route::get('/dashboard', [ScholarshipController::class, 'dashboard'])->name('dashboard');
 });
 
 // ============================================================================
 // LIBRARY ROUTES
 // ============================================================================
-Route::middleware(['auth', 'verified', 'role.library'])->prefix('library')->name('library.')->group(function () {
+Route::middleware(['auth', 'verified', 'role.library'])
+    ->prefix('library')
+    ->name('library.')
+    ->group(function () {
+
     Route::get('/dashboard', [LibraryController::class, 'dashboard'])->name('dashboard');
 
     // Acquisition Requests
@@ -640,27 +554,30 @@ Route::middleware(['auth', 'verified', 'role.library'])->prefix('library')->name
     Route::post('/acquisition-requests/{acquisitionRequest}/reject', [AcquisitionRequestController::class, 'reject'])->name('acquisition-requests.reject');
     Route::post('/acquisition-requests/{acquisitionRequest}/mark-ordered', [AcquisitionRequestController::class, 'markOrdered'])->name('acquisition-requests.mark-ordered');
     Route::post('/acquisition-requests/{acquisitionRequest}/mark-received', [AcquisitionRequestController::class, 'markReceived'])->name('acquisition-requests.mark-received');
-// E-Book Categories
-Route::get('/ebook-categories', [EBookCategoryController::class, 'index'])->name('ebook-categories.index');
-Route::post('/ebook-categories', [EBookCategoryController::class, 'store'])->name('ebook-categories.store');
-Route::put('/ebook-categories/{eBookCategory}', [EBookCategoryController::class, 'update'])->name('ebook-categories.update');
-Route::delete('/ebook-categories/{eBookCategory}', [EBookCategoryController::class, 'destroy'])->name('ebook-categories.destroy');
-Route::post('/ebook-categories/{eBookCategory}/toggle-status', [EBookCategoryController::class, 'toggleStatus'])->name('ebook-categories.toggle-status');
+
+    // E-Book Categories
+    Route::get('/ebook-categories', [EBookCategoryController::class, 'index'])->name('ebook-categories.index');
+    Route::post('/ebook-categories', [EBookCategoryController::class, 'store'])->name('ebook-categories.store');
+    Route::put('/ebook-categories/{eBookCategory}', [EBookCategoryController::class, 'update'])->name('ebook-categories.update');
+    Route::delete('/ebook-categories/{eBookCategory}', [EBookCategoryController::class, 'destroy'])->name('ebook-categories.destroy');
+    Route::post('/ebook-categories/{eBookCategory}/toggle-status', [EBookCategoryController::class, 'toggleStatus'])->name('ebook-categories.toggle-status');
+
     // Authors
-    // EBooks
-Route::get('/ebooks', [EBookController::class, 'index'])->name('ebooks.index');
-Route::post('/ebooks', [EBookController::class, 'store'])->name('ebooks.store');
-Route::get('/ebooks/{ebook}', [EBookController::class, 'show'])->name('ebooks.show');
-Route::get('/ebooks/{ebook}/download', [EBookController::class, 'download'])->name('ebooks.download');
-Route::put('/ebooks/{ebook}', [EBookController::class, 'update'])->name('ebooks.update');
-Route::delete('/ebooks/{ebook}', [EBookController::class, 'destroy'])->name('ebooks.destroy');
-Route::post('/ebooks/{ebook}/toggle-featured', [EBookController::class, 'toggleFeatured'])->name('ebooks.toggle-featured');
-Route::post('/ebooks/{ebook}/toggle-active', [EBookController::class, 'toggleActive'])->name('ebooks.toggle-active');
     Route::get('/authors', [AuthorController::class, 'index'])->name('authors.index');
     Route::post('/authors', [AuthorController::class, 'store'])->name('authors.store');
     Route::get('/authors/{author}', [AuthorController::class, 'show'])->name('authors.show');
     Route::put('/authors/{author}', [AuthorController::class, 'update'])->name('authors.update');
     Route::delete('/authors/{author}', [AuthorController::class, 'destroy'])->name('authors.destroy');
+
+    // EBooks
+    Route::get('/ebooks', [EBookController::class, 'index'])->name('ebooks.index');
+    Route::post('/ebooks', [EBookController::class, 'store'])->name('ebooks.store');
+    Route::get('/ebooks/{ebook}', [EBookController::class, 'show'])->name('ebooks.show');
+    Route::get('/ebooks/{ebook}/download', [EBookController::class, 'download'])->name('ebooks.download');
+    Route::put('/ebooks/{ebook}', [EBookController::class, 'update'])->name('ebooks.update');
+    Route::delete('/ebooks/{ebook}', [EBookController::class, 'destroy'])->name('ebooks.destroy');
+    Route::post('/ebooks/{ebook}/toggle-featured', [EBookController::class, 'toggleFeatured'])->name('ebooks.toggle-featured');
+    Route::post('/ebooks/{ebook}/toggle-active', [EBookController::class, 'toggleActive'])->name('ebooks.toggle-active');
 
     // Book Categories
     Route::get('/book-categories', [BookCategoryController::class, 'index'])->name('book-categories.index');
@@ -695,7 +612,7 @@ Route::post('/ebooks/{ebook}/toggle-active', [EBookController::class, 'toggleAct
     Route::post('/fine-rules/{fineRule}/activate', [FineRuleController::class, 'activate'])->name('fine-rules.activate');
     Route::post('/fine-rules/{fineRule}/deactivate', [FineRuleController::class, 'deactivate'])->name('fine-rules.deactivate');
 
-    // Items (Book Copies)
+    // Items
     Route::get('/items', [ItemController::class, 'index'])->name('items.index');
     Route::post('/items', [ItemController::class, 'store'])->name('items.store');
     Route::get('/items/{item}', [ItemController::class, 'show'])->name('items.show');
@@ -754,7 +671,11 @@ Route::post('/ebooks/{ebook}/toggle-active', [EBookController::class, 'toggleAct
 // ============================================================================
 // STUDENT ROUTES
 // ============================================================================
-Route::middleware(['auth', 'verified', 'role.student'])->prefix('student')->name('student.')->group(function () {
+Route::middleware(['auth', 'verified', 'role.student'])
+    ->prefix('student')
+    ->name('student.')
+    ->group(function () {
+
     Route::get('/dashboard', [StudentController::class, 'dashboard'])->name('dashboard');
     Route::get('/force-password-change', [App\Http\Controllers\Auth\ForcePasswordChangeController::class, 'showForm'])->name('force-password-change');
     Route::post('/force-password-change', [App\Http\Controllers\Auth\ForcePasswordChangeController::class, 'update'])->name('force-password-change.update');
@@ -768,10 +689,15 @@ Route::middleware(['auth', 'verified', 'role.student'])->prefix('student')->name
         Route::get('/statement/download', [App\Http\Controllers\StudentFeesController::class, 'downloadStatement'])->name('statement.download');
     });
 });
+
 // ============================================================================
-// CAFETERIA ROUTES
+// CAFETERIA ROUTES (No Payment Transaction Routes - Moved to Finance)
 // ============================================================================
-Route::middleware(['auth', 'verified', 'role.cafeteria'])->prefix('cafeteria')->name('cafeteria.')->group(function () {
+Route::middleware(['auth', 'verified', 'role.cafeteria'])
+    ->prefix('cafeteria')
+    ->name('cafeteria.')
+    ->group(function () {
+
     Route::get('/dashboard', [CafeteriaController::class, 'dashboard'])->name('dashboard');
     Route::get('/stats', [CafeteriaController::class, 'getStats'])->name('stats');
     Route::get('/recent-activity', [CafeteriaController::class, 'recentActivity'])->name('recent-activity');
@@ -785,7 +711,7 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])->prefix('cafeteria')->
         Route::get('/{product}/edit', [ProductController::class, 'edit'])->name('edit');
         Route::put('/{product}', [ProductController::class, 'update'])->name('update');
         Route::delete('/{product}', [ProductController::class, 'destroy'])->name('destroy');
-   Route::post('/{product}/update-stock', [ProductController::class, 'updateStock'])->name('update-stock');
+        Route::post('/{product}/update-stock', [ProductController::class, 'updateStock'])->name('update-stock');
         Route::get('/{product}/stock-history', [ProductController::class, 'stockHistory'])->name('stock-history');
         Route::get('/export', [ProductController::class, 'export'])->name('export');
         Route::post('/import', [ProductController::class, 'import'])->name('import');
@@ -796,10 +722,10 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])->prefix('cafeteria')->
     // Categories
     Route::prefix('categories')->name('categories.')->group(function () {
         Route::get('/', [ProductCategoryController::class, 'index'])->name('index');
-  Route::get('/{category}', [ProductCategoryController::class, 'show'])->name('show');
+        Route::get('/{category}', [ProductCategoryController::class, 'show'])->name('show');
         Route::post('/', [ProductCategoryController::class, 'store'])->name('store');
         Route::put('/{category}', [ProductCategoryController::class, 'update'])->name('update');
-          Route::patch('/{category}/toggle-status', [ProductCategoryController::class, 'toggleStatus'])->name('toggle-status'); // Add this
+        Route::patch('/{category}/toggle-status', [ProductCategoryController::class, 'toggleStatus'])->name('toggle-status');
         Route::delete('/{category}', [ProductCategoryController::class, 'destroy'])->name('destroy');
         Route::get('/{category}/products', [ProductCategoryController::class, 'products'])->name('products');
     });
@@ -822,7 +748,7 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])->prefix('cafeteria')->
     // Purchase Orders
     Route::prefix('purchase-orders')->name('purchase-orders.')->group(function () {
         Route::get('/', [PurchaseOrderController::class, 'index'])->name('index');
-Route::get('/get-products', [PurchaseOrderController::class, 'getProducts'])->name('get-products'); // ✅ ADD THIS LINE
+        Route::get('/get-products', [PurchaseOrderController::class, 'getProducts'])->name('get-products');
         Route::get('/create', [PurchaseOrderController::class, 'create'])->name('create');
         Route::post('/', [PurchaseOrderController::class, 'store'])->name('store');
         Route::get('/{purchaseOrder}', [PurchaseOrderController::class, 'show'])->name('show');
@@ -839,7 +765,6 @@ Route::get('/get-products', [PurchaseOrderController::class, 'getProducts'])->na
         Route::get('/pending-approval', [PurchaseOrderController::class, 'pendingApproval'])->name('pending-approval');
         Route::get('/overdue', [PurchaseOrderController::class, 'overdue'])->name('overdue');
     });
-// Payment Transactions (add to CAFETERIA ROUTES section)
 
     // Goods Received Notes
     Route::prefix('grn')->name('grn.')->group(function () {
@@ -875,33 +800,31 @@ Route::get('/get-products', [PurchaseOrderController::class, 'getProducts'])->na
     });
 
     // Sales
- // Sales
-Route::prefix('sales')->name('sales.')->group(function () {
-    Route::get('/', [SaleController::class, 'pos'])->name('index');
-    Route::get('/create', [SaleController::class, 'create'])->name('create');
-    Route::post('/', [SaleController::class, 'store'])->name('store');
-  // ← ADD THIS
-    Route::get('/{sale}/edit', [SaleController::class, 'edit'])->name('edit');
-    Route::put('/{sale}', [SaleController::class, 'update'])->name('update');
-    Route::delete('/{sale}', [SaleController::class, 'destroy'])->name('destroy');
-    Route::post('/{sale}/update-status', [SaleController::class, 'updateStatus'])->name('update-status');
-    Route::post('/{sale}/add-payment', [SaleController::class, 'addPayment'])->name('add-payment');
-    Route::post('/{sale}/cancel', [SaleController::class, 'cancel'])->name('cancel');
-    Route::get('/today', [SaleController::class, 'today'])->name('today');
-    Route::get('/pending-payment', [SaleController::class, 'pendingPayment'])->name('pending-payment');
-    Route::get('/cancelled', [SaleController::class, 'cancelled'])->name('cancelled');
-    Route::get('/daily-report', [SaleController::class, 'dailySalesReport'])->name('daily-report');
-    Route::get('/monthly-report', [SaleController::class, 'monthlyReport'])->name('monthly-report');
-    Route::get('/export', [SaleController::class, 'export'])->name('export');
-    Route::get('/{sale}/print', [SaleController::class, 'print'])->name('print');
-    Route::get('/{sale}/print-receipt', [SaleController::class, 'printReceipt'])->name('print-receipt');
-    Route::get('/{sale}/email-receipt', [SaleController::class, 'emailReceipt'])->name('email-receipt');
-    Route::get('/pos', [SaleController::class, 'pos'])->name('pos');
-      Route::get('/{sale}', [SaleController::class, 'show'])->name('show');
-    Route::post('/pos/quick-sale', [SaleController::class, 'quickSale'])->name('pos.quick-sale');
-    Route::post('/pos/initiate-mpesa', [SaleController::class, 'initiateMpesa'])->name('pos.initiate-mpesa');
-    Route::post('/pos/check-mpesa-status', [SaleController::class, 'checkMpesaStatus'])->name('pos.check-mpesa-status');
-});
+    Route::prefix('sales')->name('sales.')->group(function () {
+        Route::get('/', [SaleController::class, 'pos'])->name('index');
+        Route::get('/create', [SaleController::class, 'create'])->name('create');
+        Route::post('/', [SaleController::class, 'store'])->name('store');
+        Route::get('/{sale}/edit', [SaleController::class, 'edit'])->name('edit');
+        Route::put('/{sale}', [SaleController::class, 'update'])->name('update');
+        Route::delete('/{sale}', [SaleController::class, 'destroy'])->name('destroy');
+        Route::post('/{sale}/update-status', [SaleController::class, 'updateStatus'])->name('update-status');
+        Route::post('/{sale}/add-payment', [SaleController::class, 'addPayment'])->name('add-payment');
+        Route::post('/{sale}/cancel', [SaleController::class, 'cancel'])->name('cancel');
+        Route::get('/today', [SaleController::class, 'today'])->name('today');
+        Route::get('/pending-payment', [SaleController::class, 'pendingPayment'])->name('pending-payment');
+        Route::get('/cancelled', [SaleController::class, 'cancelled'])->name('cancelled');
+        Route::get('/daily-report', [SaleController::class, 'dailySalesReport'])->name('daily-report');
+        Route::get('/monthly-report', [SaleController::class, 'monthlyReport'])->name('monthly-report');
+        Route::get('/export', [SaleController::class, 'export'])->name('export');
+        Route::get('/{sale}/print', [SaleController::class, 'print'])->name('print');
+        Route::get('/{sale}/print-receipt', [SaleController::class, 'printReceipt'])->name('print-receipt');
+        Route::get('/{sale}/email-receipt', [SaleController::class, 'emailReceipt'])->name('email-receipt');
+        Route::get('/pos', [SaleController::class, 'pos'])->name('pos');
+        Route::get('/{sale}', [SaleController::class, 'show'])->name('show');
+        Route::post('/pos/quick-sale', [SaleController::class, 'quickSale'])->name('pos.quick-sale');
+        Route::post('/pos/initiate-mpesa', [SaleController::class, 'initiateMpesa'])->name('pos.initiate-mpesa');
+        Route::post('/pos/check-mpesa-status', [SaleController::class, 'checkMpesaStatus'])->name('pos.check-mpesa-status');
+    });
 
     // Inventory
     Route::prefix('inventory')->name('inventory.')->group(function () {
@@ -945,33 +868,6 @@ Route::prefix('sales')->name('sales.')->group(function () {
         Route::get('/check-expiring', [StockAlertController::class, 'checkExpiring'])->name('check-expiring');
     });
 
-  // Payment Transactions
-Route::prefix('payments')->name('payments.')->group(function () {
-    // Main views
-    Route::get('/', [PaymentTransactionController::class, 'index'])->name('index');
-    Route::get('/export', [PaymentTransactionController::class, 'export'])->name('export');
-    Route::get('/today-stats', [PaymentTransactionController::class, 'todayStats'])->name('today-stats');
-    Route::get('/mpesa-transactions', [PaymentTransactionController::class, 'mpesaTransactions'])->name('mpesa-transactions');
-
-    // Single transaction operations
-    Route::get('/{paymentTransaction}', [PaymentTransactionController::class, 'show'])->name('show');
-    Route::put('/{paymentTransaction}', [PaymentTransactionController::class, 'update'])->name('update');
-    Route::delete('/{paymentTransaction}', [PaymentTransactionController::class, 'destroy'])->name('destroy');
-    Route::post('/{paymentTransaction}/reverse', [PaymentTransactionController::class, 'reverse'])->name('reverse');
-    Route::get('/{paymentTransaction}/print', [PaymentTransactionController::class, 'printReceipt'])->name('print');
-    Route::post('/{paymentTransaction}/reconcile', [PaymentTransactionController::class, 'reconcile'])->name('reconcile');
-
-    // Utility routes
-    Route::get('/today', [PaymentTransactionController::class, 'today'])->name('today');
-    Route::get('/pending-reconciliation', [PaymentTransactionController::class, 'pendingReconciliation'])->name('pending-reconciliation');
-    Route::get('/by-method/{method}', [PaymentTransactionController::class, 'byMethod'])->name('by-method');
-    Route::get('/by-sale/{saleId}', [PaymentTransactionController::class, 'getBySaleId'])->name('by-sale');
-
-    // M-Pesa callbacks
-    Route::post('/mpesa/callback', [PaymentTransactionController::class, 'mpesaCallback'])->name('mpesa.callback');
-    Route::post('/mpesa/validate', [PaymentTransactionController::class, 'mpesaValidate'])->name('mpesa.validate');
-});
-
     // Shops
     Route::prefix('shops')->name('shops.')->group(function () {
         Route::get('/', [ShopController::class, 'index'])->name('index');
@@ -992,27 +888,6 @@ Route::prefix('payments')->name('payments.')->group(function () {
     Route::delete('/business-sections/{section}', [BusinessSectionController::class, 'destroy'])->name('business-sections.destroy');
     Route::get('/api/business-sections', [BusinessSectionController::class, 'getSections'])->name('api.business-sections.index');
 
-    // Settings
-    Route::prefix('settings')->name('settings.')->group(function () {
-        Route::get('/', [CafeteriaController::class, 'settings'])->name('index');
-        Route::put('/general', [CafeteriaController::class, 'updateGeneralSettings'])->name('general.update');
-        Route::put('/inventory', [CafeteriaController::class, 'updateInventorySettings'])->name('inventory.update');
-        Route::put('/sales', [CafeteriaController::class, 'updateSalesSettings'])->name('sales.update');
-        Route::put('/notifications', [CafeteriaController::class, 'updateNotificationSettings'])->name('notifications.update');
-        Route::put('/integrations', [CafeteriaController::class, 'updateIntegrationSettings'])->name('integrations.update');
-
-        Route::get('/printers', [CafeteriaController::class, 'printers'])->name('printers.index');
-        Route::post('/printers', [CafeteriaController::class, 'addPrinter'])->name('printers.store');
-        Route::put('/printers/{printer}', [CafeteriaController::class, 'updatePrinter'])->name('printers.update');
-        Route::delete('/printers/{printer}', [CafeteriaController::class, 'deletePrinter'])->name('printers.delete');
-        Route::post('/printers/test/{printer}', [CafeteriaController::class, 'testPrinter'])->name('printers.test');
-
-        Route::get('/taxes', [CafeteriaController::class, 'taxes'])->name('taxes.index');
-        Route::post('/taxes', [CafeteriaController::class, 'addTax'])->name('taxes.store');
-        Route::put('/taxes/{tax}', [CafeteriaController::class, 'updateTax'])->name('taxes.update');
-        Route::delete('/taxes/{tax}', [CafeteriaController::class, 'deleteTax'])->name('taxes.delete');
-    });
-
     // Daily Productions
     Route::prefix('daily-productions')->name('daily-productions.')->group(function () {
         Route::get('/', [CafeteriaDailyProductionController::class, 'index'])->name('index');
@@ -1023,6 +898,45 @@ Route::prefix('payments')->name('payments.')->group(function () {
         Route::post('/{id}/verify', [CafeteriaDailyProductionController::class, 'verify'])->name('verify');
         Route::post('/{id}/update-sales', [CafeteriaDailyProductionController::class, 'updateSales'])->name('update-sales');
         Route::get('/statistics', [CafeteriaDailyProductionController::class, 'statistics'])->name('statistics');
+    });
+
+    // Settings
+    Route::prefix('settings')->name('settings.')->group(function () {
+        Route::get('/', [CafeteriaController::class, 'settings'])->name('index');
+        Route::put('/general', [CafeteriaController::class, 'updateGeneralSettings'])->name('general.update');
+        Route::put('/inventory', [CafeteriaController::class, 'updateInventorySettings'])->name('inventory.update');
+        Route::put('/sales', [CafeteriaController::class, 'updateSalesSettings'])->name('sales.update');
+        Route::put('/notifications', [CafeteriaController::class, 'updateNotificationSettings'])->name('notifications.update');
+        Route::put('/integrations', [CafeteriaController::class, 'updateIntegrationSettings'])->name('integrations.update');
+        Route::get('/printers', [CafeteriaController::class, 'printers'])->name('printers.index');
+        Route::post('/printers', [CafeteriaController::class, 'addPrinter'])->name('printers.store');
+        Route::put('/printers/{printer}', [CafeteriaController::class, 'updatePrinter'])->name('printers.update');
+        Route::delete('/printers/{printer}', [CafeteriaController::class, 'deletePrinter'])->name('printers.delete');
+        Route::post('/printers/test/{printer}', [CafeteriaController::class, 'testPrinter'])->name('printers.test');
+        Route::get('/taxes', [CafeteriaController::class, 'taxes'])->name('taxes.index');
+        Route::post('/taxes', [CafeteriaController::class, 'addTax'])->name('taxes.store');
+        Route::put('/taxes/{tax}', [CafeteriaController::class, 'updateTax'])->name('taxes.update');
+        Route::delete('/taxes/{tax}', [CafeteriaController::class, 'deleteTax'])->name('taxes.delete');
+    });
+
+    // Reports
+    Route::prefix('reports')->name('reports.')->group(function () {
+        Route::get('/sales/daily', [ReportController::class, 'dailySalesReport'])->name('sales.daily');
+        Route::get('/sales/monthly', [ReportController::class, 'monthlySalesReport'])->name('sales.monthly');
+        Route::get('/sales/custom', [ReportController::class, 'customSalesReport'])->name('sales.custom');
+        Route::get('/purchase/summary', [ReportController::class, 'purchaseSummaryReport'])->name('purchase.summary');
+        Route::get('/purchase/supplier', [ReportController::class, 'supplierPurchaseReport'])->name('purchase.supplier');
+        Route::get('/inventory/stock-levels', [ReportController::class, 'inventoryStockLevelsReport'])->name('inventory.stock-levels');
+        Route::get('/inventory/movement', [ReportController::class, 'inventoryMovementReport'])->name('inventory.movement');
+        Route::get('/inventory/turnover', [ReportController::class, 'inventoryTurnoverReport'])->name('inventory.turnover');
+        Route::get('/financial/profit-loss', [ReportController::class, 'profitLossReport'])->name('financial.profit-loss');
+        Route::get('/financial/revenue', [ReportController::class, 'revenueReport'])->name('financial.revenue');
+        Route::get('/financial/expenses', [ReportController::class, 'expensesReport'])->name('financial.expenses');
+        Route::get('/export/{type}', [ReportController::class, 'exportReport'])->name('export');
+        Route::get('/dashboard', [ReportController::class, 'dashboard'])->name('dashboard');
+        Route::get('/quick-stats', [ReportController::class, 'quickStats'])->name('quick-stats');
+        Route::post('/schedule', [ReportController::class, 'scheduleReport'])->name('schedule');
+        Route::get('/export/all', [ReportController::class, 'exportAllReports'])->name('export.all');
     });
 
     // API Endpoints
@@ -1041,37 +955,14 @@ Route::prefix('payments')->name('payments.')->group(function () {
         Route::get('/business-sections', [BusinessSectionController::class, 'apiIndex'])->name('business-sections.index');
     });
 
-    // Reports
-    Route::prefix('reports')->name('reports.')->group(function () {
-        Route::get('/sales/daily', [ReportController::class, 'dailySalesReport'])->name('sales.daily');
-        Route::get('/sales/monthly', [ReportController::class, 'monthlySalesReport'])->name('sales.monthly');
-        Route::get('/sales/custom', [ReportController::class, 'customSalesReport'])->name('sales.custom');
-        Route::get('/purchase/summary', [ReportController::class, 'purchaseSummaryReport'])->name('purchase.summary');
-        Route::get('/purchase/supplier', [ReportController::class, 'supplierPurchaseReport'])->name('purchase.supplier');
-        Route::get('/inventory/stock-levels', [ReportController::class, 'inventoryStockLevelsReport'])->name('inventory.stock-levels');
-        Route::get('/inventory/movement', [ReportController::class, 'inventoryMovementReport'])->name('inventory.movement');
-        Route::get('/inventory/turnover', [ReportController::class, 'inventoryTurnoverReport'])->name('inventory.turnover');
-        Route::get('/financial/profit-loss', [ReportController::class, 'profitLossReport'])->name('financial.profit-loss');
-        Route::get('/financial/revenue', [ReportController::class, 'revenueReport'])->name('financial.revenue');
-        Route::get('/financial/expenses', [ReportController::class, 'expensesReport'])->name('financial.expenses');
-        Route::get('/export/{type}', [ReportController::class, 'exportReport'])->name('export');
-    // Reports Dashboard
-Route::get('/dashboard', [ReportController::class, 'dashboard'])->name('dashboard');
-Route::get('/quick-stats', [ReportController::class, 'quickStats'])->name('quick-stats');
-Route::post('/schedule', [ReportController::class, 'scheduleReport'])->name('schedule');
-Route::get('/export/all', [ReportController::class, 'exportAllReports'])->name('export.all');
-        });
-
     // Quick Actions
     Route::post('/quick/reorder/{product}', [ProductController::class, 'quickReorder'])->name('quick.reorder');
     Route::post('/quick/adjust-stock', [InventoryStocksController::class, 'quickAdjustStock'])->name('quick.adjust-stock');
     Route::post('/quick/transfer-stock', [InventoryStocksController::class, 'quickTransferStock'])->name('quick.transfer-stock');
-    Route::post('/quick/process-payment', [PaymentTransactionController::class, 'quickProcessPayment'])->name('quick.process-payment');
 
     // Bulk Actions
     Route::post('/bulk/update-product-prices', [ProductController::class, 'bulkUpdatePrices'])->name('bulk.update-product-prices');
     Route::post('/bulk/update-stock-levels', [InventoryStocksController::class, 'bulkUpdateStockLevels'])->name('bulk.update-stock-levels');
-    Route::post('/bulk/process-payments', [PaymentTransactionController::class, 'bulkProcessPayments'])->name('bulk.process-payments');
     Route::post('/bulk/approve-purchase-orders', [PurchaseOrderController::class, 'bulkApprove'])->name('bulk.approve-purchase-orders');
     Route::post('/bulk/process-grn', [GoodsReceivedNoteController::class, 'bulkProcess'])->name('bulk.process-grn');
 
@@ -1095,7 +986,7 @@ Route::get('/export/all', [ReportController::class, 'exportAllReports'])->name('
     Route::post('/notifications/{notification}/mark-read', [CafeteriaController::class, 'markNotificationRead'])->name('notifications.mark-read');
     Route::delete('/notifications/{notification}', [CafeteriaController::class, 'deleteNotification'])->name('notifications.delete');
 
-    // User Management (Cafeteria)
+    // User Management
     Route::prefix('users')->name('users.')->group(function () {
         Route::get('/', [CafeteriaController::class, 'users'])->name('index');
         Route::get('/create', [CafeteriaController::class, 'createUser'])->name('create');
@@ -1112,10 +1003,10 @@ Route::get('/export/all', [ReportController::class, 'exportAllReports'])->name('
 });
 
 // ============================================================================
-// FINANCE ROUTES
+// FINANCE ROUTES - COMPLETE (All Fee, Payment, Transaction Routes Here)
 // ============================================================================
 // ============================================================================
-// FINANCE ROUTES - CONSOLIDATED
+// FINANCE ROUTES - COMPLETE (All Fee, Payment, Transaction Routes Here)
 // ============================================================================
 Route::middleware(['auth', 'verified', 'role.finance'])
     ->prefix('finance')
@@ -1124,7 +1015,18 @@ Route::middleware(['auth', 'verified', 'role.finance'])
 
     // Dashboard
     Route::get('/dashboard', [FinanceController::class, 'dashboard'])->name('dashboard');
+// ==================== 4. STUDENT FINANCIAL VIEWS ====================
+Route::prefix('students')->name('students.')->group(function () {
+    // Add this search route
+    Route::get('/search', [FinanceController::class, 'searchStudents'])->name('search');
+    Route::get('/list', [FinanceController::class, 'studentList'])->name('list');
 
+    Route::get('/{student}/financial', [FinanceController::class, 'studentFinancials'])->name('financial');
+    Route::get('/{student}/transactions', [FinanceController::class, 'studentTransactions'])->name('transactions');
+    Route::get('/{student}/balance', [FinanceController::class, 'studentBalance'])->name('balance');
+    Route::get('/{student}/statement', [FinanceController::class, 'studentStatement'])->name('statement');
+    Route::get('/{student}/enrollments', [FinanceController::class, 'studentEnrollments'])->name('enrollments');
+});
     // ==================== 1. STUDENT FEE MANAGEMENT ====================
     Route::prefix('student-fees')->name('student-fees.')->group(function () {
         Route::get('/', [FinanceController::class, 'studentFees'])->name('index');
@@ -1135,19 +1037,27 @@ Route::middleware(['auth', 'verified', 'role.finance'])
         Route::post('/{payment}/verify', [FinanceController::class, 'verifyStudentFee'])->name('verify');
         Route::post('/{payment}/reverse', [FinanceController::class, 'reverseStudentFee'])->name('reverse');
         Route::post('/{payment}/reconcile', [FinanceController::class, 'reconcileStudentFee'])->name('reconcile');
+
+        // Fee Reminders
         Route::post('/send-reminders', [FinanceController::class, 'sendFeeReminders'])->name('send-reminders');
         Route::post('/send-reminder/{enrollment}', [FinanceController::class, 'sendSingleFeeReminder'])->name('send-single-reminder');
         Route::post('/bulk-balance-reminders', [FinanceController::class, 'sendBulkBalanceReminders'])->name('bulk-balance-reminders');
         Route::get('/eligible-for-reminder', [FinanceController::class, 'getEligibleForReminder'])->name('eligible-for-reminder');
-        Route::get('/reports/daily', [FinanceController::class, 'dailyFeeReport'])->name('reports.daily');
-        Route::get('/reports/monthly', [FinanceController::class, 'monthlyFeeReport'])->name('reports.monthly');
-        Route::get('/reports/outstanding', [FinanceController::class, 'outstandingFeeReport'])->name('reports.outstanding');
+
+        // Reports
+        Route::prefix('reports')->name('reports.')->group(function () {
+            Route::get('/daily', [FinanceController::class, 'dailyFeeReport'])->name('daily');
+            Route::get('/monthly', [FinanceController::class, 'monthlyFeeReport'])->name('monthly');
+            Route::get('/outstanding', [FinanceController::class, 'outstandingFeeReport'])->name('outstanding');
+        });
+
+        // Export & Bulk
         Route::get('/export', [FinanceController::class, 'exportStudentFees'])->name('export');
         Route::post('/bulk/verify', [FinanceController::class, 'bulkVerifyFees'])->name('bulk.verify');
         Route::post('/bulk/reconcile', [FinanceController::class, 'bulkReconcileFees'])->name('bulk.reconcile');
     });
 
-    // ==================== 2. TRANSACTION MANAGEMENT ====================
+    // ==================== 2. PAYMENT TRANSACTIONS ====================
     Route::prefix('transactions')->name('transactions.')->group(function () {
         Route::get('/', [FinanceController::class, 'transactions'])->name('index');
         Route::get('/{transaction}', [FinanceController::class, 'showTransaction'])->name('show');
@@ -1173,10 +1083,11 @@ Route::middleware(['auth', 'verified', 'role.finance'])
         Route::get('/balance-sheet', [FinanceController::class, 'balanceSheet'])->name('balance-sheet');
         Route::get('/cashflow', [FinanceController::class, 'cashflowReport'])->name('cashflow');
         Route::get('/revenue-trends', [FinanceController::class, 'revenueTrends'])->name('revenue-trends');
-        Route::get('/export/{type}', [FinanceController::class, 'exportFinancialReport'])->name('export');
+        Route::get('/export/{type}', [FinanceController::class, 'exportFinancialReport'])->name('export-financial');
+        Route::get('/enrollment-financial', [FinanceController::class, 'enrollmentFinancialReport'])->name('enrollment-financial');
     });
 
-    // ==================== 4. STUDENT FINANCIAL VIEWS (College) ====================
+    // ==================== 4. STUDENT FINANCIAL VIEWS ====================
     Route::prefix('students')->name('students.')->group(function () {
         Route::get('/{student}/financial', [FinanceController::class, 'studentFinancials'])->name('financial');
         Route::get('/{student}/transactions', [FinanceController::class, 'studentTransactions'])->name('transactions');
@@ -1208,11 +1119,8 @@ Route::middleware(['auth', 'verified', 'role.finance'])
     });
 
     // ==================== 7. HIGH SCHOOL CARD SYSTEM ====================
-    // This is managed entirely by Finance Department
-
-    // 7.1 High School Student Management
-    // ==================== STUDENT MANAGEMENT ====================
-    Route::prefix('students')->name('students.')->group(function () {
+    // Student Management
+    Route::prefix('hs-students')->name('hs-students.')->group(function () {
         Route::get('/', [HighSchoolStudentController::class, 'index'])->name('index');
         Route::get('/create', [HighSchoolStudentController::class, 'create'])->name('create');
         Route::post('/', [HighSchoolStudentController::class, 'store'])->name('store');
@@ -1220,19 +1128,15 @@ Route::middleware(['auth', 'verified', 'role.finance'])
         Route::get('/{student}/edit', [HighSchoolStudentController::class, 'edit'])->name('edit');
         Route::put('/{student}', [HighSchoolStudentController::class, 'update'])->name('update');
         Route::delete('/{student}', [HighSchoolStudentController::class, 'destroy'])->name('destroy');
-
-        // Import/Export
         Route::get('/import', [HighSchoolStudentController::class, 'importView'])->name('import');
         Route::post('/import', [HighSchoolStudentController::class, 'importProcess'])->name('import.process');
         Route::get('/export', [HighSchoolStudentController::class, 'export'])->name('export');
         Route::get('/template', [HighSchoolStudentController::class, 'downloadTemplate'])->name('template');
-
-        // Bulk Actions
         Route::post('/bulk/activate', [HighSchoolStudentController::class, 'bulkActivate'])->name('bulk.activate');
         Route::post('/bulk/deactivate', [HighSchoolStudentController::class, 'bulkDeactivate'])->name('bulk.deactivate');
     });
 
-    // ==================== CARD MANAGEMENT ====================
+    // Card Management
     Route::prefix('cards')->name('cards.')->group(function () {
         Route::get('/', [CardAccountController::class, 'index'])->name('index');
         Route::get('/create', [CardAccountController::class, 'create'])->name('create');
@@ -1241,34 +1145,24 @@ Route::middleware(['auth', 'verified', 'role.finance'])
         Route::get('/{cardAccount}/edit', [CardAccountController::class, 'edit'])->name('edit');
         Route::put('/{cardAccount}', [CardAccountController::class, 'update'])->name('update');
         Route::delete('/{cardAccount}', [CardAccountController::class, 'destroy'])->name('destroy');
-
-        // Card Actions
         Route::post('/{cardAccount}/activate', [CardAccountController::class, 'activate'])->name('activate');
         Route::post('/{cardAccount}/deactivate', [CardAccountController::class, 'deactivate'])->name('deactivate');
         Route::post('/{cardAccount}/lock', [CardAccountController::class, 'lock'])->name('lock');
         Route::post('/{cardAccount}/unlock', [CardAccountController::class, 'unlock'])->name('unlock');
         Route::post('/{cardAccount}/block', [CardAccountController::class, 'block'])->name('block');
         Route::post('/{cardAccount}/unblock', [CardAccountController::class, 'unblock'])->name('unblock');
-
-        // Balance Management
         Route::post('/{cardAccount}/adjust-balance', [CardAccountController::class, 'adjustBalance'])->name('adjust-balance');
         Route::get('/{cardAccount}/balance', [CardAccountController::class, 'getBalance'])->name('balance');
-
-        // QR Code
         Route::post('/{cardAccount}/generate-qr', [CardQrController::class, 'generate'])->name('generate-qr');
         Route::get('/{cardAccount}/print-qr', [CardQrController::class, 'print'])->name('print-qr');
         Route::get('/{cardAccount}/download-qr', [CardQrController::class, 'download'])->name('download-qr');
-
-        // Bulk Operations
         Route::post('/bulk/issue', [CardAccountController::class, 'bulkIssue'])->name('bulk.issue');
         Route::post('/bulk/generate-qr', [CardQrController::class, 'bulkGenerate'])->name('bulk.generate-qr');
         Route::get('/bulk/print-sheet', [CardQrController::class, 'printSheet'])->name('bulk.print-sheet');
-
-        // Card History
         Route::get('/{cardAccount}/transactions', [CardAccountController::class, 'transactions'])->name('transactions');
     });
 
-    // ==================== FUNDING REQUESTS ====================
+    // Funding Requests
     Route::prefix('funding')->name('funding.')->group(function () {
         Route::get('/', [CardFundingRequestController::class, 'index'])->name('index');
         Route::get('/{cardFundingRequest}', [CardFundingRequestController::class, 'show'])->name('show');
@@ -1281,8 +1175,8 @@ Route::middleware(['auth', 'verified', 'role.finance'])
         Route::get('/export', [CardFundingRequestController::class, 'export'])->name('export');
     });
 
-    // ==================== REPORTS ====================
-    Route::prefix('reports')->name('reports.')->group(function () {
+    // Card Reports
+    Route::prefix('card-reports')->name('card-reports.')->group(function () {
         Route::get('/', [CardReportController::class, 'index'])->name('index');
         Route::get('/daily', [CardReportController::class, 'daily'])->name('daily');
         Route::get('/monthly', [CardReportController::class, 'monthly'])->name('monthly');
@@ -1293,8 +1187,8 @@ Route::middleware(['auth', 'verified', 'role.finance'])
         Route::get('/export', [CardReportController::class, 'export'])->name('export');
     });
 
-    // ==================== API ENDPOINTS (POS Scanning) ====================
-    Route::prefix('api')->name('api.')->group(function () {
+    // Card API Endpoints
+    Route::prefix('card-api')->name('card-api.')->group(function () {
         Route::get('/student/{admission}', [CardAccountController::class, 'findByAdmission'])->name('find-by-admission');
         Route::get('/card/{cardNumber}', [CardAccountController::class, 'findByCardNumber'])->name('find-by-card');
         Route::post('/scan', [CardAccountController::class, 'scan'])->name('scan');
@@ -1302,19 +1196,25 @@ Route::middleware(['auth', 'verified', 'role.finance'])
         Route::get('/student/{student}/transactions', [CardAccountController::class, 'studentTransactions'])->name('student-transactions');
     });
 });
-});
 
 // ============================================================================
 // TRAINERS ROUTES
 // ============================================================================
-Route::middleware(['auth', 'verified', 'role.trainers'])->prefix('trainers')->name('trainers.')->group(function () {
+Route::middleware(['auth', 'verified', 'role.trainers'])
+    ->prefix('trainers')
+    ->name('trainers.')
+    ->group(function () {
     Route::get('/dashboard', [TrainersController::class, 'dashboard'])->name('dashboard');
 });
 
 // ============================================================================
 // WEBSITE ROUTES
 // ============================================================================
-Route::middleware(['auth', 'verified', 'role.website'])->prefix('website')->name('website.')->group(function () {
+Route::middleware(['auth', 'verified', 'role.website'])
+    ->prefix('website')
+    ->name('website.')
+    ->group(function () {
+
     Route::get('/dashboard', [WebsiteController::class, 'dashboard'])->name('dashboard');
     Route::get('/analytics/visitors', [WebsiteController::class, 'getVisitorAnalytics'])->name('analytics.visitors');
 
@@ -1324,15 +1224,16 @@ Route::middleware(['auth', 'verified', 'role.website'])->prefix('website')->name
         Route::put('/{campus}', [CampusController::class, 'update'])->name('update');
         Route::delete('/{campus}', [CampusController::class, 'destroy'])->name('destroy');
     });
-// Certifications Management
-Route::prefix('certifications')->name('certifications.')->group(function () {
-    Route::get('/', [CertificationController::class, 'index'])->name('index');
-    Route::post('/', [CertificationController::class, 'store'])->name('store');
-    Route::get('/{certification}', [CertificationController::class, 'show'])->name('show');
-    Route::put('/{certification}', [CertificationController::class, 'update'])->name('update');
-    Route::delete('/{certification}', [CertificationController::class, 'destroy'])->name('destroy');
-    Route::post('/{id}/toggle-status', [CertificationController::class, 'toggleStatus'])->name('toggle-status');
-});
+
+    Route::prefix('certifications')->name('certifications.')->group(function () {
+        Route::get('/', [CertificationController::class, 'index'])->name('index');
+        Route::post('/', [CertificationController::class, 'store'])->name('store');
+        Route::get('/{certification}', [CertificationController::class, 'show'])->name('show');
+        Route::put('/{certification}', [CertificationController::class, 'update'])->name('update');
+        Route::delete('/{certification}', [CertificationController::class, 'destroy'])->name('destroy');
+        Route::post('/{id}/toggle-status', [CertificationController::class, 'toggleStatus'])->name('toggle-status');
+    });
+
     // Contact Info
     Route::get('contact-infos', [ContactInfoController::class, 'index'])->name('contact-infos.index');
     Route::post('contact-infos', [ContactInfoController::class, 'store'])->name('contact-infos.store');
@@ -1561,6 +1462,7 @@ Route::prefix('application-payment')->name('application.payment.')->group(functi
     Route::post('/callback', [ApplicationPaymentController::class, 'paymentCallback'])->name('callback');
     Route::post('/status', [ApplicationPaymentController::class, 'checkPaymentStatus'])->name('status');
 });
+
 // Public Library Routes
 Route::get('/library', [LibraryController::class, 'index'])->name('library.index');
 Route::get('/library/book/{id}', [LibraryController::class, 'show'])->name('library.book.show');
@@ -1568,12 +1470,9 @@ Route::get('/library/ebook/{ebook}', [LibraryController::class, 'showEBook'])->n
 Route::get('/library/ebook/{ebook}/download', [LibraryController::class, 'downloadEBook'])->name('library.ebook.download');
 Route::get('/library/donate', [LibraryController::class, 'donationForm'])->name('library.donation-form');
 Route::post('/library/donate', [LibraryController::class, 'submitDonation'])->name('library.donation.submit');
-Route::prefix('api/kcb/ipn')->name('kcb.ipn.')->group(function () {
-    // Main IPN endpoint - receives notifications from KCB
-    Route::post('/payment-notification', [App\Http\Controllers\KcbIpnController::class, 'handlePaymentNotification'])
-        ->name('payment-notification');
 
-    // Optional: Status check endpoint (if needed for debugging)
-    Route::get('/status/{transactionId}', [App\Http\Controllers\KcbIpnController::class, 'checkStatus'])
-        ->name('status');
+// KCB IPN Routes
+Route::prefix('api/kcb/ipn')->name('kcb.ipn.')->group(function () {
+    Route::post('/payment-notification', [KcbIpnController::class, 'handlePaymentNotification'])->name('payment-notification');
+    Route::get('/status/{transactionId}', [KcbIpnController::class, 'checkStatus'])->name('status');
 });

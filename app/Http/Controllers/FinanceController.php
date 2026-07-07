@@ -27,7 +27,92 @@ class FinanceController extends Controller
     {
         $this->smsService = $smsService;
     }
+/**
+ * ============================================================
+ * 6. STUDENT FINANCIAL VIEWS (FROM StudentController)
+ * ============================================================
+ */
 
+/**
+ * Search and list students for finance module
+ */
+public function searchStudents(Request $request)
+{
+    $user = Auth::user();
+
+    $query = Student::query();
+
+    // Filter by campus for non-admin users
+    if ($user->role != 2) {
+        $query->where('campus_id', $user->campus_id);
+    }
+
+    // Apply search filter
+    if ($request->filled('q')) {
+        $search = $request->q;
+        $query->where(function ($q) use ($search) {
+            $q->where('first_name', 'like', "%{$search}%")
+              ->orWhere('last_name', 'like', "%{$search}%")
+              ->orWhere('student_number', 'like', "%{$search}%")
+              ->orWhere('email', 'like', "%{$search}%")
+              ->orWhere('phone', 'like', "%{$search}%")
+              ->orWhere(DB::raw("CONCAT(first_name, ' ', last_name)"), 'like', "%{$search}%");
+        });
+    }
+
+    // Apply campus filter for admin
+    if ($request->filled('campus_id') && $user->role == 2) {
+        $query->where('campus_id', $request->campus_id);
+    }
+
+    // Get students with pagination
+    $students = $query->with(['campus', 'enrollments'])
+        ->orderBy('first_name')
+        ->paginate(20)
+        ->withQueryString();
+
+    // Get campus list for filter
+    $campuses = $user->role == 2 ? Campus::orderBy('name')->get() : [];
+
+    return view('ktvtc.finance.students.search', compact('students', 'campuses'));
+}
+
+/**
+ * List all students with financial summary
+ */
+public function studentList(Request $request)
+{
+    $user = Auth::user();
+
+    $query = Student::with(['campus']);
+
+    if ($user->role != 2) {
+        $query->where('campus_id', $user->campus_id);
+    }
+
+    if ($request->filled('campus_id') && $user->role == 2) {
+        $query->where('campus_id', $request->campus_id);
+    }
+
+    // Add financial summary for each student
+    $students = $query->paginate(20)->withQueryString();
+
+    // Calculate financial stats for each student
+    foreach ($students as $student) {
+        $student->total_fees = Enrollment::where('student_id', $student->id)->sum('total_fees');
+        $student->total_paid = FeePayment::where('student_id', $student->id)
+            ->where('status', 'completed')
+            ->sum('amount');
+        $student->balance = $student->total_fees - $student->total_paid;
+        $student->active_enrollments = Enrollment::where('student_id', $student->id)
+            ->where('status', 'active')
+            ->count();
+    }
+
+    $campuses = $user->role == 2 ? Campus::orderBy('name')->get() : [];
+
+    return view('ktvtc.finance.students.index', compact('students', 'campuses'));
+}
     /**
      * ============================================================
      * 1. DASHBOARD
