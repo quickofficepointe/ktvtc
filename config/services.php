@@ -45,4 +45,15 @@ return [
     'consumer_secret' => env('KCB_BUNI_CONSUMER_SECRET'),
     'callback_base_url' => env('KCB_BUNI_CALLBACK_BASE_URL', env('APP_URL')),
 ],
+ 'kcb_buni_sales' => [
+    'base_url' => env('KCB_BUNI_SALES_BASE_URL', 'https://api.buni.kcbgroup.com'),
+    'consumer_key' => env('KCB_BUNI_SALES_CONSUMER_KEY'),
+    'consumer_secret' => env('KCB_BUNI_SALES_CONSUMER_SECRET'),
+    'callback_base_url' => env('KCB_BUNI_SALES_CALLBACK_BASE_URL', env('APP_URL')),
+
+    // Cafeteria / Sales
+    'till_number' => env('KCB_BUNI_SALES_TILL_NUMBER', '7722609'),
+    'org_shortcode' => env('KCB_BUNI_SALES_ORG_SHORTCODE', '7722609'),
+    'org_passkey' => env('KCB_BUNI_SALES_ORG_PASSKEY', ''),
+],
 ];

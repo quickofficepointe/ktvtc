@@ -135,9 +135,11 @@ class KcbSalesService extends KcbService
      */
     public function generateKcbInvoiceNumber(Sale $sale)
     {
-        // Format: 7664166-SALE-{saleId}-{shopId}-{timestamp}
-        // Matches your event format: 7664166-EVT-{eventId}-{applicationId}-{timestamp}
-        return '7722609-SALE-' . $sale->id . '-' . ($sale->shop_id ?? '0') . '-' . time();
+        // Short and unique KCB account reference.
+        // Example: 7722609-000123
+        return config('services.kcb_buni_sales.till_number', '7722609')
+            . '-'
+            . str_pad((string) $sale->id, 6, '0', STR_PAD_LEFT);
     }
 
     /**
@@ -169,12 +171,19 @@ class KcbSalesService extends KcbService
             $payload = [
                 "phoneNumber" => $data['phone_number'],
                 "amount" => $amountString,
-                "invoiceNumber" => $data['invoice_number'], // This is the KCB invoice number
+                "invoiceNumber" => $data['invoice_number'],
                 "sharedShortCode" => true,
-                "orgShortCode" => "",
-                "orgPassKey" => "",
+                "orgShortCode" => config(
+                    'services.kcb_buni_sales.org_shortcode',
+                    config('services.kcb_buni_sales.till_number', '7722609')
+                ),
+                "orgPassKey" => config('services.kcb_buni_sales.org_passkey', ''),
                 "callbackUrl" => $callbackUrl,
-                "transactionDescription" => substr($data['description'] ?? 'Sale Payment', 0, 30)
+                "transactionDescription" => substr(
+                    $data['description'] ?? 'Sale Payment',
+                    0,
+                    30
+                ),
             ];
 
             Log::info('KCB Buni Sales STK Push Request:', $payload);

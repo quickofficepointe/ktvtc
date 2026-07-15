@@ -41,14 +41,29 @@ return Application::configure(basePath: dirname(__DIR__))
             '/api/kcb/sales/callback',
             'api/kcb/sales/callback',
 
+            // KCB IPN - School Fees (Till 7664166)
+            '/api/kcb/ipn',
+            'api/kcb/ipn',
+            '/api/kcb/ipn/payment-notification',
+            'api/kcb/ipn/payment-notification',
+
+            // KCB IPN - Card Funding (Till 7722609)
+            '/api/kcb/card/ipn',
+            'api/kcb/card/ipn',
+
+            // KCB STK Callback - Card Funding
+            '/api/kcb/card/funding/callback',
+            'api/kcb/card/funding/callback',
+
+            // KCB Status Check - Card Funding
+            '/api/kcb/card/funding/status',
+            'api/kcb/card/funding/status',
+
             // M-Pesa general callback
             '/mpesa/callback',
             'mpesa/callback',
 
-    // ✅ ADD KCB IPN ENDPOINT HERE
-    '/api/kcb/ipn/payment-notification',
-    'api/kcb/ipn/payment-notification',
-            // NEW: Application payment routes
+            // Application payment routes
             '/application-payment/callback',
             'application-payment/callback',
             '/application-payment/*',

@@ -1,5 +1,6 @@
 <?php
 // app/Http/Controllers/PublicCafeteriaController.php
+
 namespace App\Http\Controllers;
 
 use App\Models\Shop;
@@ -17,7 +18,6 @@ class PublicCafeteriaController extends Controller
 {
     public function index()
     {
-        // Get cafeterias (shops of type 'cafeteria')
         $cafeterias = Shop::where('is_active', true)
                       ->orderBy('shop_name')
                       ->get();
@@ -26,7 +26,6 @@ class PublicCafeteriaController extends Controller
             ->orderBy('name', 'asc')
             ->get();
 
-        // Get delivery/pickup locations
         $locations = DeliveryService::getLocations();
 
         return view('public.cafeteria.index', compact('cafeterias', 'locations', 'departments'));
@@ -45,25 +44,23 @@ class PublicCafeteriaController extends Controller
         $shopId = $request->shop_id;
         $shop = Shop::find($shopId);
 
-        // Get ACTIVE AND FEATURED products for this cafeteria
         $products = Product::where('shop_id', $shopId)
                           ->where('is_active', true)
-                          ->where('is_featured', true)  // ✅ Only show featured products to public
+                          ->where('is_featured', true)
                           ->with('category')
                           ->orderBy('sort_order')
                           ->orderBy('product_name')
                           ->get();
 
-        // Group by category for better display - also filter for featured only
         $categories = ProductCategory::whereHas('products', function($query) use ($shopId) {
             $query->where('shop_id', $shopId)
                   ->where('is_active', true)
-                  ->where('is_featured', true);  // ✅ Only categories with featured products
+                  ->where('is_featured', true);
         })
         ->with(['products' => function($query) use ($shopId) {
             $query->where('shop_id', $shopId)
                   ->where('is_active', true)
-                  ->where('is_featured', true)  // ✅ Only show featured products
+                  ->where('is_featured', true)
                   ->orderBy('sort_order')
                   ->orderBy('product_name');
         }])
@@ -75,11 +72,9 @@ class PublicCafeteriaController extends Controller
             'products' => $products,
             'categories' => $categories,
             'shop' => $shop,
-            'featured_count' => $products->count() // Optional: send count for debugging
+            'featured_count' => $products->count()
         ]);
     }
-
-    // ... rest of your methods remain the same ...
 
     public function placeOrder(Request $request)
     {
@@ -114,7 +109,6 @@ class PublicCafeteriaController extends Controller
                 return response()->json(['error' => 'Invalid location selected'], 400);
             }
 
-            // 1. FIRST: Calculate total amount and validate products
             $totalAmount = 0;
             $formattedItems = [];
 
@@ -125,7 +119,6 @@ class PublicCafeteriaController extends Controller
                     throw new \Exception("Product not found: {$item['product_id']}");
                 }
 
-                // ✅ Double-check that product is active AND featured before allowing order
                 if (!$product->is_active || !$product->is_featured) {
                     throw new \Exception("Product {$product->product_name} is not available for public ordering");
                 }
@@ -146,21 +139,20 @@ class PublicCafeteriaController extends Controller
                 ];
             }
 
-            // Add any fees if needed (delivery fee, service charge, etc.)
             $deliveryFee = $request->order_type === 'delivery' ? 50 : 0;
             $serviceFee = 0;
             $totalAmount += $deliveryFee + $serviceFee;
 
-            // 2. INITIATE STK PUSH FIRST
-            $kcbSalesService = app(KcbSalesService::class);
+            // ✅ Generate invoice number with SALE format
+            $invoiceNumber = $this->generateInvoiceNumberWithShop($shop->id);
+            Log::info('Generated invoice number for website order', ['invoice_number' => $invoiceNumber]);
 
-            // Create a temporary sale record first (in pending status)
             $tempSale = Sale::create([
                 'business_section_id' => $shop->business_section_id,
                 'shop_id' => $shop->id,
                 'sale_type' => 'online',
                 'channel' => 'website',
-                'invoice_number' => 'TEMP-' . date('YmdHis') . '-' . rand(1000, 9999),
+                'invoice_number' => $invoiceNumber,
                 'customer_name' => $request->customer_name,
                 'customer_phone' => $request->customer_phone,
                 'customer_email' => $request->customer_email,
@@ -176,11 +168,11 @@ class PublicCafeteriaController extends Controller
                 'delivery_instructions' => $this->formatDeliveryInstructions($request, $location),
                 'internal_notes' => $this->formatOrderNotes($request),
                 'sale_date' => now(),
-                'created_by' => 1, // System user
-                'recorded_by' => 1, // System user
+                'created_by' => 1,
+                'recorded_by' => 1,
             ]);
 
-            // 3. INITIATE STK PUSH PAYMENT
+            $kcbSalesService = app(KcbSalesService::class);
             $paymentResult = $kcbSalesService->initiateSalePayment(
                 $tempSale,
                 $request->customer_phone,
@@ -188,12 +180,10 @@ class PublicCafeteriaController extends Controller
             );
 
             if (isset($paymentResult['error'])) {
-                // Delete temporary sale if payment initiation fails
                 $tempSale->delete();
                 throw new \Exception("Payment initiation failed: " . $paymentResult['error']);
             }
 
-            // 4. Store the temporary sale with KCB details
             $tempSale->update([
                 'checkout_request_id' => $paymentResult['checkout_request_id'],
                 'merchant_request_id' => $paymentResult['merchant_request_id'],
@@ -201,7 +191,6 @@ class PublicCafeteriaController extends Controller
                 'kcb_response' => json_encode($paymentResult),
             ]);
 
-            // 5. Save order items (but don't update inventory yet - wait for payment confirmation)
             foreach ($formattedItems as $itemData) {
                 $tempSale->items()->create([
                     'product_id' => $itemData['product_id'],
@@ -266,12 +255,11 @@ class PublicCafeteriaController extends Controller
             $statusResult = $kcbSalesService->checkSalePaymentStatus($request->checkout_request_id);
 
             if ($statusResult['status'] === 'completed') {
-                // Update the temporary sale to final status
                 $sale = Sale::find($request->temp_sale_id);
 
                 if ($sale) {
-                    // Generate final invoice number
                     $finalInvoice = $this->generateInvoiceNumberWithShop($sale->shop_id);
+
                     $sale->update([
                         'invoice_number' => $finalInvoice,
                         'payment_status' => 'paid',
@@ -280,7 +268,6 @@ class PublicCafeteriaController extends Controller
                         'payment_confirmed_at' => now()
                     ]);
 
-                    // Update inventory now that payment is confirmed
                     $this->updateInventoryAfterPayment($sale);
 
                     return response()->json([
@@ -305,6 +292,18 @@ class PublicCafeteriaController extends Controller
                 'message' => 'Error checking payment status'
             ], 500);
         }
+    }
+
+    /**
+     * Generate invoice number for online orders - ✅ UPDATED to SALE format
+     */
+    private function generateInvoiceNumberWithShop($shopId)
+    {
+        $shop = Shop::find($shopId);
+        $shopCode = $shop ? strtoupper(substr($shop->shop_code, 0, 3)) : 'WEB';
+
+        // ✅ Use SALE format: 7722609-SALE-WEB-{date}-{rand}
+        return '7722609-SALE-' . $shopCode . '-' . date('Ymd') . '-' . str_pad(mt_rand(1, 99999), 5, '0', STR_PAD_LEFT);
     }
 
     private function formatDeliveryAddress($request, $location)
@@ -342,14 +341,11 @@ class PublicCafeteriaController extends Controller
     {
         $notes = [];
 
-        // Add pickup/delivery time
         $pickupTime = $this->getPickupTimeText($request);
         $notes[] = "Requested time: {$pickupTime}";
 
-        // Add order type
         $notes[] = "Order type: " . ucfirst($request->order_type);
 
-        // Add location
         $location = DeliveryService::getLocation($request->location_id);
         if ($location) {
             $notes[] = "Location: {$location['name']}";
@@ -409,32 +405,18 @@ class PublicCafeteriaController extends Controller
         return $text;
     }
 
-    // Helper method for generating invoice numbers
-    private function generateInvoiceNumberWithShop($shopId)
-    {
-        $shop = Shop::find($shopId);
-        $prefix = $shop ? strtoupper(substr($shop->shop_code, 0, 3)) : 'INV';
-        return $prefix . '-' . date('Ymd') . '-' . str_pad(mt_rand(1, 99999), 5, '0', STR_PAD_LEFT);
-    }
-
     private function getEstimatedReadyTimeForSale($sale)
     {
-        // Calculate based on order time + preparation time
         return now()->addMinutes(25)->format('h:i A');
     }
 
     private function updateInventoryAfterPayment($sale)
     {
-        // Logic to update inventory after payment confirmation
         foreach ($sale->items as $item) {
             $product = Product::find($item->product_id);
             if ($product && $product->track_inventory) {
-                // Reduce stock
                 $product->current_stock -= $item->quantity;
                 $product->save();
-
-                // Record inventory movement
-                // You can add inventory movement logging here if needed
             }
         }
     }

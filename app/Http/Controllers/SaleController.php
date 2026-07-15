@@ -555,7 +555,7 @@ class SaleController extends Controller
                 }
             }
 
-            // Generate invoice number
+            // ✅ Generate invoice number with SALE format
             $invoiceNumber = $this->generateInvoiceNumberWithShop(auth()->user()->shop_id ?? 1);
             Log::info("Generated invoice: {$invoiceNumber}");
 
@@ -575,7 +575,7 @@ class SaleController extends Controller
                 'total_items' => 1,
                 'subtotal' => $product->selling_price * $request->quantity,
                 'total_amount' => $product->selling_price * $request->quantity,
-                'tax_amount' => 0, // No tax for cafeteria
+                'tax_amount' => 0,
                 'discount_amount' => 0,
                 'delivery_fee' => 0,
                 'service_charge' => 0,
@@ -591,7 +591,7 @@ class SaleController extends Controller
                 'product_name' => $product->product_name,
                 'product_code' => $product->product_code,
                 'description' => $product->description,
-                'unit' => $product->unit,
+                'unit' => $product->unit ?? 'piece',
                 'unit_price' => $product->selling_price,
                 'quantity' => $request->quantity,
                 'total_price' => $product->selling_price * $request->quantity,
@@ -619,19 +619,19 @@ class SaleController extends Controller
                 ]);
             }
 
-            // Update inventory - FIXED: In quickSale, we use $request->quantity, not $item['quantity']
+            // Update inventory
             if ($product->track_inventory) {
                 Log::info("Updating inventory for product {$product->id}");
 
                 $stockService = app(StockService::class);
                 $result = $stockService->updateStock(
                     $product->id,
-                    auth()->user()->shop_id ?? 1,  // Use user's shop ID
-                    $request->quantity,  // Use $request->quantity (not $item['quantity'])
+                    auth()->user()->shop_id ?? 1,
+                    $request->quantity,
                     'sale',
                     'Sale: ' . $invoiceNumber,
                     'Quick Sale',
-                    auth()->id()  // Use authenticated user ID
+                    auth()->id()
                 );
 
                 if (!$result['success']) {
@@ -702,7 +702,6 @@ class SaleController extends Controller
     {
         Log::info('=== TEST KCB CALLBACK ===');
 
-        // Simulate a successful KCB callback
         $testData = [
             'Body' => [
                 'stkCallback' => [
@@ -792,7 +791,7 @@ class SaleController extends Controller
             // Clean phone number
             $cleanPhone = preg_replace('/\D/', '', $request->phone);
 
-            // Generate invoice number
+            // ✅ Generate invoice number with SALE format
             $invoiceNumber = $this->generateInvoiceNumberWithShop($shopId);
             Log::info('Generated invoice number', ['invoice_number' => $invoiceNumber]);
 
@@ -829,7 +828,7 @@ class SaleController extends Controller
                     'product_name' => $product->product_name,
                     'product_code' => $product->product_code,
                     'description' => $product->description,
-                    'unit' => $product->unit,
+                    'unit' => $product->unit ?? 'piece',
                     'unit_price' => $product->selling_price,
                     'quantity' => $item['quantity'],
                     'total_price' => $itemTotal,
@@ -851,7 +850,6 @@ class SaleController extends Controller
                 'total_items' => $totalItems
             ]);
 
-            // Validate amount matches calculated total (allow small difference)
             if (abs($request->amount - $totalAmount) > 1) {
                 Log::warning('Amount mismatch', [
                     'calculated' => $totalAmount,
@@ -883,6 +881,7 @@ class SaleController extends Controller
                 'order_status' => 'pending',
                 'cashier_id' => $user->id,
                 'created_by' => $user->id,
+                'recorded_by' => $user->id,
                 'sale_date' => now(),
             ]);
 
@@ -906,7 +905,7 @@ class SaleController extends Controller
                             'sale',
                             'Sale: ' . $sale->invoice_number,
                             'POS Sale',
-                            $user->id  // Add recorded_by parameter
+                            $user->id
                         );
 
                         if (!$result['success']) {
@@ -963,37 +962,31 @@ class SaleController extends Controller
     }
 
     /**
-     * Display pending payments (sales with pending payment status)
+     * Display pending payments
      */
     public function pendingPayment(Request $request)
     {
         Log::info('=== PENDING PAYMENTS PAGE ===');
 
         try {
-            // Get user's shop
             $shopId = auth()->user()->shop_id ?? null;
 
-            // Base query for pending payments
             $query = Sale::with(['businessSection', 'shop', 'cashier', 'customer'])
                 ->where('payment_status', 'pending')
                 ->orderBy('created_at', 'desc');
 
-            // Filter by shop if user has a shop
             if ($shopId) {
                 $query->where('shop_id', $shopId);
             }
 
-            // Filter by date range
             if ($request->has('start_date') && $request->has('end_date')) {
                 $startDate = Carbon::parse($request->start_date)->startOfDay();
                 $endDate = Carbon::parse($request->end_date)->endOfDay();
                 $query->whereBetween('created_at', [$startDate, $endDate]);
             } else {
-                // Default: last 30 days
                 $query->where('created_at', '>=', now()->subDays(30));
             }
 
-            // Filter by customer phone/name
             if ($request->has('search')) {
                 $search = $request->search;
                 $query->where(function($q) use ($search) {
@@ -1003,11 +996,9 @@ class SaleController extends Controller
                 });
             }
 
-            // Paginate results
             $perPage = $request->get('per_page', 20);
             $sales = $query->paginate($perPage);
 
-            // Get stats
             $totalPendingAmount = Sale::where('payment_status', 'pending')
                 ->when($shopId, function($q) use ($shopId) {
                     return $q->where('shop_id', $shopId);
@@ -1027,7 +1018,6 @@ class SaleController extends Controller
                 })
                 ->count();
 
-            // Get shops for filter
             $shops = Shop::where('is_active', true)->get();
 
             Log::info('Pending payments loaded', [
@@ -1051,7 +1041,7 @@ class SaleController extends Controller
     }
 
     /**
-     * Retry payment for pending sale (AJAX)
+     * Retry payment for pending sale
      */
     public function retryPendingPayment(Request $request, $saleId)
     {
@@ -1060,7 +1050,6 @@ class SaleController extends Controller
         try {
             $sale = Sale::findOrFail($saleId);
 
-            // Validate sale can be retried
             if ($sale->payment_status !== 'pending') {
                 return response()->json([
                     'success' => false,
@@ -1068,7 +1057,6 @@ class SaleController extends Controller
                 ], 400);
             }
 
-            // Check if we have customer phone
             if (!$sale->customer_phone) {
                 return response()->json([
                     'success' => false,
@@ -1076,7 +1064,6 @@ class SaleController extends Controller
                 ], 400);
             }
 
-            // Use KCB service to retry payment
             $kcbSalesService = app(KcbSalesService::class);
             $result = $kcbSalesService->retrySalePayment($saleId, $sale->customer_phone);
 
@@ -1108,7 +1095,7 @@ class SaleController extends Controller
     }
 
     /**
-     * Mark pending payment as paid manually (AJAX)
+     * Mark pending payment as paid manually
      */
     public function markAsPaid(Request $request, $saleId)
     {
@@ -1136,7 +1123,6 @@ class SaleController extends Controller
                 throw new \Exception('Sale is not in pending status');
             }
 
-            // Update sale
             $sale->update([
                 'payment_status' => 'paid',
                 'payment_method' => $request->payment_method,
@@ -1145,7 +1131,6 @@ class SaleController extends Controller
                 'internal_notes' => $request->notes
             ]);
 
-            // Create payment transaction
             $sale->paymentTransactions()->create([
                 'transaction_number' => 'MANUAL-' . date('Ymd') . '-' . strtoupper(uniqid()),
                 'payment_method' => $request->payment_method,
@@ -1183,7 +1168,7 @@ class SaleController extends Controller
     }
 
     /**
-     * Cancel pending payment (AJAX)
+     * Cancel pending payment
      */
     public function cancelPendingPayment($saleId)
     {
@@ -1198,7 +1183,6 @@ class SaleController extends Controller
                 throw new \Exception('Sale is not in pending status');
             }
 
-            // Update sale
             $sale->update([
                 'payment_status' => 'cancelled',
                 'order_status' => 'cancelled',
@@ -1206,14 +1190,6 @@ class SaleController extends Controller
                 'cancelled_by' => auth()->id()
             ]);
 
-            // Create cancellation record
-            $sale->statusHistory()->create([
-                'status' => 'cancelled',
-                'notes' => 'Payment pending timeout/cancelled',
-                'changed_by' => auth()->id()
-            ]);
-
-            // Restore inventory (if inventory was deducted)
             foreach ($sale->items as $item) {
                 $product = $item->product;
                 if ($product && $product->track_inventory && !$item->is_production_item) {
@@ -1225,7 +1201,7 @@ class SaleController extends Controller
                         'return_in',
                         'Sale cancelled: ' . $sale->invoice_number,
                         'Restored from cancelled sale',
-                        auth()->id()  // Add recorded_by parameter
+                        auth()->id()
                     );
                 }
             }
@@ -1271,12 +1247,10 @@ class SaleController extends Controller
         }
 
         try {
-            // Use KCB service to check real status
             $kcbSalesService = app(KcbSalesService::class);
             $statusResult = $kcbSalesService->checkSalePaymentStatus($request->checkout_request_id);
 
             if (isset($statusResult['success']) && $statusResult['success']) {
-                // If we have a sale_id, also get sale details
                 $saleData = [];
                 if ($request->sale_id) {
                     $sale = Sale::find($request->sale_id);
@@ -1302,7 +1276,6 @@ class SaleController extends Controller
                         : 'Waiting for payment confirmation...'
                 ]);
             } else {
-                // If KCB check fails, return pending status
                 return response()->json([
                     'status' => 'pending',
                     'message' => 'Checking payment status...'
@@ -1373,13 +1346,10 @@ class SaleController extends Controller
         // Pre-process boolean fields
         $processedData = $request->all();
 
-        // Convert string booleans to actual booleans for items
         if (isset($processedData['items']) && is_array($processedData['items'])) {
             foreach ($processedData['items'] as &$item) {
                 if (isset($item['is_production_item'])) {
                     $value = $item['is_production_item'];
-
-                    // Convert string to boolean
                     if ($value === 'false' || $value === '0' || $value === 'no') {
                         $item['is_production_item'] = false;
                     } elseif ($value === 'true' || $value === '1' || $value === 'yes') {
@@ -1392,7 +1362,7 @@ class SaleController extends Controller
         DB::beginTransaction();
 
         try {
-            // Generate invoice number
+            // ✅ Generate invoice number with SALE format
             $invoiceNumber = $this->generateInvoiceNumberWithShop($processedData['shop_id']);
             Log::info("Generated invoice number: {$invoiceNumber}");
 
@@ -1406,110 +1376,102 @@ class SaleController extends Controller
 
             Log::info("Initial totals - Discount: {$discountAmount}, Tax: {$taxAmount}, Delivery: {$deliveryFee}, Service: {$serviceCharge}");
 
-            // Initialize StockService
             $stockService = app(StockService::class);
 
-            // Validate stock availability for non-production items
             foreach ($processedData['items'] as $item) {
                 $product = Product::find($item['product_id']);
                 Log::info("Checking stock for product: {$product->product_name}");
 
                 $isProductionItem = $item['is_production_item'] ?? false;
 
-               // Update inventory for non-production items - FIXED: Use $item['quantity'], not $itemData['quantity']
-if (!$isProductionItem && $product->track_inventory) {
-    Log::info("Updating inventory for {$product->product_name}");
+                if (!$isProductionItem && $product->track_inventory) {
+                    Log::info("Updating inventory for {$product->product_name}");
 
-    $result = $stockService->updateStock(
-        $product->id,
-        $request->shop_id,
-        $item['quantity'],  // Use $item['quantity'] from the current loop
-        'sale',
-        'Sale: ' . $invoiceNumber,
-        'Regular Sale',
-        $processedData['recorded_by'] ?? 1  // Use $processedData
-    );
+                    $result = $stockService->updateStock(
+                        $product->id,
+                        $request->shop_id,
+                        $item['quantity'],
+                        'sale',
+                        'Sale: ' . $invoiceNumber,
+                        'Regular Sale',
+                        $processedData['recorded_by'] ?? 1
+                    );
 
-    if (!$result['success']) {
-        throw new \Exception("Failed to update stock for {$product->product_name}: " . $result['message']);
-    }
-}
+                    if (!$result['success']) {
+                        throw new \Exception("Failed to update stock for {$product->product_name}: " . $result['message']);
+                    }
+                }
             }
 
-          // ===============================================
-// ADD THIS SECTION RIGHT BEFORE CREATING $data
-// ===============================================
-// Handle online orders (no authenticated user)
-$isOnlineOrder = $processedData['sale_type'] === 'online' ||
-                 $processedData['channel'] === 'website' ||
-                 (isset($processedData['is_online_order']) && $processedData['is_online_order']);
+            // Handle online orders
+            $isOnlineOrder = $processedData['sale_type'] === 'online' ||
+                             $processedData['channel'] === 'website' ||
+                             (isset($processedData['is_online_order']) && $processedData['is_online_order']);
 
-if ($isOnlineOrder) {
-    Log::info('Processing online order - no authenticated user');
+            if ($isOnlineOrder) {
+                Log::info('Processing online order - no authenticated user');
 
-    // Set default recorded_by for online orders
-    if (!isset($processedData['recorded_by'])) {
-        $processedData['recorded_by'] = 1; // Default admin/system user
-    }
-    if (!isset($processedData['created_by'])) {
-        $processedData['created_by'] = 1; // Default admin/system user
-    }
-    if (!isset($processedData['cashier_id']) && $processedData['sale_type'] == 'pos') {
-        $processedData['cashier_id'] = 1; // Default admin/system user
-    }
-} else {
-    // For regular POS orders, use authenticated user
-    if (!isset($processedData['recorded_by'])) {
-        $processedData['recorded_by'] = auth()->id();
-    }
-    if (!isset($processedData['created_by'])) {
-        $processedData['created_by'] = auth()->id();
-    }
-    if (!isset($processedData['cashier_id']) && $processedData['sale_type'] == 'pos') {
-        $processedData['cashier_id'] = auth()->id();
-    }
-}
-// ===============================================
+                if (!isset($processedData['recorded_by'])) {
+                    $processedData['recorded_by'] = 1;
+                }
+                if (!isset($processedData['created_by'])) {
+                    $processedData['created_by'] = 1;
+                }
+                if (!isset($processedData['cashier_id']) && $processedData['sale_type'] == 'pos') {
+                    $processedData['cashier_id'] = 1;
+                }
+            } else {
+                if (!isset($processedData['recorded_by'])) {
+                    $processedData['recorded_by'] = auth()->id();
+                }
+                if (!isset($processedData['created_by'])) {
+                    $processedData['created_by'] = auth()->id();
+                }
+                if (!isset($processedData['cashier_id']) && $processedData['sale_type'] == 'pos') {
+                    $processedData['cashier_id'] = auth()->id();
+                }
+            }
 
-// Create initial sale data WITH ALL REQUIRED FIELDS
-$data = [
-    'invoice_number' => $invoiceNumber,
-    'business_section_id' => $processedData['business_section_id'],
-    'shop_id' => $processedData['shop_id'],
-    'sale_type' => $processedData['sale_type'],
-    'channel' => $processedData['channel'],
-    'customer_name' => $processedData['customer_name'] ?? 'Walk-in Customer',
-    'customer_phone' => $processedData['customer_phone'] ?? null,
-    'customer_email' => $processedData['customer_email'] ?? null,
-    'customer_type' => $processedData['customer_type'] ?? 'walk_in',
-    'payment_method' => $processedData['payment_method'] ?? 'cash',
-    'mpesa_receipt' => $processedData['mpesa_receipt'] ?? null,
-    'sale_date' => now(),
-    'created_by' => $processedData['created_by'] ?? auth()->id(), // CHANGED
-    'cashier_id' => $processedData['sale_type'] == 'pos' ? ($processedData['cashier_id'] ?? auth()->id()) : null, // CHANGED
-    'payment_status' => $processedData['payment_method'] == 'credit' ? 'pending' : 'paid',
-    'order_status' => $processedData['order_status'] ?? ($processedData['sale_type'] == 'pos' ? 'picked_up' : 'pending'),
-    'total_items' => 0,
-    'subtotal' => 0,
-    'discount_amount' => $discountAmount,
-    'tax_amount' => $taxAmount,
-    'delivery_fee' => $deliveryFee,
-    'service_charge' => $serviceCharge,
-    'total_amount' => 0,
-    'customer_notes' => $processedData['customer_notes'] ?? null,
-    'internal_notes' => $processedData['internal_notes'] ?? null,
-    'delivery_address' => $processedData['delivery_address'] ?? null,
-    'delivery_instructions' => $processedData['delivery_instructions'] ?? null,
-    'delivery_time' => isset($processedData['delivery_time']) ? Carbon::parse($processedData['delivery_time']) : null,
-    'recorded_by' => $processedData['recorded_by'] ?? auth()->id(), // ADD THIS LINE
-];
+            // Create initial sale data
+            $data = [
+                'invoice_number' => $invoiceNumber,
+                'business_section_id' => $processedData['business_section_id'],
+                'shop_id' => $processedData['shop_id'],
+                'sale_type' => $processedData['sale_type'],
+                'channel' => $processedData['channel'],
+                'customer_name' => $processedData['customer_name'] ?? 'Walk-in Customer',
+                'customer_phone' => $processedData['customer_phone'] ?? null,
+                'customer_email' => $processedData['customer_email'] ?? null,
+                'customer_type' => $processedData['customer_type'] ?? 'walk_in',
+                'payment_method' => $processedData['payment_method'] ?? 'cash',
+                'mpesa_receipt' => $processedData['mpesa_receipt'] ?? null,
+                'sale_date' => now(),
+                'created_by' => $processedData['created_by'] ?? auth()->id(),
+                'cashier_id' => $processedData['sale_type'] == 'pos' ? ($processedData['cashier_id'] ?? auth()->id()) : null,
+                'payment_status' => $processedData['payment_method'] == 'credit' ? 'pending' : 'paid',
+                'order_status' => $processedData['order_status'] ?? ($processedData['sale_type'] == 'pos' ? 'picked_up' : 'pending'),
+                'total_items' => 0,
+                'subtotal' => 0,
+                'discount_amount' => $discountAmount,
+                'tax_amount' => $taxAmount,
+                'delivery_fee' => $deliveryFee,
+                'service_charge' => $serviceCharge,
+                'total_amount' => 0,
+                'customer_notes' => $processedData['customer_notes'] ?? null,
+                'internal_notes' => $processedData['internal_notes'] ?? null,
+                'delivery_address' => $processedData['delivery_address'] ?? null,
+                'delivery_instructions' => $processedData['delivery_instructions'] ?? null,
+                'delivery_time' => isset($processedData['delivery_time']) ? Carbon::parse($processedData['delivery_time']) : null,
+                'recorded_by' => $processedData['recorded_by'] ?? auth()->id(),
+            ];
+
             Log::info("Creating sale with initial data:", $data);
 
             // Create sale
             $sale = Sale::create($data);
             Log::info("Sale created with ID: {$sale->id}");
 
-            // Process items and calculate actual totals
+            // Process items
             foreach ($processedData['items'] as $itemData) {
                 $product = Product::find($itemData['product_id']);
                 $isProductionItem = $itemData['is_production_item'] ?? false;
@@ -1523,7 +1485,7 @@ $data = [
                     'product_name' => $product->product_name,
                     'product_code' => $product->product_code,
                     'description' => $product->description,
-                 'unit' => $product->unit ?? 'piece', // ADD THIS LINE - CRITICAL FIX
+                    'unit' => $product->unit ?? 'piece',
                     'unit_price' => $itemData['unit_price'],
                     'quantity' => $itemData['quantity'],
                     'total_price' => $itemTotalPrice,
@@ -1540,14 +1502,11 @@ $data = [
 
                 Log::info("Added item: {$product->product_name} x{$itemData['quantity']} = KES {$itemFinalPrice}, Production Item: " . ($isProductionItem ? 'Yes' : 'No'));
 
-                // Update inventory for non-production items - FIXED: Add recorded_by parameter
-               if (!$isProductionItem && $product->track_inventory) {
-    // Only CHECK stock, don't UPDATE here
-    if ($product->current_stock < $item['quantity']) {
-        throw new \Exception("Insufficient stock for product: {$product->product_name}. Available: {$product->current_stock}");
-    }
-    // REMOVE the updateStock call from here
-}
+                if (!$isProductionItem && $product->track_inventory) {
+                    if ($product->current_stock < $itemData['quantity']) {
+                        throw new \Exception("Insufficient stock for product: {$product->product_name}. Available: {$product->current_stock}");
+                    }
+                }
             }
 
             // Calculate final total
@@ -1574,10 +1533,9 @@ $data = [
                     'currency' => 'KES',
                     'status' => 'completed',
                     'completed_at' => now(),
-                 'recorded_by' => $processedData['recorded_by'] ?? 1  // ← Use processedData instead
+                    'recorded_by' => $processedData['recorded_by'] ?? 1
                 ];
 
-                // Add M-Pesa specific data
                 if ($request->payment_method === 'mpesa' || $request->payment_method === 'mpesa_manual') {
                     $paymentData['mpesa_receipt'] = $request->mpesa_receipt;
                     $paymentData['phone_number'] = $request->customer_phone;
@@ -1675,9 +1633,6 @@ $data = [
 
         Log::info("Sending receipt to: {$sale->customer_email}");
 
-        // In a real implementation, you would send an email here
-        // For now, we'll just return success
-
         return response()->json([
             'success' => true,
             'message' => 'Receipt sent to customer email',
@@ -1721,7 +1676,8 @@ $data = [
     }
 
     /**
-     * Generate invoice number with shop prefix
+     * ✅ Generate invoice number with shop prefix - SALE format for KCB
+     * Format: 7722609-SALE-{shopCode}-{date}-{sequence}
      */
     private function generateInvoiceNumberWithShop($shopId)
     {
@@ -1736,8 +1692,8 @@ $data = [
 
         $sequence = str_pad($todayCount + 1, 4, '0', STR_PAD_LEFT);
 
-        // Format: SHOPCODE-YYYYMMDD-0001
-        return $shopCode . '-' . $date . '-' . $sequence;
+        // ✅ SALE format for KCB: 7722609-SALE-{shopCode}-{date}-{sequence}
+        return '7722609-SALE-' . $shopCode . '-' . $date . '-' . $sequence;
     }
 
     /**
@@ -1745,25 +1701,8 @@ $data = [
      */
     private function generateInvoiceNumber()
     {
-        $prefix = 'INV-';
-        $year = date('Y');
-        $month = date('m');
-
-        $lastInvoice = Sale::where('invoice_number', 'like', $prefix . $year . $month . '%')
-            ->orderBy('invoice_number', 'desc')
-            ->first();
-
-        if ($lastInvoice) {
-            $lastNumber = intval(substr($lastInvoice->invoice_number, -4));
-            $newNumber = str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
-        } else {
-            $newNumber = '0001';
-        }
-
-        $invoiceNumber = $prefix . $year . $month . '-' . $newNumber;
-        Log::info("Generated invoice number: {$invoiceNumber}");
-
-        return $invoiceNumber;
+        $shopId = auth()->user()->shop_id ?? 1;
+        return $this->generateInvoiceNumberWithShop($shopId);
     }
 
     /**
@@ -1773,7 +1712,6 @@ $data = [
     {
         Log::info("DEPRECATED: updateInventoryFromSale called. Use StockService instead.");
 
-        // For backward compatibility, use StockService
         $stockService = app(StockService::class);
 
         $result = $stockService->updateStock(
@@ -1783,7 +1721,7 @@ $data = [
             'sale',
             'Sale: ' . $sale->invoice_number,
             'Legacy Sale Update',
-            auth()->id()  // Add recorded_by parameter
+            auth()->id()
         );
 
         if (!$result['success']) {

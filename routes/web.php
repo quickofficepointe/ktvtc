@@ -1491,3 +1491,15 @@ Route::prefix('api/kcb/ipn')->name('kcb.ipn.')->group(function () {
     Route::post('/payment-notification', [KcbIpnController::class, 'handlePaymentNotification'])->name('payment-notification');
     Route::get('/status/{transactionId}', [KcbIpnController::class, 'checkStatus'])->name('status');
 });
+Route::post('/api/kcb/card/ipn', [CardFundingIpnController::class, 'handlePaymentNotification'])
+    ->name('kcb.card.ipn')
+    ->withoutMiddleware(['web', 'csrf']);
+// 4. Card Funding STK Callback
+Route::post('/api/kcb/card/funding/callback', [CardFundingController::class, 'handleCallback'])
+    ->name('card.funding.callback')
+    ->withoutMiddleware(['web', 'csrf']);
+
+// 5. Card Funding Status Check
+Route::post('/api/kcb/card/funding/status', [CardFundingController::class, 'checkStatus'])
+    ->name('card.funding.status')
+    ->withoutMiddleware(['web', 'csrf']);
