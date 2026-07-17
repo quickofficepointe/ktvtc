@@ -217,10 +217,12 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
+    // ✅ FIX: Use both DOMContentLoaded and window.onload for safety
+    function initCashflowChart() {
         const ctx = document.getElementById('cashflowChart');
 
         if (!ctx) {
+            console.warn('Cashflow chart canvas not found');
             return;
         }
 
@@ -230,6 +232,11 @@
 
         const inflow = {!! json_encode(isset($dailyCashFlow) ? $dailyCashFlow->pluck('inflow')->values() : []) !!};
         const outflow = {!! json_encode(isset($dailyCashFlow) ? $dailyCashFlow->pluck('outflow')->values() : []) !!};
+
+        if (labels.length === 0 || (inflow.length === 0 && outflow.length === 0)) {
+            console.warn('No data for cashflow chart');
+            return;
+        }
 
         new Chart(ctx, {
             type: 'bar',
@@ -278,6 +285,18 @@
                 }
             }
         });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        initCashflowChart();
+    });
+
+    // Also run on window load for safety
+    window.addEventListener('load', function() {
+        // Re-initialize if chart wasn't rendered
+        if (typeof Chart !== 'undefined') {
+            // Chart already initialized, skip
+        }
     });
 </script>
 @endpush

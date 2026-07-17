@@ -256,12 +256,43 @@
 @push('scripts')
 <script>
     $(document).ready(function () {
+        // Initialize Select2 properly
+        if ($.fn.select2) {
+            $('#student_id').select2({
+                placeholder: 'Select Student',
+                allowClear: true,
+                width: '100%'
+            });
+
+            $('#enrollment_id').select2({
+                placeholder: 'Select Enrollment',
+                allowClear: true,
+                width: '100%'
+            });
+
+            $('#payment_method').select2({
+                placeholder: 'Select Payment Method',
+                allowClear: true,
+                width: '100%'
+            });
+
+            $('#payer_type').select2({
+                placeholder: 'Select Payer Type',
+                allowClear: true,
+                width: '100%'
+            });
+        }
+
+        // Student dropdown change handler
         $('#student_id').on('change', function () {
             const studentId = $(this).val();
             const enrollmentSelect = $('#enrollment_id');
 
+            // Reset enrollment dropdown
             enrollmentSelect.empty().append('<option value="">Loading...</option>');
+            enrollmentSelect.trigger('change.select2');
 
+            // Reset displays
             $('#totalFeesDisplay').text('KES 0.00');
             $('#amountPaidDisplay').text('KES 0.00');
             $('#balanceDisplay').text('KES 0.00');
@@ -269,17 +300,28 @@
 
             if (!studentId) {
                 enrollmentSelect.empty().append('<option value="">Select Student First</option>');
+                enrollmentSelect.trigger('change.select2');
                 return;
             }
 
+            // ✅ FIX: Use the correct finance API route
+            const url = `/finance/api/students/${studentId}/enrollments`;
+
+            showLoading('Loading enrollments...');
+
             $.ajax({
-                url: `/api/students/${studentId}/enrollments`,
+                url: url,
                 method: 'GET',
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
                 success: function (data) {
+                    hideLoading();
                     enrollmentSelect.empty().append('<option value="">Select Enrollment</option>');
 
                     if (!data || data.length === 0) {
-                        enrollmentSelect.append('<option value="">No enrollment found</option>');
+                        enrollmentSelect.append('<option value="">No active enrollment found</option>');
+                        enrollmentSelect.trigger('change.select2');
                         return;
                     }
 
@@ -287,43 +329,133 @@
                         const balance = parseFloat(enrollment.balance || 0);
                         const totalFees = parseFloat(enrollment.total_fees || 0);
                         const amountPaid = parseFloat(enrollment.amount_paid || 0);
+                        const status = enrollment.status || 'active';
 
                         enrollmentSelect.append(`
                             <option value="${enrollment.id}"
                                     data-balance="${balance}"
                                     data-total="${totalFees}"
-                                    data-paid="${amountPaid}">
+                                    data-paid="${amountPaid}"
+                                    data-status="${status}">
                                 ${enrollment.course_name} - Balance: KES ${balance.toFixed(2)}
+                                ${status !== 'active' ? ' (' + status + ')' : ''}
                             </option>
                         `);
                     });
 
                     enrollmentSelect.trigger('change.select2');
                 },
-                error: function () {
+                error: function (xhr) {
+                    hideLoading();
+                    console.error('Error loading enrollments:', xhr);
+
                     enrollmentSelect.empty().append('<option value="">Failed to load enrollments</option>');
-                    toastr.error('Unable to load student enrollments.');
+                    enrollmentSelect.trigger('change.select2');
+
+                    // Show user-friendly error message
+                    if (xhr.status === 404) {
+                        toastr.error('API endpoint not found. Please contact system administrator.');
+                    } else if (xhr.status === 401 || xhr.status === 403) {
+                        toastr.error('You are not authorized to perform this action. Please refresh and try again.');
+                    } else if (xhr.status === 500) {
+                        toastr.error('Server error. Please contact system administrator.');
+                    } else {
+                        toastr.error('Unable to load student enrollments. Please try again.');
+                    }
                 }
             });
         });
 
+        // Enrollment selection change handler
         $('#enrollment_id').on('change', function () {
             const selected = $(this).find('option:selected');
 
             const balance = parseFloat(selected.data('balance')) || 0;
             const total = parseFloat(selected.data('total')) || 0;
             const paid = parseFloat(selected.data('paid')) || 0;
+            const status = selected.data('status') || 'active';
 
+            // Update displays
             $('#balanceDisplay').text('KES ' + balance.toFixed(2));
             $('#totalFeesDisplay').text('KES ' + total.toFixed(2));
             $('#amountPaidDisplay').text('KES ' + paid.toFixed(2));
 
+            // Check if enrollment is active
+            if (status !== 'active') {
+                $('#amount').prop('disabled', true);
+                $('#amount').attr('placeholder', 'Enrollment is ' + status.toUpperCase());
+                toastr.warning('This enrollment is ' + status + '. Payments cannot be recorded.', 'Warning');
+            } else {
+                $('#amount').prop('disabled', false);
+                $('#amount').attr('placeholder', 'Enter amount');
+            }
+
+            // Set max amount to balance if balance > 0
             if (balance > 0) {
                 $('#amount').attr('max', balance);
+                $('#amount').attr('data-max-balance', balance);
             } else {
                 $('#amount').removeAttr('max');
+                $('#amount').attr('placeholder', 'Enrollment is fully paid');
+                toastr.success('This enrollment is fully paid!', 'Information');
             }
         });
+
+        // Amount input validation
+        $('#amount').on('input', function () {
+            const maxBalance = parseFloat($(this).attr('data-max-balance')) || 0;
+            const currentValue = parseFloat($(this).value) || 0;
+
+            if (maxBalance > 0 && currentValue > maxBalance) {
+                $(this).addClass('border-red-500');
+                toastr.error('Amount cannot exceed outstanding balance of KES ' + maxBalance.toFixed(2));
+            } else {
+                $(this).removeClass('border-red-500');
+            }
+        });
+
+        // Form submission validation
+        $('#paymentForm').on('submit', function (e) {
+            const amount = parseFloat($('#amount').val()) || 0;
+            const maxBalance = parseFloat($('#amount').attr('data-max-balance')) || 0;
+
+            if (maxBalance > 0 && amount > maxBalance) {
+                e.preventDefault();
+                toastr.error('Payment amount cannot exceed the outstanding balance of KES ' + maxBalance.toFixed(2));
+                return false;
+            }
+
+            if (amount <= 0) {
+                e.preventDefault();
+                toastr.error('Please enter a valid payment amount.');
+                return false;
+            }
+
+            if (!$('#student_id').val()) {
+                e.preventDefault();
+                toastr.error('Please select a student.');
+                return false;
+            }
+
+            if (!$('#enrollment_id').val()) {
+                e.preventDefault();
+                toastr.error('Please select an enrollment.');
+                return false;
+            }
+
+            showLoading('Processing payment...');
+            return true;
+        });
     });
+
+    // Toastr configuration
+    toastr.options = {
+        closeButton: true,
+        progressBar: true,
+        positionClass: "toast-top-right",
+        timeOut: 5000,
+        extendedTimeOut: 1000,
+        preventDuplicates: true
+    };
 </script>
 @endpush

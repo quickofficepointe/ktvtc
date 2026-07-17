@@ -478,6 +478,7 @@ class FinanceController extends Controller
 
     /**
      * Search and list students for finance module
+     * ✅ FIXED: Only filter by campus if user has campus_id
      */
     public function searchStudents(Request $request)
     {
@@ -485,8 +486,8 @@ class FinanceController extends Controller
 
         $query = Student::query();
 
-        // Filter by campus for non-admin users
-        if ($user->role != 2) {
+        // ✅ FIX: Only filter by campus if user has campus_id
+        if ($user->role != 2 && $user->campus_id) {
             $query->where('campus_id', $user->campus_id);
         }
 
@@ -522,6 +523,7 @@ class FinanceController extends Controller
 
     /**
      * List all students with financial summary
+     * ✅ FIXED: Only filter by campus if user has campus_id
      */
     public function studentList(Request $request)
     {
@@ -529,7 +531,8 @@ class FinanceController extends Controller
 
         $query = Student::with(['campus']);
 
-        if ($user->role != 2) {
+        // ✅ FIX: Only filter by campus if user has campus_id
+        if ($user->role != 2 && $user->campus_id) {
             $query->where('campus_id', $user->campus_id);
         }
 
@@ -678,6 +681,8 @@ class FinanceController extends Controller
 
     /**
      * Display all student fee payments
+     * ✅ FIXED: Statistics use ALL payments, not filtered ones
+     * ✅ FIXED: Only filter by campus if user has campus_id
      */
     public function studentFees(Request $request)
     {
@@ -685,8 +690,8 @@ class FinanceController extends Controller
 
         $query = FeePayment::with(['student', 'enrollment.course', 'verifier']);
 
-        // Campus filter for non-admin users
-        if ($user->role != 2) {
+        // ✅ FIX: Only apply campus filter if user has campus_id
+        if ($user->role != 2 && $user->campus_id) {
             $query->whereHas('enrollment', function ($q) use ($user) {
                 $q->where('campus_id', $user->campus_id);
             });
@@ -728,19 +733,39 @@ class FinanceController extends Controller
             });
         }
 
-        // Statistics
-        $totalPayments = (clone $query)->count();
-        $totalAmount = (clone $query)->sum('amount');
-        $todayAmount = (clone $query)->whereDate('payment_date', today())->sum('amount');
-        $pendingVerification = (clone $query)
+        // ✅ FIX: Statistics should use ALL payments, not filtered ones
+        $totalPayments = FeePayment::where('status', 'completed')->count();
+        $totalAmount = FeePayment::where('status', 'completed')->sum('amount');
+        $todayAmount = FeePayment::whereDate('payment_date', today())->where('status', 'completed')->sum('amount');
+        $pendingVerification = FeePayment::where('status', 'completed')->where('is_verified', false)->count();
+
+        // Today's payments count
+        $todayPaymentsCount = FeePayment::whereDate('payment_date', today())
             ->where('status', 'completed')
-            ->where('is_verified', false)
             ->count();
+
+        // Weekly payments count
+        $weeklyPayments = FeePayment::whereBetween('payment_date', [
+                now()->startOfWeek(), now()->endOfWeek()
+            ])
+            ->where('status', 'completed')
+            ->count();
+
+        // Monthly collection
+        $monthlyCollection = FeePayment::whereYear('payment_date', now()->year)
+            ->whereMonth('payment_date', now()->month)
+            ->where('status', 'completed')
+            ->sum('amount');
+
+        // Average payment
+        $totalCompletedPayments = FeePayment::where('status', 'completed')->count();
+        $totalCompletedAmount = FeePayment::where('status', 'completed')->sum('amount');
+        $averagePayment = $totalCompletedPayments > 0 ? $totalCompletedAmount / $totalCompletedPayments : 0;
 
         // Campuses for filter
         $campuses = $user->role == 2 ? Campus::orderBy('name')->get() : [];
 
-        // Paginate
+        // Paginate (this uses the filtered query)
         $perPage = $request->get('per_page', 15);
         $payments = $query->orderBy('payment_date', 'desc')->paginate($perPage)->withQueryString();
 
@@ -750,22 +775,35 @@ class FinanceController extends Controller
             'totalAmount',
             'todayAmount',
             'pendingVerification',
-            'campuses'
+            'campuses',
+            'todayPaymentsCount',
+            'weeklyPayments',
+            'monthlyCollection',
+            'averagePayment'
         ));
     }
 
     /**
      * Show form to create a new fee payment
+     * ✅ FIXED: Show ALL students (or filter only if campus_id exists)
      */
     public function createStudentFee(Request $request)
     {
         $user = Auth::user();
 
-        $students = Student::when($user->role != 2, function ($q) use ($user) {
+        // ✅ FIX: Only filter by campus if user has campus_id
+        $students = Student::when($user->role != 2 && $user->campus_id, function ($q) use ($user) {
                 return $q->where('campus_id', $user->campus_id);
             })
             ->orderBy('first_name')
             ->get();
+
+        // ✅ DEBUG: Log the count
+        Log::info('Finance: Students loaded for dropdown', [
+            'count' => $students->count(),
+            'user_role' => $user->role,
+            'user_campus_id' => $user->campus_id,
+        ]);
 
         $selectedEnrollment = null;
         if ($request->filled('enrollment_id')) {
@@ -841,7 +879,7 @@ class FinanceController extends Controller
                 'import_source' => 'manual',
             ]);
 
-            // Update enrollment - update BOTH amount_paid AND balance
+            // Update enrollment
             $enrollment->amount_paid = $enrollment->amount_paid + $request->amount;
             $enrollment->balance = $enrollment->total_fees - $enrollment->amount_paid;
             $enrollment->save();
@@ -1014,6 +1052,7 @@ class FinanceController extends Controller
 
     /**
      * Daily fee report
+     * ✅ FIXED: Only filter by campus if user has campus_id
      */
     public function dailyFeeReport(Request $request)
     {
@@ -1024,7 +1063,8 @@ class FinanceController extends Controller
             ->whereDate('payment_date', $date)
             ->where('status', 'completed');
 
-        if ($user->role != 2) {
+        // ✅ FIX: Only filter by campus if user has campus_id
+        if ($user->role != 2 && $user->campus_id) {
             $query->whereHas('enrollment', function ($q) use ($user) {
                 $q->where('campus_id', $user->campus_id);
             });
@@ -1076,6 +1116,7 @@ class FinanceController extends Controller
 
     /**
      * Monthly fee report
+     * ✅ FIXED: Only filter by campus if user has campus_id
      */
     public function monthlyFeeReport(Request $request)
     {
@@ -1090,7 +1131,8 @@ class FinanceController extends Controller
             ->whereBetween('payment_date', [$startDate, $endDate])
             ->where('status', 'completed');
 
-        if ($user->role != 2) {
+        // ✅ FIX: Only filter by campus if user has campus_id
+        if ($user->role != 2 && $user->campus_id) {
             $query->whereHas('enrollment', function ($q) use ($user) {
                 $q->where('campus_id', $user->campus_id);
             });
@@ -1132,7 +1174,7 @@ class FinanceController extends Controller
             $monthTotal = FeePayment::whereYear('payment_date', $date->year)
                 ->whereMonth('payment_date', $date->month)
                 ->where('status', 'completed')
-                ->when($user->role != 2, function ($q) use ($user) {
+                ->when($user->role != 2 && $user->campus_id, function ($q) use ($user) {
                     return $q->whereHas('enrollment', function ($sq) use ($user) {
                         $sq->where('campus_id', $user->campus_id);
                     });
@@ -1178,6 +1220,8 @@ class FinanceController extends Controller
 
     /**
      * Outstanding fee report
+     * ✅ FIXED: Only filter by campus if user has campus_id
+     * ✅ FIXED: Totals use ALL enrollments, not filtered ones
      */
     public function outstandingFeeReport(Request $request)
     {
@@ -1187,7 +1231,8 @@ class FinanceController extends Controller
             ->whereRaw('total_fees > amount_paid')
             ->where('status', 'active');
 
-        if ($user->role != 2) {
+        // ✅ FIX: Only filter by campus if user has campus_id
+        if ($user->role != 2 && $user->campus_id) {
             $query->where('campus_id', $user->campus_id);
         }
 
@@ -1206,8 +1251,14 @@ class FinanceController extends Controller
 
         $enrollments = $query->orderBy('balance', 'desc')->paginate(20);
 
-        $totalOutstanding = $query->sum(DB::raw('total_fees - amount_paid'));
-        $totalStudents = $query->count();
+        // ✅ FIX: Calculate totals WITHOUT campus filter
+        $totalOutstanding = Enrollment::whereRaw('total_fees > amount_paid')
+            ->where('status', 'active')
+            ->sum(DB::raw('total_fees - amount_paid'));
+
+        $totalStudents = Enrollment::whereRaw('total_fees > amount_paid')
+            ->where('status', 'active')
+            ->count();
 
         $campuses = $user->role == 2 ? Campus::orderBy('name')->get() : [];
 
@@ -1242,7 +1293,8 @@ class FinanceController extends Controller
                   ->whereYear('payment_date', $request->year);
         }
 
-        if ($user->role != 2) {
+        // ✅ FIX: Only filter by campus if user has campus_id
+        if ($user->role != 2 && $user->campus_id) {
             $query->whereHas('enrollment', function ($q) use ($user) {
                 $q->where('campus_id', $user->campus_id);
             });
@@ -1307,6 +1359,7 @@ class FinanceController extends Controller
 
     /**
      * Display all transactions
+     * ✅ FIXED: Default to last 30 days instead of today only
      */
     public function transactions(Request $request)
     {
@@ -1322,7 +1375,7 @@ class FinanceController extends Controller
             $query->where('status', $request->status);
         }
 
-        // Date range filtering
+        // ✅ FIX: Date range filtering with better defaults
         if ($request->filled('date_range')) {
             switch ($request->date_range) {
                 case 'today':
@@ -1353,18 +1406,19 @@ class FinanceController extends Controller
                     break;
             }
         } else {
-            // Default to today
-            $query->whereDate('created_at', today());
+            // ✅ FIX: Default to last 30 days
+            $query->whereDate('created_at', '>=', now()->subDays(30));
         }
 
         if ($request->filled('search')) {
-            $query->where(function($q) use ($request) {
-                $q->where('transaction_number', 'like', '%' . $request->search . '%')
-                  ->orWhere('mpesa_receipt', 'like', '%' . $request->search . '%')
-                  ->orWhereHas('sale', function($sq) use ($request) {
-                      $sq->where('invoice_number', 'like', '%' . $request->search . '%')
-                        ->orWhere('customer_name', 'like', '%' . $request->search . '%')
-                        ->orWhere('customer_phone', 'like', '%' . $request->search . '%');
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('transaction_number', 'like', '%' . $search . '%')
+                  ->orWhere('mpesa_receipt', 'like', '%' . $search . '%')
+                  ->orWhereHas('sale', function($sq) use ($search) {
+                      $sq->where('invoice_number', 'like', '%' . $search . '%')
+                        ->orWhere('customer_name', 'like', '%' . $search . '%')
+                        ->orWhere('customer_phone', 'like', '%' . $search . '%');
                   });
             });
         }
@@ -1382,6 +1436,7 @@ class FinanceController extends Controller
 
     /**
      * Calculate transaction statistics
+     * ✅ FIXED: Uses same date logic as the main query
      */
     private function calculateTransactionStats($request)
     {
@@ -1418,7 +1473,8 @@ class FinanceController extends Controller
                     break;
             }
         } else {
-            $query->whereDate('created_at', today());
+            // ✅ FIX: Default to last 30 days
+            $query->whereDate('created_at', '>=', now()->subDays(30));
         }
 
         if ($request->filled('payment_method')) {

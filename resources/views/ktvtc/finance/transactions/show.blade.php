@@ -17,7 +17,8 @@
 @section('header-actions')
 <div class="flex space-x-3">
     @if($transaction->status === 'completed')
-        <a href="{{ route('finance.transactions.receipt', $transaction) }}" target="_blank" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-semibold flex items-center transition">
+        {{-- ✅ FIXED: Use 'print' instead of 'receipt' --}}
+        <a href="{{ route('finance.transactions.print', $transaction) }}" target="_blank" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-semibold flex items-center transition">
             <i class="fas fa-print mr-2"></i> Print Receipt
         </a>
     @endif
@@ -239,6 +240,14 @@
         document.body.style.overflow = 'hidden';
     }
 
+    function closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+    }
+
     // Close on escape
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
@@ -248,3 +257,4 @@
     });
 </script>
 @endpush
+@endsection

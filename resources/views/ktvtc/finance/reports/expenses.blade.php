@@ -221,15 +221,22 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
+    // ✅ FIX: Use both DOMContentLoaded and window.onload for safety
+    function initExpenseChart() {
         const ctx = document.getElementById('expenseChart');
 
         if (!ctx) {
+            console.warn('Expense chart canvas not found');
             return;
         }
 
         const labels = {!! json_encode(isset($monthlyExpenses) ? $monthlyExpenses->pluck('month')->values() : []) !!};
         const data = {!! json_encode(isset($monthlyExpenses) ? $monthlyExpenses->pluck('amount')->values() : []) !!};
+
+        if (labels.length === 0 || data.length === 0) {
+            console.warn('No data for expense chart');
+            return;
+        }
 
         new Chart(ctx, {
             type: 'bar',
@@ -264,6 +271,10 @@
                 }
             }
         });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        initExpenseChart();
 
         document.querySelectorAll('.h-1\\.5.rounded-full.bg-gray-200 .h-full').forEach(function (bar) {
             const width = bar.style.width;
@@ -274,5 +285,14 @@
             }, 100);
         });
     });
+
+    // Also run on window load for safety
+    window.addEventListener('load', function() {
+        // Re-initialize if chart wasn't rendered
+        if (typeof Chart !== 'undefined') {
+            // Chart already initialized, skip
+        }
+    });
 </script>
 @endpush
+

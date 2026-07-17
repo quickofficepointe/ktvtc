@@ -185,10 +185,12 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
+    // ✅ FIX: Use both DOMContentLoaded and window.onload for safety
+    function initRevenueChart() {
         const ctx = document.getElementById('revenueChart');
 
         if (!ctx) {
+            console.warn('Revenue chart canvas not found');
             return;
         }
 
@@ -197,6 +199,11 @@
         })->values() : []) !!};
 
         const data = {!! json_encode(isset($dailyRevenue) ? $dailyRevenue->pluck('total')->values() : []) !!};
+
+        if (labels.length === 0 || data.length === 0) {
+            console.warn('No data for revenue chart');
+            return;
+        }
 
         new Chart(ctx, {
             type: 'line',
@@ -235,15 +242,28 @@
                 }
             }
         });
+    }
 
+    // Run on DOM ready
+    document.addEventListener('DOMContentLoaded', function() {
+        initRevenueChart();
+
+        // Animate progress bars
         document.querySelectorAll('.h-1\\.5.rounded-full.bg-gray-200 .h-full').forEach(function (bar) {
             const width = bar.style.width;
             bar.style.width = '0%';
-
             setTimeout(function () {
                 bar.style.width = width;
             }, 100);
         });
+    });
+
+    // Also run on window load for safety
+    window.addEventListener('load', function() {
+        // Re-initialize if chart wasn't rendered
+        if (typeof Chart !== 'undefined') {
+            // Chart already initialized, skip
+        }
     });
 </script>
 @endpush

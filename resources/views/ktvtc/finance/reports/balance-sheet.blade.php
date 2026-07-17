@@ -174,5 +174,6 @@
 @push('scripts')
 <script>
     // Any page-specific scripts
+    console.log('Balance Sheet loaded successfully');
 </script>
 @endpush

@@ -1020,14 +1020,13 @@ Route::middleware(['auth', 'verified', 'role.finance'])
     ->name('finance.')
     ->group(function () {
 
-    // Dashboard
+      // Dashboard
     Route::get('/dashboard', [FinanceController::class, 'dashboard'])->name('dashboard');
 
     // ==================== STUDENT FINANCIAL VIEWS ====================
     Route::prefix('students')->name('students.')->group(function () {
         Route::get('/search', [FinanceController::class, 'searchStudents'])->name('search');
         Route::get('/list', [FinanceController::class, 'studentList'])->name('list');
-
         Route::get('/{student}/financial', [FinanceController::class, 'studentFinancials'])->name('financial');
         Route::get('/{student}/transactions', [FinanceController::class, 'studentTransactions'])->name('transactions');
         Route::get('/{student}/balance', [FinanceController::class, 'studentBalance'])->name('balance');
@@ -1066,21 +1065,27 @@ Route::middleware(['auth', 'verified', 'role.finance'])
     });
 
     // ==================== PAYMENT TRANSACTIONS ====================
+    // ✅ FIXED: Specific routes BEFORE wildcard routes
     Route::prefix('transactions')->name('transactions.')->group(function () {
+        // ✅ SPECIFIC ROUTES FIRST (no parameters or fixed strings)
+        Route::get('/mpesa', [FinanceController::class, 'mpesaTransactions'])->name('mpesa');
+        Route::post('/mpesa/callback', [FinanceController::class, 'handleMpesaCallback'])->name('mpesa.callback');
+        Route::get('/pending', [FinanceController::class, 'pendingTransactions'])->name('pending');
+        Route::get('/today', [FinanceController::class, 'todayTransactions'])->name('today');
+        Route::get('/export', [FinanceController::class, 'exportTransactions'])->name('export');
+        Route::get('/by-method/{method}', [FinanceController::class, 'transactionsByMethod'])->name('by-method');
+        Route::post('/bulk/reconcile', [FinanceController::class, 'bulkReconcileTransactions'])->name('bulk.reconcile');
+        Route::post('/bulk/process', [FinanceController::class, 'bulkProcessPayments'])->name('bulk.process');
+
+        // ✅ INDEX ROUTE
         Route::get('/', [FinanceController::class, 'transactions'])->name('index');
+
+        // ⚠️ WILDCARD ROUTES LAST - These catch /{transaction}
         Route::get('/{transaction}', [FinanceController::class, 'showTransaction'])->name('show');
         Route::post('/{transaction}/verify', [FinanceController::class, 'verifyTransaction'])->name('verify');
         Route::post('/{transaction}/reverse', [FinanceController::class, 'reverseTransaction'])->name('reverse');
         Route::post('/{transaction}/reconcile', [FinanceController::class, 'reconcileTransaction'])->name('reconcile');
         Route::get('/{transaction}/print', [FinanceController::class, 'printTransactionReceipt'])->name('print');
-        Route::get('/mpesa', [FinanceController::class, 'mpesaTransactions'])->name('mpesa');
-        Route::post('/mpesa/callback', [FinanceController::class, 'handleMpesaCallback'])->name('mpesa.callback');
-        Route::get('/by-method/{method}', [FinanceController::class, 'transactionsByMethod'])->name('by-method');
-        Route::get('/pending', [FinanceController::class, 'pendingTransactions'])->name('pending');
-        Route::get('/today', [FinanceController::class, 'todayTransactions'])->name('today');
-        Route::get('/export', [FinanceController::class, 'exportTransactions'])->name('export');
-        Route::post('/bulk/reconcile', [FinanceController::class, 'bulkReconcileTransactions'])->name('bulk.reconcile');
-        Route::post('/bulk/process', [FinanceController::class, 'bulkProcessPayments'])->name('bulk.process');
     });
 
     // ==================== FINANCIAL REPORTS ====================
@@ -1100,11 +1105,9 @@ Route::middleware(['auth', 'verified', 'role.finance'])
         Route::get('/', [FeeStructureController::class, 'index'])->name('index');
         Route::get('/stats', [FeeStructureController::class, 'stats'])->name('stats');
         Route::get('/export', [FeeStructureController::class, 'export'])->name('export');
-
         Route::get('/{course}', [FeeStructureController::class, 'show'])->name('show');
         Route::get('/{course}/edit', [FeeStructureController::class, 'edit'])->name('edit');
         Route::put('/{course}', [FeeStructureController::class, 'update'])->name('update');
-
         Route::post('/{course}/approve', [FeeStructureController::class, 'approve'])->name('approve');
         Route::post('/{course}/reject', [FeeStructureController::class, 'reject'])->name('reject');
         Route::post('/{course}/rollback', [FeeStructureController::class, 'rollback'])->name('rollback');
@@ -1131,24 +1134,32 @@ Route::middleware(['auth', 'verified', 'role.finance'])
         Route::get('/transaction-stats', [FinanceController::class, 'transactionStats'])->name('transaction-stats');
         Route::get('/student/{student}/balance', [FinanceController::class, 'getStudentBalance'])->name('student-balance');
         Route::post('/check-payment-status', [FinanceController::class, 'checkPaymentStatus'])->name('check-payment-status');
-    });
 
+        // ✅ ADD THIS - For the create payment form dropdown
+        Route::get('/students/{student}/enrollments', [FinanceController::class, 'studentEnrollments'])->name('student.enrollments');
+    });
     // ==================== HIGH SCHOOL CARD SYSTEM ====================
-    // Student Management
+  // ==================== HIGH SCHOOL CARD SYSTEM ====================
+    // ✅ FIXED: Specific routes BEFORE wildcard routes
     Route::prefix('hs-students')->name('hs-students.')->group(function () {
-        Route::get('/', [HighSchoolStudentController::class, 'index'])->name('index');
-        Route::get('/create', [HighSchoolStudentController::class, 'create'])->name('create');
-        Route::post('/', [HighSchoolStudentController::class, 'store'])->name('store');
-        Route::get('/{student}', [HighSchoolStudentController::class, 'show'])->name('show');
-        Route::get('/{student}/edit', [HighSchoolStudentController::class, 'edit'])->name('edit');
-        Route::put('/{student}', [HighSchoolStudentController::class, 'update'])->name('update');
-        Route::delete('/{student}', [HighSchoolStudentController::class, 'destroy'])->name('destroy');
+        // ✅ SPECIFIC ROUTES FIRST
         Route::get('/import', [HighSchoolStudentController::class, 'importView'])->name('import');
         Route::post('/import', [HighSchoolStudentController::class, 'importProcess'])->name('import.process');
         Route::get('/export', [HighSchoolStudentController::class, 'export'])->name('export');
         Route::get('/template', [HighSchoolStudentController::class, 'downloadTemplate'])->name('template');
         Route::post('/bulk/activate', [HighSchoolStudentController::class, 'bulkActivate'])->name('bulk.activate');
         Route::post('/bulk/deactivate', [HighSchoolStudentController::class, 'bulkDeactivate'])->name('bulk.deactivate');
+
+        // ✅ INDEX AND CREATE ROUTES
+        Route::get('/', [HighSchoolStudentController::class, 'index'])->name('index');
+        Route::get('/create', [HighSchoolStudentController::class, 'create'])->name('create');
+        Route::post('/', [HighSchoolStudentController::class, 'store'])->name('store');
+
+        // ⚠️ WILDCARD ROUTES LAST
+        Route::get('/{student}', [HighSchoolStudentController::class, 'show'])->name('show');
+        Route::get('/{student}/edit', [HighSchoolStudentController::class, 'edit'])->name('edit');
+        Route::put('/{student}', [HighSchoolStudentController::class, 'update'])->name('update');
+        Route::delete('/{student}', [HighSchoolStudentController::class, 'destroy'])->name('destroy');
     });
 
     // Card Management
