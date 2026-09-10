@@ -52,8 +52,8 @@ return [
     'callback_base_url' => env('KCB_BUNI_SALES_CALLBACK_BASE_URL', env('APP_URL')),
 
     // Cafeteria / Sales
-    'till_number' => env('KCB_BUNI_SALES_TILL_NUMBER', '7722609'),
-    'org_shortcode' => env('KCB_BUNI_SALES_ORG_SHORTCODE', '7722609'),
+    'till_number' => env('KCB_BUNI_SALES_TILL_NUMBER', '8118445'),
+    'org_shortcode' => env('KCB_BUNI_SALES_ORG_SHORTCODE', '8118445'),
     'org_passkey' => env('KCB_BUNI_SALES_ORG_PASSKEY', ''),
 ],
 ];

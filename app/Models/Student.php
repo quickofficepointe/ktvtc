@@ -103,47 +103,68 @@ class Student extends Model
         'other_documents' => 'array',
         'requires_cleanup' => 'boolean',
     ];
- public static function getNextStudentNumber()
+
+    /**
+     * Generate the next available unique student number
+     * Starting from 947 and checking for duplicates
+     */
+    public static function getNextStudentNumber()
     {
-        // Get the last student number
-        $lastStudent = self::orderBy('id', 'desc')->first();
+        $startNumber = 947;
+        $maxAttempts = 1000;
 
-        if (!$lastStudent || !$lastStudent->student_number) {
-            return '947';
+        // Get all existing student numbers in one query
+        $existingNumbers = self::whereNotNull('student_number')
+            ->pluck('student_number')
+            ->toArray();
+
+        // Create a lookup set for O(1) checks
+        $existingSet = array_flip($existingNumbers);
+
+        for ($i = 0; $i < $maxAttempts; $i++) {
+            $currentNumber = (string)($startNumber + $i);
+            
+            // Check if this exact number exists
+            if (!isset($existingSet[$currentNumber])) {
+                // Also check if it appears as part of a formatted number
+                $found = false;
+                foreach ($existingNumbers as $existing) {
+                    if (strpos($existing, '/' . $currentNumber . '/') !== false) {
+                        $found = true;
+                        break;
+                    }
+                }
+                
+                if (!$found) {
+                    return $currentNumber;
+                }
+            }
         }
 
-        // Extract the number from the student number if it's just a number
-        // If it's a formatted number like "ICT/947/2026", extract the middle part
-        $parts = explode('/', $lastStudent->student_number);
-
-        if (count($parts) === 3 && is_numeric($parts[1])) {
-            // Format: COURSE/NUMBER/YEAR
-            $nextNumber = (int) $parts[1] + 1;
-        } elseif (is_numeric($lastStudent->student_number)) {
-            // Format: just a number
-            $nextNumber = (int) $lastStudent->student_number + 1;
-        } else {
-            // Fallback
-            $nextNumber = 947;
-        }
-
-        return (string) $nextNumber;
+        // Fallback: Use timestamp with unique ID
+        return 'TEMP_' . date('Ymd') . '_' . uniqid();
     }
 
     /**
-     * Generate a student number with course code and year
+     * Check if a student number is already in use
      */
-    public static function generateStudentNumber($courseCode = null)
+    public static function isStudentNumberTaken($number)
     {
-        $number = self::getNextStudentNumber();
-        $year = date('Y');
-
-        if ($courseCode) {
-            return strtoupper($courseCode) . '/' . $number . '/' . $year;
+        if (empty($number)) {
+            return false;
         }
 
-        return $number;
+        // Check exact match
+        $exists = self::where('student_number', $number)->exists();
+        
+        if ($exists) {
+            return true;
+        }
+
+        // Check if it appears in formatted numbers
+        return self::where('student_number', 'LIKE', '%/' . $number . '/%')->exists();
     }
+
     /**
      * Get the campus that the student belongs to.
      */

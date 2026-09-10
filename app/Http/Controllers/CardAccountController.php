@@ -10,6 +10,9 @@ use App\Services\CardService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
+use ZipArchive;
+use Illuminate\Support\Facades\Storage;
 
 class CardAccountController extends Controller
 {
@@ -18,6 +21,29 @@ class CardAccountController extends Controller
     public function __construct(CardService $cardService)
     {
         $this->cardService = $cardService;
+    }
+
+    /**
+     * Print QR code - supports full ID card view
+     */
+    public function printQr(CardAccount $cardAccount, Request $request)
+    {
+        $card = $cardAccount->load('student');
+
+        if ($request->get('full') == 'true') {
+            return view('ktvtc.finance.high-school.cards.print-id', compact('card'));
+        }
+
+        return view('ktvtc.finance.high-school.cards.print-qr', compact('card'));
+    }
+
+    /**
+     * Print full ID card
+     */
+    public function printId(CardAccount $cardAccount)
+    {
+        $card = $cardAccount->load('student');
+        return view('ktvtc.finance.high-school.cards.print-id', compact('card'));
     }
 
     /**
@@ -55,7 +81,6 @@ class CardAccountController extends Controller
 
         $cards = $query->orderBy('created_at', 'desc')->paginate(20);
 
-        // Stats
         $totalCards = CardAccount::count();
         $activeCards = CardAccount::where('is_active', true)->count();
         $lockedCards = CardAccount::where('is_locked', true)->count();
@@ -80,21 +105,64 @@ class CardAccountController extends Controller
      */
     public function create(Request $request)
     {
-        $student = null;
-        if ($request->filled('student_id')) {
-            $student = HighSchoolStudent::findOrFail($request->student_id);
+        try {
+            $query = HighSchoolStudent::with('cardAccount');
+
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function($q) use ($search) {
+                    $q->where('full_name', 'like', "%{$search}%")
+                      ->orWhere('admission_number', 'like', "%{$search}%")
+                      ->orWhere('parent_phone', 'like', "%{$search}%");
+                });
+            }
+
+            if ($request->filled('class')) {
+                $query->where('class', $request->class);
+            }
+
+            if ($request->filled('card_status')) {
+                if ($request->card_status === 'without_card') {
+                    $query->doesntHave('cardAccount');
+                } elseif ($request->card_status === 'with_card') {
+                    $query->has('cardAccount');
+                }
+            }
+
+            $query->where('status', 'active');
+
+            $students = $query->orderBy('full_name')
+                ->paginate(20)
+                ->withQueryString();
+
+            $totalStudents = HighSchoolStudent::where('status', 'active')->count();
+            $withCards = HighSchoolStudent::where('status', 'active')->has('cardAccount')->count();
+            $withoutCards = $totalStudents - $withCards;
+            $qrGenerated = CardAccount::whereNotNull('qr_code')->count();
+
+            $classes = HighSchoolStudent::select('class')
+                ->distinct()
+                ->whereNotNull('class')
+                ->pluck('class')
+                ->filter();
+
+            return view('ktvtc.finance.high-school.cards.create', compact(
+                'students',
+                'totalStudents',
+                'withCards',
+                'withoutCards',
+                'qrGenerated',
+                'classes'
+            ));
+
+        } catch (\Exception $e) {
+            \Log::error('Error loading create card page: ' . $e->getMessage());
+            return back()->with('error', 'Failed to load page: ' . $e->getMessage());
         }
-
-        $students = HighSchoolStudent::whereDoesntHave('cardAccount')
-            ->where('status', 'active')
-            ->orderBy('full_name')
-            ->get();
-
-        return view('ktvtc.finance.high-school.cards.create', compact('students', 'student'));
     }
 
     /**
-     * Store a new card
+     * Store a new card (single)
      */
     public function store(Request $request)
     {
@@ -105,15 +173,20 @@ class CardAccountController extends Controller
         ]);
 
         if ($validator->fails()) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+            }
             return redirect()->back()->withErrors($validator)->withInput();
         }
 
         $student = HighSchoolStudent::findOrFail($request->student_id);
 
-        // Check if student already has a card
         if ($student->cardAccount) {
-            return redirect()->back()
-                ->with('error', 'Student already has a card: ' . $student->cardAccount->card_number);
+            $message = 'Student already has a card: ' . $student->cardAccount->card_number;
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => $message], 400);
+            }
+            return redirect()->back()->with('error', $message);
         }
 
         try {
@@ -123,13 +196,125 @@ class CardAccountController extends Controller
                 $request->per_transaction_limit ?? 300
             );
 
-            return redirect()->route('high-school.cards.show', $card)
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Card issued successfully!',
+                    'card_number' => $card->card_number,
+                    'card_id' => $card->id
+                ]);
+            }
+
+            return redirect()->route('finance.cards.show', $card)
                 ->with('success', 'Card issued successfully! Card number: ' . $card->card_number);
 
         } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Failed to issue card: ' . $e->getMessage());
+            \Log::error('Single card issuance failed: ' . $e->getMessage());
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to issue card: ' . $e->getMessage()
+                ], 500);
+            }
+            return redirect()->back()->with('error', 'Failed to issue card: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Bulk issue cards - FIXED with JSON response
+     */
+    public function bulkIssue(Request $request)
+    {
+        $studentIds = $request->student_ids;
+
+        if (empty($studentIds)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No students selected'
+            ], 400);
+        }
+
+        // Handle different input formats
+        if (is_string($studentIds)) {
+            $decoded = json_decode($studentIds, true);
+            if (is_array($decoded)) {
+                $studentIds = $decoded;
+            } else {
+                $studentIds = explode(',', $studentIds);
+            }
+        }
+
+        if (!is_array($studentIds) || empty($studentIds)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid student data format'
+            ], 400);
+        }
+
+        $studentIds = array_unique($studentIds);
+        $issued = 0;
+        $failed = 0;
+        $errors = [];
+        $successStudents = [];
+
+        foreach ($studentIds as $studentId) {
+            try {
+                $student = HighSchoolStudent::find($studentId);
+
+                if (!$student) {
+                    $failed++;
+                    $errors[] = "Student ID {$studentId}: Not found";
+                    continue;
+                }
+
+                if ($student->cardAccount) {
+                    $failed++;
+                    $errors[] = "Student {$student->full_name} (ID: {$studentId}): Already has a card";
+                    continue;
+                }
+
+                $card = $this->cardService->createCardForStudent($student, 500, 300);
+
+                if ($card) {
+                    $issued++;
+                    $successStudents[] = $student->full_name;
+                    \Log::info('Card issued successfully via bulk', [
+                        'student_id' => $student->id,
+                        'student_name' => $student->full_name,
+                        'card_number' => $card->card_number
+                    ]);
+                } else {
+                    $failed++;
+                    $errors[] = "Student {$student->full_name}: Card creation failed";
+                }
+
+            } catch (\Exception $e) {
+                $failed++;
+                $studentName = $student->full_name ?? 'Unknown';
+                $errors[] = "Student {$studentName} (ID: {$studentId}): " . $e->getMessage();
+                \Log::error('Bulk card issuance error', [
+                    'student_id' => $studentId,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+
+        $response = [
+            'success' => $issued > 0,
+            'message' => "Cards issued: {$issued} successful, {$failed} failed.",
+            'issued' => $issued,
+            'failed' => $failed,
+            'errors' => $errors,
+            'success_students' => $successStudents
+        ];
+
+        \Log::info('Bulk card issuance summary', [
+            'issued' => $issued,
+            'failed' => $failed,
+            'total_attempted' => count($studentIds)
+        ]);
+
+        return response()->json($response);
     }
 
     /**
@@ -179,7 +364,6 @@ class CardAccountController extends Controller
                 'minimum_balance' => $request->minimum_balance,
             ]);
 
-            // Log audit
             CardAuditLog::log(
                 $cardAccount->id,
                 'limit_change',
@@ -188,7 +372,7 @@ class CardAccountController extends Controller
                 json_encode($request->all())
             );
 
-            return redirect()->route('high-school.cards.show', $cardAccount)
+            return redirect()->route('finance.cards.show', $cardAccount)
                 ->with('success', 'Card updated successfully');
 
         } catch (\Exception $e) {
@@ -204,7 +388,7 @@ class CardAccountController extends Controller
     {
         try {
             $cardAccount->delete();
-            return redirect()->route('high-school.cards.index')
+            return redirect()->route('finance.cards.index')
                 ->with('success', 'Card deleted successfully');
 
         } catch (\Exception $e) {
@@ -219,9 +403,7 @@ class CardAccountController extends Controller
     public function activate(CardAccount $cardAccount)
     {
         $cardAccount->update(['is_active' => true]);
-
         CardAuditLog::log($cardAccount->id, 'activate', 'Card activated');
-
         return redirect()->back()->with('success', 'Card activated successfully');
     }
 
@@ -231,9 +413,7 @@ class CardAccountController extends Controller
     public function deactivate(CardAccount $cardAccount)
     {
         $cardAccount->update(['is_active' => false]);
-
         CardAuditLog::log($cardAccount->id, 'deactivate', 'Card deactivated');
-
         return redirect()->back()->with('success', 'Card deactivated successfully');
     }
 
@@ -243,9 +423,7 @@ class CardAccountController extends Controller
     public function lock(CardAccount $cardAccount)
     {
         $cardAccount->update(['is_locked' => true]);
-
         CardAuditLog::log($cardAccount->id, 'lock', 'Card locked');
-
         return redirect()->back()->with('success', 'Card locked successfully');
     }
 
@@ -255,9 +433,7 @@ class CardAccountController extends Controller
     public function unlock(CardAccount $cardAccount)
     {
         $cardAccount->update(['is_locked' => false]);
-
         CardAuditLog::log($cardAccount->id, 'unlock', 'Card unlocked');
-
         return redirect()->back()->with('success', 'Card unlocked successfully');
     }
 
@@ -275,12 +451,7 @@ class CardAccountController extends Controller
             'blocked_by' => auth()->id(),
         ]);
 
-        CardAuditLog::log(
-            $cardAccount->id,
-            'block',
-            'Card blocked: ' . $request->reason
-        );
-
+        CardAuditLog::log($cardAccount->id, 'block', 'Card blocked: ' . $request->reason);
         return redirect()->back()->with('success', 'Card blocked successfully');
     }
 
@@ -297,7 +468,6 @@ class CardAccountController extends Controller
         ]);
 
         CardAuditLog::log($cardAccount->id, 'unblock', 'Card unblocked');
-
         return redirect()->back()->with('success', 'Card unblocked successfully');
     }
 
@@ -368,39 +538,126 @@ class CardAccountController extends Controller
     }
 
     /**
-     * Bulk issue cards
+     * Download single card as PDF
      */
-    public function bulkIssue(Request $request)
+    public function downloadPdf(CardAccount $cardAccount)
     {
-        $studentIds = $request->student_ids;
-        if (empty($studentIds)) {
-            return redirect()->back()->with('error', 'No students selected');
+        $card = $cardAccount->load('student');
+
+        if (!$card->qr_code && $card->student) {
+            $qrService = app(\App\Services\CardQrCodeService::class);
+            $qrService->generateQrCode($card, $card->student);
+            $card->refresh();
         }
 
-        $issued = 0;
-        $failed = 0;
+        $pdf = Pdf::loadView('ktvtc.finance.high-school.cards.pdf-id-card', compact('card'));
+        $pdf->setPaper('a4', 'portrait');
 
-        foreach ($studentIds as $studentId) {
-            $student = HighSchoolStudent::find($studentId);
-            if ($student && !$student->cardAccount) {
-                try {
-                    $this->cardService->createCardForStudent($student);
-                    $issued++;
-                } catch (\Exception $e) {
-                    $failed++;
-                }
+        return $pdf->download('ID-Card-' . $card->student_name . '.pdf');
+    }
+
+    /**
+     * Download bulk cards as ZIP
+     */
+    public function downloadBulk(Request $request)
+    {
+          $timeout = env('EXPORT_TIMEOUT', 120);
+    set_time_limit($timeout);
+    ini_set('memory_limit', env('MEMORY_LIMIT', '512M'));
+        $request->validate([
+            'type' => 'required|in:class,all,selected',
+            'class' => 'required_if:type,class|string|nullable',
+            'card_ids' => 'required_if:type,selected|array|nullable',
+            'card_ids.*' => 'exists:card_accounts,id'
+        ]);
+
+        $cards = collect();
+
+        if ($request->type === 'class') {
+            $cards = CardAccount::with('student')
+                ->where('student_class', $request->class)
+                ->where('is_active', true)
+                ->get();
+
+            if ($cards->isEmpty()) {
+                return redirect()->back()->with('error', 'No cards found for class: ' . $request->class);
+            }
+            $zipName = 'ID-Cards-' . str_replace(' ', '_', $request->class) . '.zip';
+
+        } elseif ($request->type === 'selected') {
+            $cards = CardAccount::with('student')
+                ->whereIn('id', $request->card_ids)
+                ->get();
+
+            if ($cards->isEmpty()) {
+                return redirect()->back()->with('error', 'No cards selected');
+            }
+            $zipName = 'ID-Cards-Selected.zip';
+
+        } else {
+            $cards = CardAccount::with('student')
+                ->where('is_active', true)
+                ->get();
+
+            if ($cards->isEmpty()) {
+                return redirect()->back()->with('error', 'No active cards found');
+            }
+            $zipName = 'ID-Cards-All-' . date('Y-m-d') . '.zip';
+        }
+
+        // Generate QR codes for cards that don't have them
+        $qrService = app(\App\Services\CardQrCodeService::class);
+        foreach ($cards as $card) {
+            if (!$card->qr_code && $card->student) {
+                $qrService->generateQrCode($card, $card->student);
+                $card->refresh();
             }
         }
 
-        return redirect()->back()
-            ->with('success', "Cards issued: $issued, Failed: $failed");
+        $zipPath = storage_path('app/temp/' . uniqid() . '.zip');
+
+        if (!is_dir(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+
+        $zip = new ZipArchive();
+        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            return redirect()->back()->with('error', 'Failed to create ZIP file');
+        }
+
+        $successCount = 0;
+        $failedCount = 0;
+
+        foreach ($cards as $card) {
+            try {
+                $pdf = Pdf::loadView('ktvtc.finance.high-school.cards.pdf-id-card', ['card' => $card]);
+                $pdf->setPaper('a4', 'portrait');
+
+                $pdfContent = $pdf->output();
+                $fileName = $card->student_name . ' - ' . $card->card_number . '.pdf';
+                $fileName = preg_replace('/[^a-zA-Z0-9\-_\. ]/', '', $fileName);
+
+                $zip->addFromString($fileName, $pdfContent);
+                $successCount++;
+
+            } catch (\Exception $e) {
+                $failedCount++;
+                \Log::error('Failed to generate PDF for card: ' . $card->id, ['error' => $e->getMessage()]);
+            }
+        }
+
+        $zip->close();
+
+        if ($successCount === 0) {
+            unlink($zipPath);
+            return redirect()->back()->with('error', 'No PDFs were generated successfully.');
+        }
+
+        return response()->download($zipPath, $zipName)->deleteFileAfterSend(true);
     }
 
-    // ==================== API ENDPOINTS (POS Scanning) ====================
+    // ==================== API ENDPOINTS ====================
 
-    /**
-     * API: Find by admission number
-     */
     public function findByAdmission($admission)
     {
         $student = HighSchoolStudent::where('admission_number', $admission)
@@ -430,9 +687,6 @@ class CardAccountController extends Controller
         ]);
     }
 
-    /**
-     * API: Find by card number
-     */
     public function findByCardNumber($cardNumber)
     {
         $card = CardAccount::where('card_number', $cardNumber)
@@ -463,21 +717,41 @@ class CardAccountController extends Controller
         ]);
     }
 
-    /**
-     * API: Scan card (for POS)
-     */
     public function scan(Request $request)
     {
-        $request->validate([
-            'card_number' => 'required|string'
-        ]);
-
+        $request->validate(['card_number' => 'required|string']);
         return $this->findByCardNumber($request->card_number);
     }
+/**
+ * Get all students without cards (for bulk issue)
+ */
+public function getStudentsWithoutCards(Request $request)
+{
+    try {
+        // The relationship should work now since both models use 'high_school_student_id'
+        $students = HighSchoolStudent::where('status', 'active')
+            ->whereDoesntHave('cardAccount')  // This uses the relationship correctly
+            ->select('id', 'full_name', 'admission_number', 'class')
+            ->orderBy('full_name')
+            ->get();
 
-    /**
-     * API: Process purchase (for POS)
-     */
+        return response()->json([
+            'success' => true,
+            'student_ids' => $students->pluck('id')->toArray(),
+            'students' => $students,
+            'count' => $students->count()
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Error in getStudentsWithoutCards: ' . $e->getMessage());
+        \Log::error($e->getTraceAsString());
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to fetch students: ' . $e->getMessage()
+        ], 500);
+    }
+}
     public function processPurchase(Request $request)
     {
         $request->validate([
@@ -488,7 +762,6 @@ class CardAccountController extends Controller
         ]);
 
         $card = CardAccount::findOrFail($request->card_id);
-
         $result = $this->cardService->processPurchase(
             $card,
             $request->amount,
@@ -499,9 +772,6 @@ class CardAccountController extends Controller
         return response()->json($result);
     }
 
-    /**
-     * API: Get student transactions
-     */
     public function studentTransactions(HighSchoolStudent $student, Request $request)
     {
         $limit = $request->get('limit', 20);

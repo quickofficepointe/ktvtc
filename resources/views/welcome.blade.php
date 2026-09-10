@@ -218,7 +218,7 @@
                    class="bg-[#BF1F30] hover:bg-red-800 text-white font-semibold py-2 px-5 rounded-lg transition-all duration-200 shadow-md text-center">
                     Student Portal
                 </a>
-                <a href="http://ekenswed.kenswed.org" target="_blank"
+                <a href="httpS://eLearning.ktvtc.ac.ke" target="_blank"
                    class="bg-gray-800 hover:bg-gray-900 text-white font-semibold py-2 px-5 rounded-lg transition-all duration-200 shadow-md text-center">
                     eLearning
                 </a>

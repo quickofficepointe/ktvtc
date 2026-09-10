@@ -178,7 +178,7 @@
 
                             <td class="py-3 px-4 text-center">
                                 <div class="flex items-center justify-center space-x-3">
-                                    <a href="{{ route('finance.students.financial', $enrollment->student) }}"
+                                   <a href="{{ route('finance.students.financial', $enrollment->student_id) }}"
                                        class="text-primary hover:text-primary-dark transition"
                                        title="View Financial Details">
                                         <i class="fas fa-eye"></i>

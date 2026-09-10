@@ -5,7 +5,7 @@
 
 @section('header-actions')
 <div class="flex flex-wrap justify-end gap-2">
-    <a href="{{ route('finance.funding.export') }}" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded-lg font-semibold flex items-center text-sm transition">
+    <a href="{{ route('funding.export') }}" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded-lg font-semibold flex items-center text-sm transition">
         <i class="fas fa-file-export mr-2"></i> Export
     </a>
 </div>
@@ -32,7 +32,7 @@
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
-        <form method="GET" action="{{ route('finance.funding.index') }}" class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
+        <form method="GET" action="{{ route('funding.index') }}" class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
             <div class="lg:col-span-6">
                 <label class="text-xs font-semibold text-gray-600">Search</label>
                 <input type="text"
@@ -59,7 +59,7 @@
                     <i class="fas fa-search mr-2"></i> Filter
                 </button>
 
-                <a href="{{ route('finance.funding.index') }}" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm text-gray-700">
+                <a href="{{ route('funding.index') }}" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm text-gray-700">
                     <i class="fas fa-times mr-1"></i> Reset
                 </a>
             </div>
@@ -115,7 +115,7 @@
 
                             <td class="px-4 py-3 text-center">
                                 <div class="flex justify-center gap-3 whitespace-nowrap">
-                                    <a href="{{ route('finance.funding.show', $funding) }}" class="text-primary hover:text-primary-dark" title="View">
+                                    <a href="{{ route('funding.show', $funding) }}" class="text-primary hover:text-primary-dark" title="View">
                                         <i class="fas fa-eye"></i>
                                     </a>
 

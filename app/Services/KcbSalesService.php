@@ -137,7 +137,7 @@ class KcbSalesService extends KcbService
     {
         // Short and unique KCB account reference.
         // Example: 7722609-000123
-        return config('services.kcb_buni_sales.till_number', '7722609')
+        return config('services.kcb_buni_sales.till_number', '8118445')
             . '-'
             . str_pad((string) $sale->id, 6, '0', STR_PAD_LEFT);
     }
@@ -175,7 +175,7 @@ class KcbSalesService extends KcbService
                 "sharedShortCode" => true,
                 "orgShortCode" => config(
                     'services.kcb_buni_sales.org_shortcode',
-                    config('services.kcb_buni_sales.till_number', '7722609')
+                    config('services.kcb_buni_sales.till_number', '8118445')
                 ),
                 "orgPassKey" => config('services.kcb_buni_sales.org_passkey', ''),
                 "callbackUrl" => $callbackUrl,

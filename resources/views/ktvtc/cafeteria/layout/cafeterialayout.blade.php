@@ -75,13 +75,11 @@
             overscroll-behavior: contain;
         }
 
-        /* Sidebar open state (mobile & tablet) */
         .sidebar.open {
             transform: translateX(0);
             box-shadow: 4px 0 24px rgba(0,0,0,0.15);
         }
 
-        /* Desktop breakpoint */
         @media (min-width: 1024px) {
             .sidebar {
                 transform: translateX(0);
@@ -99,7 +97,6 @@
             }
         }
 
-        /* Tablet & small desktop */
         @media (min-width: 768px) and (max-width: 1023px) {
             .sidebar {
                 width: 260px;
@@ -109,7 +106,6 @@
             }
         }
 
-        /* Mobile first - sidebar hidden by default */
         @media (max-width: 767px) {
             .sidebar {
                 width: 280px;
@@ -124,7 +120,6 @@
             }
         }
 
-        /* Mobile overlay */
         .mobile-overlay {
             display: none;
             position: fixed;
@@ -144,7 +139,6 @@
             opacity: 1;
         }
 
-        /* Nav links */
         .nav-link {
             transition: all 0.15s ease;
             border-radius: 8px;
@@ -170,7 +164,6 @@
             font-size: 1rem;
         }
 
-        /* Buttons */
         .btn-primary {
             background: #E63946;
             transition: all 0.15s ease;
@@ -179,7 +172,6 @@
             background: #C1121F;
         }
 
-        /* Loading Overlay */
         #loadingOverlay {
             display: none;
             position: fixed;
@@ -210,7 +202,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Scrollbar */
         .sidebar::-webkit-scrollbar {
             width: 3px;
         }
@@ -222,24 +213,20 @@
             border-radius: 8px;
         }
 
-        /* Touch-friendly spacing */
         .touch-target {
             min-height: 44px;
             min-width: 44px;
         }
 
-        /* Responsive table wrapper */
         .table-responsive {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
         }
 
-        /* Card adjustments */
         .card-shadow {
             box-shadow: 0 2px 12px rgba(0,0,0,0.05);
         }
 
-        /* Breadcrumb mobile */
         .breadcrumb-scroll {
             overflow-x: auto;
             white-space: nowrap;
@@ -351,6 +338,14 @@
                     <span>POS Terminal</span>
                 </a>
             </li>
+            {{-- ✅ NEW: Card Scanner Link --}}
+            <li>
+                <a href="{{ route('cafeteria.scanner.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('cafeteria.scanner.*') ? 'active' : '' }}">
+                    <i class="fas fa-qrcode w-5 mr-3 text-center"></i>
+                    <span>Card Scanner</span>
+                </a>
+            </li>
             <li>
                 <a href="{{ route('cafeteria.sales.index') }}"
                    class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('cafeteria.sales.index') ? 'active' : '' }}">
@@ -436,16 +431,7 @@
             </li>
 
             <!-- Payments -->
-            <li class="mt-4">
-                <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider">Finance</p>
-            </li>
-            <li>
-                <a href="{{ route('cafeteria.payments.index') }}"
-                   class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('cafeteria.payments.*') ? 'active' : '' }}">
-                    <i class="fas fa-credit-card w-5 mr-3 text-center"></i>
-                    <span>Payments</span>
-                </a>
-            </li>
+            
 
             <!-- Settings -->
             <li class="mt-4">
@@ -590,12 +576,10 @@
         }
 
         if (mobileBtn) {
-            // Touch & click support
             mobileBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
                 openSidebar();
             });
-            // Prevent double-tap zoom on iOS
             mobileBtn.addEventListener('touchend', function(e) {
                 e.preventDefault();
                 mobileBtn.click();
@@ -609,7 +593,6 @@
             });
         }
 
-        // Close sidebar on window resize when switching to desktop
         let resizeTimer;
         window.addEventListener('resize', function() {
             clearTimeout(resizeTimer);
@@ -620,7 +603,6 @@
             }, 100);
         });
 
-        // Close sidebar on escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 closeSidebar();

@@ -71,7 +71,10 @@
             </div>
 
             <div class="md:w-1/3 mt-6 md:mt-0 text-center">
-                <a href="{{ route('application.form', ['course_slug' => $course->slug]) }}">APPLY NOW</a>
+                <a href="{{ route('application.form', ['course_slug' => $course->slug]) }}" 
+                   class="inline-block bg-white text-[#B91C1C] px-8 py-3 rounded-lg font-bold hover:bg-gray-100 transition-colors shadow-lg">
+                    APPLY NOW
+                </a>
             </div>
         </div>
     </div>
@@ -230,15 +233,80 @@
                 </div>
                 @endif
 
-                <!-- Fees Card -->
+                <!-- Fees Card - FIXED for your data structure -->
                 @if($course->fees_breakdown)
-    <div class="bg-white rounded-lg p-6 shadow-lg border border-gray-200">
-        <h3 class="text-xl font-bold text-gray-800 mb-4 border-b border-gray-200 pb-2">Fees Breakdown</h3>
-        <div class="prose max-w-none">
-            {!! $course->fees_breakdown !!}
+                <div class="bg-white rounded-lg p-6 shadow-lg border border-gray-200">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4 border-b border-gray-200 pb-2">Fees Breakdown</h3>
+                    <div class="prose max-w-none">
+                        @php
+                            $fees = $course->fees_breakdown;
+                        @endphp
+
+                        @if(is_array($fees) || is_object($fees))
+                            @if(!empty($fees))
+                                @php
+                                    // Sort sections by section number
+                                    $sortedFees = [];
+                                    if (is_array($fees) || is_object($fees)) {
+                                        $feesArray = (array) $fees;
+                                        ksort($feesArray);
+                                        $sortedFees = $feesArray;
+                                    }
+                                    
+                                    $totalFees = 0;
+                                    foreach($sortedFees as $section => $data) {
+                                        if (isset($data['amount'])) {
+                                            $totalFees += (float) $data['amount'];
+                                        }
+                                    }
+                                @endphp
+                                
+                                <div class="overflow-x-auto">
+                                    <table class="w-full border-collapse">
+                                        <thead>
+                                            <tr class="bg-gray-100">
+                                                <th class="text-left p-2 border border-gray-300 font-semibold text-gray-700">Section</th>
+                                                <th class="text-right p-2 border border-gray-300 font-semibold text-gray-700">Amount (KES)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($sortedFees as $section => $data)
+                                                <tr class="hover:bg-gray-50">
+                                                    <td class="p-2 border border-gray-300 font-medium">
+                                                        {{ $section }}
+                                                        @if(!empty($data['description']))
+                                                            <br><span class="text-sm text-gray-500 font-normal">{{ $data['description'] }}</span>
+                                                        @endif
+                                                    </td>
+                                                    <td class="p-2 border border-gray-300 text-right">
+                                                        {{ number_format($data['amount'] ?? 0, 2) }}
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                        <tfoot>
+                                            <tr class="bg-gray-50 font-bold">
+                                                <td class="p-2 border border-gray-300 text-right">Total</td>
+                                                <td class="p-2 border border-gray-300 text-right text-[#B91C1C]">
+                                                    KES {{ number_format($totalFees, 2) }}
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            @else
+                                <p class="text-gray-500">No fee breakdown available.</p>
+                            @endif
+                        @elseif(is_string($fees))
+                            {!! $fees !!}
+                        @else
+                            <p class="text-gray-500">Fee information not available.</p>
+                        @endif
+                    </div>
+                </div>
+                @endif
+            </div>
         </div>
-    </div>
-@endif
 
         <!-- Related Courses -->
         @if($relatedCourses->count() > 0)

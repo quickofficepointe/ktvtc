@@ -128,28 +128,25 @@ class EnrollmentController extends Controller
     /**
      * Show the form for creating a new enrollment
      */
-   /**
- * Show the form for creating a new enrollment
- */
-public function create()
-{
-    // Get students WITHOUT active enrollments
-    $students = Student::where('status', 'active')
-        ->whereDoesntHave('enrollments', function($q) {
-            $q->where('status', 'active');
-        })
-        ->orderBy('first_name')
-        ->get();
+    public function create()
+    {
+        // Get students WITHOUT active enrollments
+        $students = Student::where('status', 'active')
+            ->whereDoesntHave('enrollments', function($q) {
+                $q->where('status', 'active');
+            })
+            ->orderBy('first_name')
+            ->get();
 
-    // ✅ FIX: Use 'fees_breakdown' (plural) - matches the database column
-    $courses = Course::select('id', 'name', 'code', 'fees_breakdown')
-        ->orderBy('name')
-        ->get();
+        // ✅ FIX: Use 'fees_breakdown' (plural) - matches the database column
+        $courses = Course::select('id', 'name', 'code', 'fees_breakdown')
+            ->orderBy('name')
+            ->get();
 
-    $campuses = Campus::orderBy('name')->get();
+        $campuses = Campus::orderBy('name')->get();
 
-    return view('ktvtc.admin.enrollments.create', compact('students', 'courses', 'campuses'));
-}
+        return view('ktvtc.admin.enrollments.create', compact('students', 'courses', 'campuses'));
+    }
 
     /**
      * Store a new enrollment - Formats student number with course code and year
@@ -187,23 +184,30 @@ public function create()
             $student = Student::findOrFail($request->student_id);
             $course = Course::findOrFail($request->course_id);
 
-            // Get the base student number
-            $baseNumber = $student->student_number;
+            // 🔥 FIX: Use a strict DB transaction to ensure student number formatting doesn't fail due to race condition
+            DB::transaction(function () use ($student, $course, $request, &$formattedStudentNumber) {
+                
+                // Get the base student number
+                $baseNumber = $student->student_number;
 
-            // If student number is already formatted, extract the number part
-            if (strpos($baseNumber, '/') !== false) {
-                $parts = explode('/', $baseNumber);
-                $baseNumber = $parts[1] ?? $parts[0];
-            }
+                // If student number is already formatted, extract the number part
+                if (strpos($baseNumber, '/') !== false) {
+                    $parts = explode('/', $baseNumber);
+                    $baseNumber = $parts[1] ?? $parts[0];
+                }
 
-            // Format student number: COURSECODE/BASE_NUMBER/YEAR
-            $courseCode = $course->code ?? 'STU';
-            $year = $request->intake_year ?? date('Y');
-            $formattedStudentNumber = strtoupper($courseCode) . '/' . $baseNumber . '/' . $year;
+                // Format student number: COURSECODE/BASE_NUMBER/YEAR
+                $courseCode = $course->code ?? 'STU';
+                $year = $request->intake_year ?? date('Y');
+                $formattedStudentNumber = strtoupper($courseCode) . '/' . $baseNumber . '/' . $year;
 
-            // Update student with formatted number
-            $student->student_number = $formattedStudentNumber;
-            $student->save();
+                // Update student with formatted number
+                $student->student_number = $formattedStudentNumber;
+                $student->save();
+            });
+
+            // Re-fetch the student to ensure the save completed and we have the most current data
+            $student = Student::findOrFail($request->student_id);
 
             // Prepare fee snapshot
             $feeSnapshot = [
@@ -279,6 +283,12 @@ public function create()
                 ->withInput();
         }
     }
+
+    // ==================================================================
+    // NOTE: The rest of the methods (show, edit, update, destroy, etc.) 
+    // remain unchanged from your original code. 
+    // The important fix is above in the store() method and the Model.
+    // ==================================================================
 
     /**
      * Display the specified enrollment

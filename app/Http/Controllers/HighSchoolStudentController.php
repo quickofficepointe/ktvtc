@@ -1,11 +1,14 @@
 <?php
+// app/Http/Controllers/HighSchoolStudentController.php
 
 namespace App\Http\Controllers;
 
 use App\Models\HighSchoolStudent;
 use App\Models\CardAccount;
 use App\Models\CardFundingRequest;
+use App\Models\CardTransaction;
 use App\Services\CardService;
+use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
@@ -148,7 +151,7 @@ class HighSchoolStudentController extends Controller
 
             DB::commit();
 
-            return redirect()->route('finance.hs-students.show', $student)
+            return redirect()->route('hs-students.show', $student)
                 ->with('success', 'Student created and card issued successfully! Card number: ' . $card->card_number);
 
         } catch (\Exception $e) {
@@ -221,7 +224,7 @@ class HighSchoolStudentController extends Controller
                 ]);
             }
 
-            return redirect()->route('finance.hs-students.show', $student)
+            return redirect()->route('hs-students.show', $student)
                 ->with('success', 'Student updated successfully');
 
         } catch (\Exception $e) {
@@ -345,5 +348,215 @@ class HighSchoolStudentController extends Controller
 
         return redirect()->back()
             ->with('success', count($ids) . ' students deactivated');
+    }
+
+    // ============================================================
+    // NEW METHODS ADDED FOR PARENT FUNDING
+    // ============================================================
+
+    /**
+     * Send parent funding link via SMS
+     * NEW METHOD - Add this
+     */
+ public function sendFundingLink(HighSchoolStudent $student)
+{
+    try {
+        // ✅ Check if student has parent phone
+        if (empty($student->parent_phone)) {
+            // Return JSON for AJAX requests
+            if (request()->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Parent phone number not available for this student'
+                ], 400);
+            }
+            return redirect()->back()->with('error', 'Parent phone number not available');
+        }
+
+        $smsService = app(SmsService::class);
+        $result = $smsService->sendParentFundingLink($student);
+        
+        // ✅ Return JSON for AJAX requests
+        if (request()->ajax()) {
+            if ($result['success'] ?? false) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Funding link sent to parent successfully!'
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => $result['message'] ?? 'Failed to send SMS'
+                ], 400);
+            }
+        }
+        
+        // ✅ Non-AJAX fallback (for regular form submissions)
+        if ($result['success'] ?? false) {
+            return redirect()->back()->with('success', 'Funding link sent to parent successfully!');
+        } else {
+            return redirect()->back()->with('error', 'Failed to send SMS: ' . ($result['message'] ?? 'Unknown error'));
+        }
+        
+    } catch (\Exception $e) {
+        Log::error('Send funding link error: ' . $e->getMessage(), [
+            'student_id' => $student->id
+        ]);
+        
+        // ✅ Return JSON for AJAX requests
+        if (request()->ajax()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send SMS: ' . $e->getMessage()
+            ], 500);
+        }
+        
+        return redirect()->back()->with('error', 'Failed to send SMS: ' . $e->getMessage());
+    }
+}
+
+    /**
+     * Bulk send funding links to selected students
+     * NEW METHOD - Add this
+     */
+    public function bulkSendFundingLinks(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'student_ids' => 'required|array',
+            'student_ids.*' => 'exists:high_school_students,id'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        try {
+            $students = HighSchoolStudent::whereIn('id', $request->student_ids)->get();
+            $smsService = app(SmsService::class);
+            
+            $sent = 0;
+            $failed = 0;
+            $results = [];
+            
+            foreach ($students as $student) {
+                $result = $smsService->sendParentFundingLink($student);
+                $results[$student->admission_number] = $result;
+                
+                if ($result['success'] ?? false) {
+                    $sent++;
+                } else {
+                    $failed++;
+                }
+                
+                // Rate limiting to avoid SMS service throttling
+                if ($sent % 10 == 0 && $sent > 0) {
+                    sleep(1);
+                }
+            }
+            
+            $message = "Sent {$sent} SMS messages. Failed: {$failed}";
+            
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'sent' => $sent,
+                'failed' => $failed,
+                'total' => $students->count(),
+                'results' => $results
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send bulk SMS: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get card IDs for selected students (for QR generation)
+     * This method already exists in your code - keeping it
+     */
+    public function getCardIds(Request $request)
+    {
+        $request->validate([
+            'student_ids' => 'required|array',
+            'student_ids.*' => 'exists:high_school_students,id'
+        ]);
+
+        $cardIds = CardAccount::whereIn('high_school_student_id', $request->student_ids)
+            ->pluck('id');
+
+        return response()->json([
+            'success' => true,
+            'card_ids' => $cardIds
+        ]);
+    }
+
+    /**
+     * Update student profile picture
+     * This method already exists - keeping it
+     */
+    public function updatePhoto(Request $request, HighSchoolStudent $student)
+    {
+        $validator = Validator::make($request->all(), [
+            'profile_picture' => 'required|image|max:2048'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
+
+        try {
+            if ($student->profile_picture && \Storage::disk('public')->exists($student->profile_picture)) {
+                \Storage::disk('public')->delete($student->profile_picture);
+            }
+
+            $path = $request->file('profile_picture')->store('high-school/students', 'public');
+            $student->profile_picture = $path;
+            $student->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Profile picture updated successfully',
+                'photo_url' => asset('storage/' . $path)
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update photo: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Generate admission number
+     * This method already exists - keeping it
+     */
+    protected function generateAdmissionNumber()
+    {
+        $year = date('Y');
+        $prefix = 'HS';
+
+        $lastStudent = HighSchoolStudent::where('admission_number', 'LIKE', "{$prefix}/{$year}/%")
+            ->orderBy('admission_number', 'desc')
+            ->first();
+
+        if ($lastStudent) {
+            $parts = explode('/', $lastStudent->admission_number);
+            $lastNumber = (int) end($parts);
+            $newNumber = str_pad($lastNumber + 1, 5, '0', STR_PAD_LEFT);
+        } else {
+            $newNumber = '00001';
+        }
+
+        return "{$prefix}/{$year}/{$newNumber}";
     }
 }

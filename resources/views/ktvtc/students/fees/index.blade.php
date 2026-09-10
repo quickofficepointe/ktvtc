@@ -155,7 +155,7 @@
                             <span class="capitalize">{{ $payment->payment_method_label }}</span>
                         </td>
                         <td class="px-6 py-4 text-center">
-                            <a href="{{ route('admin.fee-payments.receipt', $payment) }}" target="_blank" class="text-primary hover:text-primary-dark">
+                            <a href="" target="_blank" class="text-primary hover:text-primary-dark">
                                 <i class="fas fa-print"></i>
                             </a>
                         </td>

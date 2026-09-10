@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\StudentsImport;
@@ -214,14 +215,23 @@ class StudentController extends Controller
             ->orderBy('application_number')
             ->get();
 
-        return view('ktvtc.admin.students.create', compact('campuses', 'courses', 'applications'));
+        // Get the next available student number
+        $nextStudentNumber = Student::getNextStudentNumber();
+        
+        Log::info('Create view loaded with student number: ' . $nextStudentNumber);
+
+        return view('ktvtc.admin.students.create', compact('campuses', 'courses', 'applications', 'nextStudentNumber'));
     }
 
     /**
-     * Store a new student - Generates student number starting from 947
+     * Store a new student with duplicate handling
      */
     public function store(Request $request)
     {
+        Log::info('=== STUDENT STORE STARTED ===');
+        Log::info('Request data:', $request->except(['_token']));
+
+        // Validate the request
         $validator = Validator::make($request->all(), [
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
@@ -236,92 +246,165 @@ class StudentController extends Controller
         ]);
 
         if ($validator->fails()) {
+            Log::warning('Validation failed:', $validator->errors()->toArray());
             return redirect()->back()
                 ->withErrors($validator)
                 ->withInput();
         }
 
-        // 🔥 Generate student number starting from 947
-        $studentNumber = $this->getNextStudentNumber();
+        Log::info('Validation passed');
 
-        $student = Student::create([
-            'first_name' => $request->first_name,
-            'middle_name' => $request->middle_name,
-            'last_name' => $request->last_name,
-            'student_number' => $studentNumber,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'gender' => $request->gender,
-            'date_of_birth' => $request->date_of_birth,
-            'campus_id' => $request->campus_id,
-            'status' => $request->status ?? 'active',
-            'registration_date' => now(),
-            'student_category' => $request->student_category ?? 'regular',
-            'application_id' => $request->application_id,
-            'id_number' => $request->id_number,
-            'address' => $request->address,
-            'city' => $request->city,
-            'county' => $request->county,
-            'postal_code' => $request->postal_code,
-            'country' => $request->country ?? 'Kenya',
-            'next_of_kin_name' => $request->next_of_kin_name,
-            'next_of_kin_relationship' => $request->next_of_kin_relationship,
-            'next_of_kin_phone' => $request->next_of_kin_phone,
-            'next_of_kin_email' => $request->next_of_kin_email,
-            'next_of_kin_id_number' => $request->next_of_kin_id_number,
-            'next_of_kin_address' => $request->next_of_kin_address,
-            'emergency_contact_name' => $request->emergency_contact_name,
-            'emergency_contact_relationship' => $request->emergency_contact_relationship,
-            'emergency_contact_phone' => $request->emergency_contact_phone,
-            'emergency_contact_phone_alt' => $request->emergency_contact_phone_alt,
-            'education_level' => $request->education_level,
-            'school_name' => $request->school_name,
-            'graduation_year' => $request->graduation_year,
-            'mean_grade' => $request->mean_grade,
-            'kcse_index_number' => $request->kcse_index_number,
-            'blood_group' => $request->blood_group,
-            'tshirt_size' => $request->tshirt_size,
-            'disability_type' => $request->disability_type,
-            'medical_conditions' => $request->medical_conditions,
-            'allergies' => $request->allergies,
-            'special_needs' => $request->special_needs,
-            'remarks' => $request->remarks,
-        ]);
+        // Get the student number from the form or generate a new one
+        $studentNumber = $request->input('student_number');
+        
+        // If no student number was passed or it's taken, generate a new one
+        if (empty($studentNumber)) {
+            $studentNumber = Student::getNextStudentNumber();
+            Log::info('Generated new student number (empty input): ' . $studentNumber);
+        } elseif (Student::isStudentNumberTaken($studentNumber)) {
+            Log::warning('Student number from form is taken: ' . $studentNumber);
+            $studentNumber = Student::getNextStudentNumber();
+            Log::info('Generated new student number (was taken): ' . $studentNumber);
+        } else {
+            Log::info('Using student number from form: ' . $studentNumber);
+        }
 
+        // Try to create student with retry mechanism
+        $maxRetries = 10;
+        $attempt = 0;
+        $student = null;
+
+        while ($attempt < $maxRetries) {
+            try {
+                Log::info("Attempt " . ($attempt + 1) . " of {$maxRetries} with number: " . $studentNumber);
+                
+                // Create the student
+                $student = Student::create([
+                    'first_name' => $request->first_name,
+                    'middle_name' => $request->middle_name,
+                    'last_name' => $request->last_name,
+                    'student_number' => $studentNumber,
+                    'email' => $request->email,
+                    'phone' => $request->phone,
+                    'gender' => $request->gender,
+                    'date_of_birth' => $request->date_of_birth,
+                    'campus_id' => $request->campus_id,
+                    'status' => $request->status ?? 'active',
+                    'registration_date' => now(),
+                    'student_category' => $request->student_category ?? 'regular',
+                    'application_id' => $request->application_id,
+                    'id_number' => $request->id_number,
+                    'address' => $request->address,
+                    'city' => $request->city,
+                    'county' => $request->county,
+                    'postal_code' => $request->postal_code,
+                    'country' => $request->country ?? 'Kenya',
+                    'next_of_kin_name' => $request->next_of_kin_name,
+                    'next_of_kin_relationship' => $request->next_of_kin_relationship,
+                    'next_of_kin_phone' => $request->next_of_kin_phone,
+                    'next_of_kin_email' => $request->next_of_kin_email,
+                    'next_of_kin_id_number' => $request->next_of_kin_id_number,
+                    'next_of_kin_address' => $request->next_of_kin_address,
+                    'emergency_contact_name' => $request->emergency_contact_name,
+                    'emergency_contact_relationship' => $request->emergency_contact_relationship,
+                    'emergency_contact_phone' => $request->emergency_contact_phone,
+                    'emergency_contact_phone_alt' => $request->emergency_contact_phone_alt,
+                    'education_level' => $request->education_level,
+                    'school_name' => $request->school_name,
+                    'graduation_year' => $request->graduation_year,
+                    'mean_grade' => $request->mean_grade,
+                    'kcse_index_number' => $request->kcse_index_number,
+                    'blood_group' => $request->blood_group,
+                    'tshirt_size' => $request->tshirt_size,
+                    'disability_type' => $request->disability_type,
+                    'medical_conditions' => $request->medical_conditions,
+                    'allergies' => $request->allergies,
+                    'special_needs' => $request->special_needs,
+                    'remarks' => $request->remarks,
+                    'title' => $request->title,
+                    'marital_status' => $request->marital_status,
+                    'id_type' => $request->id_type,
+                    'legacy_student_code' => $request->legacy_student_code,
+                ]);
+
+                // If we got here, creation was successful
+                Log::info('✅ Student created successfully with ID: ' . $student->id . ' and number: ' . $studentNumber);
+                break;
+
+            } catch (\Illuminate\Database\QueryException $e) {
+                Log::error('❌ Database error on attempt ' . ($attempt + 1) . ': ' . $e->getMessage());
+                
+                // Check if it's a duplicate entry error
+                $isDuplicate = false;
+                
+                if (isset($e->errorInfo[1]) && $e->errorInfo[1] == 1062) {
+                    $isDuplicate = true;
+                    Log::warning('Duplicate entry detected (error code 1062)');
+                }
+                
+                if (isset($e->errorInfo[0]) && $e->errorInfo[0] == '23000') {
+                    $isDuplicate = true;
+                    Log::warning('Duplicate entry detected (SQL state 23000)');
+                }
+                
+                if (strpos($e->getMessage(), 'Duplicate entry') !== false) {
+                    $isDuplicate = true;
+                    Log::warning('Duplicate entry detected (message contains "Duplicate entry")');
+                }
+
+                if ($isDuplicate) {
+                    $attempt++;
+                    Log::warning("Retry {$attempt}/{$maxRetries} due to duplicate");
+                    
+                    // Generate a new number for the next attempt
+                    $studentNumber = Student::getNextStudentNumber();
+                    Log::info('Generated new student number for retry: ' . $studentNumber);
+                    
+                    if ($attempt >= $maxRetries) {
+                        Log::error('❌ Failed after ' . $maxRetries . ' attempts');
+                        return redirect()->back()
+                            ->with('error', 'Unable to generate a unique student number after ' . $maxRetries . ' attempts. Please try again.')
+                            ->withInput();
+                    }
+                    
+                    // Small delay before retry
+                    usleep(100000); // 0.1 second
+                    continue;
+                }
+                
+                // If it's a different error, rethrow
+                Log::error('❌ Non-duplicate database error, throwing');
+                throw $e;
+                
+            } catch (\Exception $e) {
+                Log::error('❌ General error on attempt ' . ($attempt + 1) . ': ' . $e->getMessage());
+                Log::error('Stack trace: ' . $e->getTraceAsString());
+                
+                return redirect()->back()
+                    ->with('error', 'An error occurred while creating the student: ' . $e->getMessage())
+                    ->withInput();
+            }
+        }
+
+        if (!$student) {
+            Log::error('❌ Student creation failed - no student object created');
+            return redirect()->back()
+                ->with('error', 'Failed to create student after ' . $maxRetries . ' attempts. Please try again.')
+                ->withInput();
+        }
+
+        Log::info('🎉 Student creation successful! Student ID: ' . $student->id . ', Number: ' . $studentNumber);
+
+        // Handle document uploads
         $this->handleDocumentUploads($request, $student);
+
+        // Create user account
         $this->createUserFromStudent($student);
+
+        Log::info('=== STUDENT STORE COMPLETED ===');
 
         return redirect()->route('admin.students.index')
             ->with('success', "Student created successfully. Student Number: {$studentNumber}");
-    }
-
-    /**
-     * Get the next student number starting from 947
-     */
-    private function getNextStudentNumber()
-    {
-        // Get the last student number
-        $lastStudent = Student::orderBy('id', 'desc')->first();
-
-        if (!$lastStudent || !$lastStudent->student_number) {
-            return '947';
-        }
-
-        // Extract the number from the student number
-        $parts = explode('/', $lastStudent->student_number);
-
-        // Check if it's a formatted number like "ICT/947/2026"
-        if (count($parts) === 3 && is_numeric($parts[1])) {
-            $nextNumber = (int) $parts[1] + 1;
-        } elseif (is_numeric($lastStudent->student_number)) {
-            // Simple number format
-            $nextNumber = (int) $lastStudent->student_number + 1;
-        } else {
-            // Fallback
-            $nextNumber = 947;
-        }
-
-        return (string) $nextNumber;
     }
 
     public function show($id)
@@ -367,15 +450,24 @@ class StudentController extends Controller
         }
 
         $oldStudentNumber = $student->student_number;
+        $newStudentNumber = $request->student_number;
+
+        // If student number is being changed, check if it's already taken
+        if ($newStudentNumber && $newStudentNumber !== $oldStudentNumber) {
+            if (Student::isStudentNumberTaken($newStudentNumber)) {
+                return redirect()->back()
+                    ->with('error', 'Student number "' . $newStudentNumber . '" is already taken. Please use a different number.')
+                    ->withInput();
+            }
+        }
 
         $student->update($request->all());
         $this->handleDocumentUploads($request, $student);
 
-        $newStudentNumber = $student->student_number;
-        $studentNumberChanged = $oldStudentNumber !== $newStudentNumber;
+        $studentNumberChanged = $oldStudentNumber !== $student->student_number;
 
-        if ($studentNumberChanged && $newStudentNumber) {
-            $this->syncStudentPassword($student, $newStudentNumber);
+        if ($studentNumberChanged && $student->student_number) {
+            $this->syncStudentPassword($student, $student->student_number);
         }
 
         return redirect()->route('admin.students.index')
@@ -778,7 +870,7 @@ class StudentController extends Controller
             $user->save();
             $this->sendPasswordUpdateSms($student, $newPassword);
 
-            \Log::info("Password synced for student", [
+            Log::info("Password synced for student", [
                 'student_id' => $student->id,
                 'student_number' => $studentNumber,
                 'user_id' => $user->id
@@ -833,7 +925,7 @@ class StudentController extends Controller
             $phone = $student->phone;
 
             if (!$phone) {
-                \Log::warning("No phone number for student: {$student->id}");
+                Log::warning("No phone number for student: {$student->id}");
                 return ['success' => false, 'message' => 'No phone number'];
             }
 
@@ -849,12 +941,12 @@ class StudentController extends Controller
             $result = $this->smsService->sendSingleSms($phone, $message);
 
             if ($result['success']) {
-                \Log::info("Password update SMS sent to {$phone}", [
+                Log::info("Password update SMS sent to {$phone}", [
                     'student_id' => $student->id,
                     'student_number' => $student->student_number
                 ]);
             } else {
-                \Log::error("Failed to send password update SMS to {$phone}", [
+                Log::error("Failed to send password update SMS to {$phone}", [
                     'student_id' => $student->id,
                     'error' => $result['message'] ?? 'Unknown error'
                 ]);
@@ -863,7 +955,7 @@ class StudentController extends Controller
             return $result;
 
         } catch (\Exception $e) {
-            \Log::error("Password update SMS exception: " . $e->getMessage(), [
+            Log::error("Password update SMS exception: " . $e->getMessage(), [
                 'student_id' => $student->id
             ]);
 

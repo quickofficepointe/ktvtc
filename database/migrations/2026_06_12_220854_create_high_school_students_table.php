@@ -9,29 +9,38 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('high_school_students', function (Blueprint $table) {
-            $table->id();
+    $table->id();
 
-            // Core student info
-            $table->string('admission_number', 50)->unique();
-            $table->string('full_name', 255);
-            $table->string('class', 20);
-            $table->string('profile_picture', 255)->nullable();
+    // Core student info
+    $table->string('admission_number', 50)->unique();
+    $table->string('full_name', 255);
+    $table->string('class', 20);
 
-            // Parent contact (only what's needed for SMS)
-            $table->string('parent_phone', 20)->nullable();
-            $table->string('parent_name', 255)->nullable();
+    // Additional student information
+    $table->string('stream', 50)->nullable();
+    $table->date('date_of_birth')->nullable();
+    $table->enum('gender', ['male', 'female'])->nullable();
+    $table->date('admission_date')->nullable();
+    $table->boolean('is_boarder')->default(true);
 
-            // Status
-            $table->enum('status', ['active', 'inactive', 'graduated'])->default('active');
+    $table->string('profile_picture', 255)->nullable();
 
-            $table->timestamps();
+    // Parent contact (only what's needed for SMS)
+    $table->string('parent_phone', 20)->nullable();
+    $table->string('parent_name', 255)->nullable();
 
-            // Indexes
-            $table->index(['admission_number']);
-            $table->index(['class']);
-            $table->index(['status']);
-            $table->index(['parent_phone']);
-        });
+    // Status
+    $table->enum('status', ['active', 'inactive', 'graduated'])->default('active');
+
+    $table->timestamps();
+
+    // Indexes
+    $table->index(['admission_number']);
+    $table->index(['class']);
+    $table->index(['stream']);
+    $table->index(['status']);
+    $table->index(['parent_phone']);
+});
     }
 
     public function down(): void

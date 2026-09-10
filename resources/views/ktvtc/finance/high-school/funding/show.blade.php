@@ -6,7 +6,7 @@
 @section('breadcrumb')
 <li>
     <span class="mx-2">/</span>
-    <a href="{{ route('finance.funding.index') }}" class="text-gray-600 hover:text-primary">Funding</a>
+    <a href="{{ route('funding.index') }}" class="text-gray-600 hover:text-primary">Funding</a>
 </li>
 <li>
     <span class="mx-2">/</span>
@@ -150,7 +150,7 @@
     function retryFunding() {
         if (confirm('Retry this funding request?')) {
             showLoading('Retrying...');
-            fetch('{{ route("finance.funding.retry", $cardFundingRequest) }}', {
+            fetch('{{ route("funding.retry", $cardFundingRequest) }}', {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': '{{ csrf_token() }}'
@@ -182,7 +182,7 @@
         }
 
         showLoading('Updating status...');
-        fetch('{{ route("finance.funding.fail", $cardFundingRequest) }}', {
+        fetch('{{ route("funding.fail", $cardFundingRequest) }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -215,7 +215,7 @@
         }
 
         showLoading('Updating status...');
-        fetch('{{ route("finance.funding.complete", $cardFundingRequest) }}', {
+        fetch('{{ route("funding.complete", $cardFundingRequest) }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

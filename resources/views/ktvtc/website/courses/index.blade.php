@@ -203,7 +203,7 @@
                                         '{{ addslashes($course->schedule) }}',
                                         `{{ addslashes($course->description) }}`,
                                         `{{ addslashes($course->requirements) }}`,
-                                        `{{ addslashes($course->fees_breakdown) }}`,
+                                        `{{ addslashes(is_array($course->fees_breakdown) ? json_encode($course->fees_breakdown) : (string) $course->fees_breakdown) }}`,
                                         '{{ $course->delivery_mode }}',
                                         `{{ addslashes($course->what_you_will_learn) }}`,
                                         '{{ $course->cover_image_url }}',

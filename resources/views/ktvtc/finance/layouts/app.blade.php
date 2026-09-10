@@ -497,7 +497,7 @@
                 <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider bg-white/10 py-1 rounded">High School Cards</p>
             </li>
             <li>
-                <a href="{{ route('finance.hs-students.index') }}"
+                <a href="{{ route('hs-students.index') }}"
                    class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.hs-students.*') ? 'active' : '' }}">
                     <i class="fas fa-user-graduate w-5 mr-3 text-center"></i>
                     <span>Students</span>
@@ -510,7 +510,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ route('finance.cards.index') }}"
+                <a href="{{ route('cards.index') }}"
                    class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.cards.*') ? 'active' : '' }}">
                     <i class="fas fa-id-card w-5 mr-3 text-center"></i>
                     <span>Cards</span>
@@ -523,7 +523,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ route('finance.funding.index') }}"
+                <a href="{{ route('funding.index') }}"
                    class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.funding.*') ? 'active' : '' }}">
                     <i class="fas fa-hand-holding-usd w-5 mr-3 text-center"></i>
                     <span>Funding Requests</span>
@@ -536,7 +536,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ route('finance.card-reports.index') }}"
+                <a href="{{ route('card-reports.index') }}"
                    class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.card-reports.*') ? 'active' : '' }}">
                     <i class="fas fa-chart-pie w-5 mr-3 text-center"></i>
                     <span>Card Reports</span>

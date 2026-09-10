@@ -6,7 +6,7 @@
 @section('breadcrumb')
 <li>
     <span class="mx-2">/</span>
-    <a href="{{ route('finance.hs-students.index') }}" class="text-gray-600 hover:text-primary">High School Students</a>
+    <a href="{{ route('hs-students.index') }}" class="text-gray-600 hover:text-primary">High School Students</a>
 </li>
 <li>
     <span class="mx-2">/</span>
@@ -17,7 +17,7 @@
 @section('content')
 <div class="max-w-2xl mx-auto">
     <div class="finance-card p-5">
-        <form method="POST" action="{{ route('finance.hs-students.update', $student) }}" enctype="multipart/form-data">
+        <form method="POST" action="{{ route('hs-students.update', $student) }}" enctype="multipart/form-data">
             @csrf
             @method('PUT')
 
@@ -96,7 +96,7 @@
                 </div>
 
                 <div class="flex justify-end space-x-3 pt-4 border-t">
-                    <a href="{{ route('finance.hs-students.show', $student) }}" class="px-4 py-2 border rounded-lg hover:bg-gray-50 transition text-sm">Cancel</a>
+                    <a href="{{ route('hs-students.show', $student) }}" class="px-4 py-2 border rounded-lg hover:bg-gray-50 transition text-sm">Cancel</a>
                     <button type="submit" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition font-semibold text-sm">
                         <i class="fas fa-save mr-2"></i> Update Student
                     </button>

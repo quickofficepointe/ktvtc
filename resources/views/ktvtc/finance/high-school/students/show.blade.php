@@ -6,7 +6,8 @@
 @section('breadcrumb')
 <li>
     <span class="mx-2">/</span>
-    <a href="{{ route('finance.hs-students.index') }}" class="text-gray-600 hover:text-primary">High School Students</a>
+    {{-- ✅ FIXED: Use hs-students.index (not finance.hs-students.index) --}}
+    <a href="{{ route('hs-students.index') }}" class="text-gray-600 hover:text-primary">High School Students</a>
 </li>
 <li>
     <span class="mx-2">/</span>
@@ -16,18 +17,18 @@
 
 @section('header-actions')
 <div class="flex flex-wrap gap-2">
-    <a href="{{ route('finance.hs-students.edit', $student) }}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-semibold flex items-center text-sm transition">
+    <a href="{{ route('hs-students.edit', $student) }}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-semibold flex items-center text-sm transition">
         <i class="fas fa-edit mr-2"></i> Edit
     </a>
     @if($student->cardAccount)
-        <a href="{{ route('finance.cards.show', $student->cardAccount) }}" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-semibold flex items-center text-sm transition">
+        <a href="{{ route('cards.show', $student->cardAccount) }}" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-semibold flex items-center text-sm transition">
             <i class="fas fa-credit-card mr-2"></i> View Card
         </a>
         <a href="{{ route('finance.student-fees.create', ['student_id' => $student->id]) }}" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg font-semibold flex items-center text-sm transition">
             <i class="fas fa-credit-card mr-2"></i> Record Payment
         </a>
     @else
-        <a href="{{ route('finance.cards.create', ['student_id' => $student->id]) }}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded-lg font-semibold flex items-center text-sm transition">
+        <a href="{{ route('cards.create', ['student_id' => $student->id]) }}" class="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded-lg font-semibold flex items-center text-sm transition">
             <i class="fas fa-credit-card mr-2"></i> Issue Card
         </a>
     @endif
@@ -135,7 +136,7 @@
             <div class="text-center py-6">
                 <i class="fas fa-credit-card text-4xl text-gray-300 mb-2 block"></i>
                 <p class="text-gray-500 text-sm">No card issued yet</p>
-                <a href="{{ route('finance.cards.create', ['student_id' => $student->id]) }}" class="inline-block mt-2 text-primary hover:underline text-sm">
+                <a href="{{ route('cards.create', ['student_id' => $student->id]) }}" class="inline-block mt-2 text-primary hover:underline text-sm">
                     Issue Card Now →
                 </a>
             </div>
@@ -147,7 +148,7 @@
         <div class="flex justify-between items-center mb-3">
             <h4 class="font-bold text-gray-800">Recent Transactions</h4>
             @if($student->cardAccount)
-                <a href="{{ route('finance.cards.transactions', $student->cardAccount) }}" class="text-sm text-primary hover:underline">View All →</a>
+                <a href="{{ route('cards.transactions', $student->cardAccount) }}" class="text-sm text-primary hover:underline">View All →</a>
             @endif
         </div>
         <div class="overflow-x-auto">
@@ -198,5 +199,166 @@
             </table>
         </div>
     </div>
+
+    <!-- ✅ Parent Funding Actions -->
+    <div class="lg:col-span-3 finance-card p-5">
+        <div class="flex flex-wrap gap-3">
+            <a href="{{ $student->getParentFundingLink() }}" 
+               target="_blank" 
+               class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition">
+                <i class="fas fa-link"></i>
+                View Funding Portal
+            </a>
+            
+            @if($student->parent_phone)
+                <button onclick="sendFundingLink({{ $student->id }}, '{{ addslashes($student->full_name) }}')" 
+                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition">
+                    <i class="fas fa-sms"></i>
+                    Send Funding Link to Parent
+                </button>
+            @else
+                <span class="bg-gray-300 text-gray-600 px-4 py-2 rounded-lg flex items-center gap-2 cursor-not-allowed">
+                    <i class="fas fa-sms"></i>
+                    No Parent Phone Number
+                </span>
+            @endif
+            
+            @if($student->cardAccount)
+                <button onclick="generateCardQr({{ $student->cardAccount->id }})" 
+                        class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition">
+                    <i class="fas fa-qrcode"></i>
+                    Generate QR Code
+                </button>
+            @endif
+        </div>
+    </div>
 </div>
+
+<!-- Toast Container -->
+<div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+
 @endsection
+
+@push('scripts')
+<script>
+    // ============================================
+    // SEND FUNDING LINK
+    // ============================================
+    
+    function sendFundingLink(studentId, studentName) {
+        if (!confirm(`Send funding link to parent of ${studentName}?`)) {
+            return;
+        }
+        
+        showToast('Sending funding link...', 'info');
+        
+        fetch(`/finance/hs-students/${studentId}/send-funding-link`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message || 'Funding link sent successfully!', 'success');
+            } else {
+                showToast(data.message || 'Failed to send funding link', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Failed to send funding link', 'error');
+        });
+    }
+
+    // ============================================
+    // GENERATE CARD QR
+    // ============================================
+    
+    function generateCardQr(cardId) {
+        if (!confirm('Generate QR code for this card?')) {
+            return;
+        }
+        
+        showToast('Generating QR code...', 'info');
+        
+        fetch(`/finance/cards/${cardId}/generate-qr`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('QR code generated successfully!', 'success');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                showToast(data.message || 'Failed to generate QR', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Failed to generate QR code', 'error');
+        });
+    }
+
+    // ============================================
+    // TOAST NOTIFICATIONS
+    // ============================================
+    
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        const colors = { 
+            success: 'bg-green-500', 
+            error: 'bg-red-500', 
+            warning: 'bg-yellow-500', 
+            info: 'bg-blue-500' 
+        };
+        const icons = { 
+            success: 'fa-check-circle', 
+            error: 'fa-exclamation-circle', 
+            warning: 'fa-exclamation-triangle', 
+            info: 'fa-info-circle' 
+        };
+        
+        toast.className = `${colors[type] || colors.info} text-white px-4 py-3 rounded-lg shadow-lg flex items-center transition-all duration-300 transform translate-x-full`;
+        toast.innerHTML = `
+            <i class="fas ${icons[type] || icons.info} mr-2"></i>
+            <span>${message}</span>
+            <button onclick="this.parentElement.remove()" class="ml-4 text-white hover:text-gray-200">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        container.appendChild(toast);
+        
+        setTimeout(() => toast.classList.remove('translate-x-full'), 10);
+        setTimeout(() => {
+            toast.classList.add('translate-x-full');
+            setTimeout(() => toast.remove(), 300);
+        }, 5000);
+    }
+</script>
+@endpush
+
+@push('styles')
+<style>
+    .finance-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    #toast-container > div { 
+        transition: all 0.3s ease; 
+        min-width: 250px;
+        max-width: 500px;
+    }
+    #toast-container > div.translate-x-full { transform: translateX(100%); }
+</style>
+@endpush

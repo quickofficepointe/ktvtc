@@ -7,7 +7,11 @@ use App\Http\Controllers\DepartmentController;
 use App\Http\Controllers\FaqController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AnalyticController;
+use App\Http\Controllers\ParentFundingController;
+
+use App\Http\Controllers\CardFundingIpnController;
 use App\Http\Controllers\ApplicationController;
+use App\Http\Controllers\QRScannerController;
 use App\Http\Controllers\ApplicationPaymentController;
 use App\Http\Controllers\AuthorController;
 use App\Http\Controllers\BannerController;
@@ -1010,6 +1014,15 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])
         Route::get('/roles', [CafeteriaController::class, 'roles'])->name('roles');
         Route::post('/roles', [CafeteriaController::class, 'storeRole'])->name('roles.store');
     });
+
+Route::prefix('scanner')->name('scanner.')->group(function () {
+    Route::get('/', [QRScannerController::class, 'index'])->name('index');
+    Route::get('/lookup', [QRScannerController::class, 'lookup'])->name('lookup');
+    Route::get('/products', [QRScannerController::class, 'getProducts'])->name('products');
+    Route::post('/purchase', [QRScannerController::class, 'processPurchase'])->name('purchase');
+    Route::post('/custom-purchase', [QRScannerController::class, 'processCustomPurchase'])->name('custom-purchase');
+    Route::get('/transactions', [QRScannerController::class, 'transactions'])->name('transactions');
+});
 });
 
 // ============================================================================
@@ -1020,7 +1033,7 @@ Route::middleware(['auth', 'verified', 'role.finance'])
     ->name('finance.')
     ->group(function () {
 
-      // Dashboard
+    // Dashboard
     Route::get('/dashboard', [FinanceController::class, 'dashboard'])->name('dashboard');
 
     // ==================== STUDENT FINANCIAL VIEWS ====================
@@ -1065,9 +1078,8 @@ Route::middleware(['auth', 'verified', 'role.finance'])
     });
 
     // ==================== PAYMENT TRANSACTIONS ====================
-    // ✅ FIXED: Specific routes BEFORE wildcard routes
     Route::prefix('transactions')->name('transactions.')->group(function () {
-        // ✅ SPECIFIC ROUTES FIRST (no parameters or fixed strings)
+        // SPECIFIC ROUTES FIRST (no parameters or fixed strings)
         Route::get('/mpesa', [FinanceController::class, 'mpesaTransactions'])->name('mpesa');
         Route::post('/mpesa/callback', [FinanceController::class, 'handleMpesaCallback'])->name('mpesa.callback');
         Route::get('/pending', [FinanceController::class, 'pendingTransactions'])->name('pending');
@@ -1077,10 +1089,10 @@ Route::middleware(['auth', 'verified', 'role.finance'])
         Route::post('/bulk/reconcile', [FinanceController::class, 'bulkReconcileTransactions'])->name('bulk.reconcile');
         Route::post('/bulk/process', [FinanceController::class, 'bulkProcessPayments'])->name('bulk.process');
 
-        // ✅ INDEX ROUTE
+        // INDEX ROUTE
         Route::get('/', [FinanceController::class, 'transactions'])->name('index');
 
-        // ⚠️ WILDCARD ROUTES LAST - These catch /{transaction}
+        // WILDCARD ROUTES LAST - These catch /{transaction}
         Route::get('/{transaction}', [FinanceController::class, 'showTransaction'])->name('show');
         Route::post('/{transaction}/verify', [FinanceController::class, 'verifyTransaction'])->name('verify');
         Route::post('/{transaction}/reverse', [FinanceController::class, 'reverseTransaction'])->name('reverse');
@@ -1135,94 +1147,140 @@ Route::middleware(['auth', 'verified', 'role.finance'])
         Route::get('/student/{student}/balance', [FinanceController::class, 'getStudentBalance'])->name('student-balance');
         Route::post('/check-payment-status', [FinanceController::class, 'checkPaymentStatus'])->name('check-payment-status');
 
-        // ✅ ADD THIS - For the create payment form dropdown
+        // For the create payment form dropdown
         Route::get('/students/{student}/enrollments', [FinanceController::class, 'studentEnrollments'])->name('student.enrollments');
     });
-    // ==================== HIGH SCHOOL CARD SYSTEM ====================
-  // ==================== HIGH SCHOOL CARD SYSTEM ====================
-    // ✅ FIXED: Specific routes BEFORE wildcard routes
-    Route::prefix('hs-students')->name('hs-students.')->group(function () {
-        // ✅ SPECIFIC ROUTES FIRST
-        Route::get('/import', [HighSchoolStudentController::class, 'importView'])->name('import');
-        Route::post('/import', [HighSchoolStudentController::class, 'importProcess'])->name('import.process');
-        Route::get('/export', [HighSchoolStudentController::class, 'export'])->name('export');
-        Route::get('/template', [HighSchoolStudentController::class, 'downloadTemplate'])->name('template');
-        Route::post('/bulk/activate', [HighSchoolStudentController::class, 'bulkActivate'])->name('bulk.activate');
-        Route::post('/bulk/deactivate', [HighSchoolStudentController::class, 'bulkDeactivate'])->name('bulk.deactivate');
 
-        // ✅ INDEX AND CREATE ROUTES
-        Route::get('/', [HighSchoolStudentController::class, 'index'])->name('index');
-        Route::get('/create', [HighSchoolStudentController::class, 'create'])->name('create');
-        Route::post('/', [HighSchoolStudentController::class, 'store'])->name('store');
+    Route::post('/hs-students/{student}/send-funding-link',
+        [HighSchoolStudentController::class, 'sendFundingLink'])
+        ->name('hs-students.send-funding-link');
 
-        // ⚠️ WILDCARD ROUTES LAST
-        Route::get('/{student}', [HighSchoolStudentController::class, 'show'])->name('show');
-        Route::get('/{student}/edit', [HighSchoolStudentController::class, 'edit'])->name('edit');
-        Route::put('/{student}', [HighSchoolStudentController::class, 'update'])->name('update');
-        Route::delete('/{student}', [HighSchoolStudentController::class, 'destroy'])->name('destroy');
-    });
+    Route::post('/hs-students/bulk/send-funding-links',
+        [HighSchoolStudentController::class, 'bulkSendFundingLinks'])
+        ->name('hs-students.bulk.send-funding-links');
 
-    // Card Management
-    Route::prefix('cards')->name('cards.')->group(function () {
-        Route::get('/', [CardAccountController::class, 'index'])->name('index');
-        Route::get('/create', [CardAccountController::class, 'create'])->name('create');
-        Route::post('/', [CardAccountController::class, 'store'])->name('store');
-        Route::get('/{cardAccount}', [CardAccountController::class, 'show'])->name('show');
-        Route::get('/{cardAccount}/edit', [CardAccountController::class, 'edit'])->name('edit');
-        Route::put('/{cardAccount}', [CardAccountController::class, 'update'])->name('update');
-        Route::delete('/{cardAccount}', [CardAccountController::class, 'destroy'])->name('destroy');
-        Route::post('/{cardAccount}/activate', [CardAccountController::class, 'activate'])->name('activate');
-        Route::post('/{cardAccount}/deactivate', [CardAccountController::class, 'deactivate'])->name('deactivate');
-        Route::post('/{cardAccount}/lock', [CardAccountController::class, 'lock'])->name('lock');
-        Route::post('/{cardAccount}/unlock', [CardAccountController::class, 'unlock'])->name('unlock');
-        Route::post('/{cardAccount}/block', [CardAccountController::class, 'block'])->name('block');
-        Route::post('/{cardAccount}/unblock', [CardAccountController::class, 'unblock'])->name('unblock');
-        Route::post('/{cardAccount}/adjust-balance', [CardAccountController::class, 'adjustBalance'])->name('adjust-balance');
-        Route::get('/{cardAccount}/balance', [CardAccountController::class, 'getBalance'])->name('balance');
-        Route::post('/{cardAccount}/generate-qr', [CardQrController::class, 'generate'])->name('generate-qr');
-        Route::get('/{cardAccount}/print-qr', [CardQrController::class, 'print'])->name('print-qr');
-        Route::get('/{cardAccount}/download-qr', [CardQrController::class, 'download'])->name('download-qr');
-        Route::post('/bulk/issue', [CardAccountController::class, 'bulkIssue'])->name('bulk.issue');
-        Route::post('/bulk/generate-qr', [CardQrController::class, 'bulkGenerate'])->name('bulk.generate-qr');
-        Route::get('/bulk/print-sheet', [CardQrController::class, 'printSheet'])->name('bulk.print-sheet');
-        Route::get('/{cardAccount}/transactions', [CardAccountController::class, 'transactions'])->name('transactions');
-    });
+    Route::post('/hs-students/get-card-ids',
+        [HighSchoolStudentController::class, 'getCardIds'])
+        ->name('hs-students.get-card-ids');
 
-    // Funding Requests
-    Route::prefix('funding')->name('funding.')->group(function () {
-        Route::get('/', [CardFundingRequestController::class, 'index'])->name('index');
-        Route::get('/{cardFundingRequest}', [CardFundingRequestController::class, 'show'])->name('show');
-        Route::post('/{cardFundingRequest}/complete', [CardFundingRequestController::class, 'complete'])->name('complete');
-        Route::post('/{cardFundingRequest}/fail', [CardFundingRequestController::class, 'fail'])->name('fail');
-        Route::post('/{cardFundingRequest}/retry', [CardFundingRequestController::class, 'retry'])->name('retry');
-        Route::get('/pending', [CardFundingRequestController::class, 'pending'])->name('pending');
-        Route::get('/failed', [CardFundingRequestController::class, 'failed'])->name('failed');
-        Route::get('/completed', [CardFundingRequestController::class, 'completed'])->name('completed');
-        Route::get('/export', [CardFundingRequestController::class, 'export'])->name('export');
-    });
+}); // <-- THIS CLOSES THE FINANCE ROUTE GROUP
 
-    // Card Reports
-    Route::prefix('card-reports')->name('card-reports.')->group(function () {
-        Route::get('/', [CardReportController::class, 'index'])->name('index');
-        Route::get('/daily', [CardReportController::class, 'daily'])->name('daily');
-        Route::get('/monthly', [CardReportController::class, 'monthly'])->name('monthly');
-        Route::get('/students', [CardReportController::class, 'students'])->name('students');
-        Route::get('/balances', [CardReportController::class, 'balances'])->name('balances');
-        Route::get('/low-balance', [CardReportController::class, 'lowBalance'])->name('low-balance');
-        Route::get('/inactive', [CardReportController::class, 'inactive'])->name('inactive');
-        Route::get('/export', [CardReportController::class, 'export'])->name('export');
-    });
-
-    // Card API Endpoints
-    Route::prefix('card-api')->name('card-api.')->group(function () {
-        Route::get('/student/{admission}', [CardAccountController::class, 'findByAdmission'])->name('find-by-admission');
-        Route::get('/card/{cardNumber}', [CardAccountController::class, 'findByCardNumber'])->name('find-by-card');
-        Route::post('/scan', [CardAccountController::class, 'scan'])->name('scan');
-        Route::post('/purchase', [CardAccountController::class, 'processPurchase'])->name('process-purchase');
-        Route::get('/student/{student}/transactions', [CardAccountController::class, 'studentTransactions'])->name('student-transactions');
-    });
+// ============================================================================
+// HIGH SCHOOL CARD SYSTEM
+// ============================================================================
+Route::prefix('hs-students')->name('hs-students.')->group(function () {
+    Route::get('/', [HighSchoolStudentController::class, 'index'])->name('index');
+    Route::get('/create', [HighSchoolStudentController::class, 'create'])->name('create');
+    Route::post('/', [HighSchoolStudentController::class, 'store'])->name('store');
+    Route::get('/{student}', [HighSchoolStudentController::class, 'show'])->name('show');
+    Route::get('/{student}/edit', [HighSchoolStudentController::class, 'edit'])->name('edit');
+    Route::put('/{student}', [HighSchoolStudentController::class, 'update'])->name('update');
+    Route::delete('/{student}', [HighSchoolStudentController::class, 'destroy'])->name('destroy');
+    Route::get('/import', [HighSchoolStudentController::class, 'importView'])->name('import');
+    Route::post('/import', [HighSchoolStudentController::class, 'importProcess'])->name('import.process');
+    Route::get('/export', [HighSchoolStudentController::class, 'export'])->name('export');
+    Route::get('/template', [HighSchoolStudentController::class, 'downloadTemplate'])->name('template');
+    Route::post('/bulk/activate', [HighSchoolStudentController::class, 'bulkActivate'])->name('bulk.activate');
+    Route::post('/bulk/deactivate', [HighSchoolStudentController::class, 'bulkDeactivate'])->name('bulk.deactivate');
+    Route::post('/{student}/update-photo', [HighSchoolStudentController::class, 'updatePhoto'])->name('update-photo');
 });
 
+// ============================================================================
+// CARD MANAGEMENT
+// ============================================================================
+Route::prefix('cards')->name('cards.')->group(function () {
+    // SPECIFIC ROUTES FIRST (NO PARAMETERS)
+    Route::get('/get-students-without-cards', [CardAccountController::class, 'getStudentsWithoutCards'])->name('get-students-without-cards');
+    Route::post('/generate-all-qr', [CardQrController::class, 'generateAll'])->name('generate-all-qr');
+    Route::post('/bulk/issue', [CardAccountController::class, 'bulkIssue'])->name('bulk.issue');
+    Route::post('/bulk/generate-qr', [CardQrController::class, 'bulkGenerate'])->name('bulk.generate-qr');
+    Route::get('/bulk/print-sheet', [CardQrController::class, 'printSheet'])->name('bulk.print-sheet');
+    Route::get('/download-bulk', [CardAccountController::class, 'downloadBulk'])->name('download-bulk');
+
+    // RESOURCE ROUTES (NO PARAMETERS)
+    Route::get('/', [CardAccountController::class, 'index'])->name('index');
+    Route::get('/create', [CardAccountController::class, 'create'])->name('create');
+    Route::post('/', [CardAccountController::class, 'store'])->name('store');
+
+    // WILDCARD ROUTES LAST - These catch /{cardAccount}
+    Route::get('/{cardAccount}', [CardAccountController::class, 'show'])->name('show');
+    Route::get('/{cardAccount}/edit', [CardAccountController::class, 'edit'])->name('edit');
+    Route::put('/{cardAccount}', [CardAccountController::class, 'update'])->name('update');
+    Route::delete('/{cardAccount}', [CardAccountController::class, 'destroy'])->name('destroy');
+    Route::post('/{cardAccount}/activate', [CardAccountController::class, 'activate'])->name('activate');
+    Route::post('/{cardAccount}/deactivate', [CardAccountController::class, 'deactivate'])->name('deactivate');
+    Route::post('/{cardAccount}/lock', [CardAccountController::class, 'lock'])->name('lock');
+    Route::post('/{cardAccount}/unlock', [CardAccountController::class, 'unlock'])->name('unlock');
+    Route::post('/{cardAccount}/block', [CardAccountController::class, 'block'])->name('block');
+    Route::post('/{cardAccount}/unblock', [CardAccountController::class, 'unblock'])->name('unblock');
+    Route::post('/{cardAccount}/adjust-balance', [CardAccountController::class, 'adjustBalance'])->name('adjust-balance');
+    Route::get('/{cardAccount}/balance', [CardAccountController::class, 'getBalance'])->name('balance');
+    Route::post('/{cardAccount}/generate-qr', [CardQrController::class, 'generate'])->name('generate-qr');
+    Route::get('/{cardAccount}/print-qr', [CardQrController::class, 'print'])->name('print-qr');
+    Route::get('/{cardAccount}/download-qr', [CardQrController::class, 'download'])->name('download-qr');
+    Route::get('/{cardAccount}/transactions', [CardAccountController::class, 'transactions'])->name('transactions');
+    Route::get('/{cardAccount}/download-pdf', [CardAccountController::class, 'downloadPdf'])->name('download-pdf');
+});
+
+// ============================================================================
+// CARD FUNDING
+// ============================================================================
+Route::prefix('funding')->name('funding.')->group(function () {
+    Route::get('/', [CardFundingRequestController::class, 'index'])->name('index');
+    Route::get('/{cardFundingRequest}', [CardFundingRequestController::class, 'show'])->name('show');
+    Route::post('/{cardFundingRequest}/complete', [CardFundingRequestController::class, 'complete'])->name('complete');
+    Route::post('/{cardFundingRequest}/fail', [CardFundingRequestController::class, 'fail'])->name('fail');
+    Route::post('/{cardFundingRequest}/retry', [CardFundingRequestController::class, 'retry'])->name('retry');
+    Route::get('/pending', [CardFundingRequestController::class, 'pending'])->name('pending');
+    Route::get('/failed', [CardFundingRequestController::class, 'failed'])->name('failed');
+    Route::get('/completed', [CardFundingRequestController::class, 'completed'])->name('completed');
+    Route::get('/export', [CardFundingRequestController::class, 'export'])->name('export');
+});
+
+// ============================================================================
+// CARD REPORTS
+// ============================================================================
+Route::prefix('card-reports')->name('card-reports.')->group(function () {
+    Route::get('/', [CardReportController::class, 'index'])->name('index');
+    Route::get('/daily', [CardReportController::class, 'daily'])->name('daily');
+    Route::get('/monthly', [CardReportController::class, 'monthly'])->name('monthly');
+    Route::get('/students', [CardReportController::class, 'students'])->name('students');
+    Route::get('/balances', [CardReportController::class, 'balances'])->name('balances');
+    Route::get('/low-balance', [CardReportController::class, 'lowBalance'])->name('low-balance');
+    Route::get('/inactive', [CardReportController::class, 'inactive'])->name('inactive');
+    Route::get('/export', [CardReportController::class, 'export'])->name('export');
+});
+
+// ============================================================================
+// CARD API ENDPOINTS
+// ============================================================================
+Route::prefix('card-api')->name('card-api.')->group(function () {
+    Route::get('/student/{admission}', [CardAccountController::class, 'findByAdmission'])->name('find-by-admission');
+    Route::get('/card/{cardNumber}', [CardAccountController::class, 'findByCardNumber'])->name('find-by-card');
+    Route::post('/scan', [CardAccountController::class, 'scan'])->name('scan');
+    Route::post('/purchase', [CardAccountController::class, 'processPurchase'])->name('process-purchase');
+    Route::get('/student/{student}/transactions', [CardAccountController::class, 'studentTransactions'])->name('student-transactions');
+});
+
+// ============================================================================
+// QR SCANNER API ROUTES
+// ============================================================================
+Route::prefix('api/qr')->name('api.qr.')->group(function () {
+    Route::post('/scan', [QRScannerController::class, 'scan'])->name('scan');
+    Route::post('/process', [QRScannerController::class, 'process'])->name('process');
+    Route::get('/get-code', [QRScannerController::class, 'getQrCode'])->name('get-code');
+    Route::post('/decode', [QRScannerController::class, 'decodeQR'])->name('decode'); // ✅ ADD THIS
+});
+
+// ============================================================================
+// QR MANAGEMENT
+// ============================================================================
+Route::prefix('card-qr')->name('card-qr.')->group(function () {
+    Route::post('/{card}/regenerate', [CardQrController::class, 'regenerate'])->name('regenerate');
+    Route::post('/bulk/regenerate', [CardQrController::class, 'bulkRegenerate'])->name('bulk.regenerate');
+    Route::get('/{card}/show', [CardQrController::class, 'showQr'])->name('show');
+    Route::get('/{card}/download', [CardQrController::class, 'download'])->name('download');
+});
 // ============================================================================
 // TRAINERS ROUTES
 // ============================================================================
@@ -1506,11 +1564,33 @@ Route::post('/api/kcb/card/ipn', [CardFundingIpnController::class, 'handlePaymen
     ->name('kcb.card.ipn')
     ->withoutMiddleware(['web', 'csrf']);
 // 4. Card Funding STK Callback
-Route::post('/api/kcb/card/funding/callback', [CardFundingController::class, 'handleCallback'])
+Route::post('/api/kcb/card/funding/callback', [CardFundingRequestController::class, 'handleCallback'])
     ->name('card.funding.callback')
     ->withoutMiddleware(['web', 'csrf']);
 
 // 5. Card Funding Status Check
-Route::post('/api/kcb/card/funding/status', [CardFundingController::class, 'checkStatus'])
+Route::post('/api/kcb/card/funding/status', [CardFundingRequestController::class, 'checkStatus'])
     ->name('card.funding.status')
     ->withoutMiddleware(['web', 'csrf']);
+
+Route::prefix('parent')->name('parent.')->group(function () {
+    // Main funding portal - accessed via unique link
+    Route::get('/fund/{admissionNumber}', [ParentFundingController::class, 'showPortal'])
+        ->name('fund.portal')
+        ->where('admissionNumber', '^[A-Za-z0-9/]+$');
+
+    // Fund transport
+    Route::post('/fund/transport', [ParentFundingController::class, 'fundTransport'])
+        ->name('fund.transport');
+
+    // Fund canteen
+    Route::post('/fund/canteen', [ParentFundingController::class, 'fundCanteen'])
+        ->name('fund.canteen');
+
+    // Check funding status
+    Route::get('/fund/status/{checkoutRequestId}', [ParentFundingController::class, 'checkStatus'])
+        ->name('fund.status');
+
+    // Payment callback (already exists)
+    // Route::post('/api/kcb/sales/callback', [SaleController::class, 'handleKcbCallback']);
+});
