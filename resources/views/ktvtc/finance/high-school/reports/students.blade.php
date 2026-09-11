@@ -6,7 +6,7 @@
 @section('breadcrumb')
 <li>
     <span class="mx-2">/</span>
-    <a href="{{ route('finance.card-reports.index') }}" class="text-gray-600 hover:text-primary">Card Reports</a>
+    <a href="{{ route('card-reports.index') }}" class="text-gray-600 hover:text-primary">Card Reports</a>
 </li>
 <li>
     <span class="mx-2">/</span>
@@ -19,7 +19,7 @@
     <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-semibold flex items-center text-sm transition">
         <i class="fas fa-print mr-2"></i> Print
     </button>
-    <a href="{{ route('finance.card-reports.export') }}" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded-lg font-semibold flex items-center text-sm transition">
+    <a href="{{ route('card-reports.export') }}" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded-lg font-semibold flex items-center text-sm transition">
         <i class="fas fa-file-export mr-2"></i> Export
     </a>
 </div>

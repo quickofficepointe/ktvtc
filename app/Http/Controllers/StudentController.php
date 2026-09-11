@@ -406,12 +406,33 @@ class StudentController extends Controller
         return redirect()->route('admin.students.index')
             ->with('success', "Student created successfully. Student Number: {$studentNumber}");
     }
+public function show($id)
+{
+    $student = Student::with([
+        'campus',
+        'application',
+        'enrollments.course',
+        'enrollments.term',
+        'enrollments.payments',
+    ])->findOrFail($id);
 
-    public function show($id)
-    {
-        $student = Student::with(['campus', 'application', 'enrollments.course', 'enrollments.payments'])->findOrFail($id);
-        return view('ktvtc.admin.students.show', compact('student'));
-    }
+    // Pick the current enrollment:
+    // Prefer the newest active/in_progress, else the newest of any status
+    $currentEnrollment = $student->enrollments
+        ->sortByDesc('created_at')
+        ->first(fn ($e) => in_array($e->status, ['active', 'in_progress']))
+        ?? $student->enrollments->sortByDesc('created_at')->first();
+
+    // Current term — from the enrollment, else the globally-current one
+    $currentTerm = $currentEnrollment?->term
+        ?? \App\Models\AcademicTerm::where('is_current', true)->first();
+
+    return view('ktvtc.admin.students.show', compact(
+        'student',
+        'currentEnrollment',
+        'currentTerm'
+    ));
+}
 
     public function edit($id)
     {

@@ -40,7 +40,7 @@
                 </div>
             </div>
             <div class="mt-3 pt-3 border-t">
-                <a href="{{ route('finance.card-reports.daily') }}" class="text-primary hover:underline text-sm">
+                <a href="{{ route('card-reports.daily') }}" class="text-primary hover:underline text-sm">
                     <i class="fas fa-arrow-right mr-1"></i> View Daily Report
                 </a>
             </div>
@@ -59,7 +59,7 @@
                 </div>
             </div>
             <div class="mt-3 pt-3 border-t">
-                <a href="{{ route('finance.card-reports.monthly') }}" class="text-primary hover:underline text-sm">
+                <a href="{{ route('card-reports.monthly') }}" class="text-primary hover:underline text-sm">
                     <i class="fas fa-arrow-right mr-1"></i> View Monthly Report
                 </a>
             </div>
@@ -68,7 +68,7 @@
 
     <!-- Report Links -->
     <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <a href="{{ route('finance.card-reports.students') }}" class="finance-card p-4 hover:shadow-lg transition flex items-center justify-between group">
+        <a href="{{ route('card-reports.students') }}" class="finance-card p-4 hover:shadow-lg transition flex items-center justify-between group">
             <div>
                 <i class="fas fa-user-graduate text-primary text-xl mb-1 block"></i>
                 <h4 class="font-bold text-gray-800 text-sm">Student Report</h4>
@@ -77,7 +77,7 @@
             <i class="fas fa-chevron-right text-gray-400 group-hover:text-primary transition"></i>
         </a>
 
-        <a href="{{ route('finance.card-reports.balances') }}" class="finance-card p-4 hover:shadow-lg transition flex items-center justify-between group">
+        <a href="{{ route('card-reports.balances') }}" class="finance-card p-4 hover:shadow-lg transition flex items-center justify-between group">
             <div>
                 <i class="fas fa-wallet text-primary text-xl mb-1 block"></i>
                 <h4 class="font-bold text-gray-800 text-sm">Balance Report</h4>
@@ -86,7 +86,7 @@
             <i class="fas fa-chevron-right text-gray-400 group-hover:text-primary transition"></i>
         </a>
 
-        <a href="{{ route('finance.card-reports.low-balance') }}" class="finance-card p-4 hover:shadow-lg transition flex items-center justify-between group">
+        <a href="{{ route('card-reports.low-balance') }}" class="finance-card p-4 hover:shadow-lg transition flex items-center justify-between group">
             <div>
                 <i class="fas fa-exclamation-triangle text-yellow-500 text-xl mb-1 block"></i>
                 <h4 class="font-bold text-gray-800 text-sm">Low Balance</h4>
@@ -95,7 +95,7 @@
             <i class="fas fa-chevron-right text-gray-400 group-hover:text-primary transition"></i>
         </a>
 
-        <a href="{{ route('finance.card-reports.inactive') }}" class="finance-card p-4 hover:shadow-lg transition flex items-center justify-between group">
+        <a href="{{ route('card-reports.inactive') }}" class="finance-card p-4 hover:shadow-lg transition flex items-center justify-between group">
             <div>
                 <i class="fas fa-clock text-gray-500 text-xl mb-1 block"></i>
                 <h4 class="font-bold text-gray-800 text-sm">Inactive Cards</h4>
@@ -104,7 +104,7 @@
             <i class="fas fa-chevron-right text-gray-400 group-hover:text-primary transition"></i>
         </a>
 
-        <a href="{{ route('finance.card-reports.daily') }}" class="finance-card p-4 hover:shadow-lg transition flex items-center justify-between group">
+        <a href="{{ route('card-reports.daily') }}" class="finance-card p-4 hover:shadow-lg transition flex items-center justify-between group">
             <div>
                 <i class="fas fa-calendar-day text-primary text-xl mb-1 block"></i>
                 <h4 class="font-bold text-gray-800 text-sm">Daily Report</h4>
@@ -113,11 +113,30 @@
             <i class="fas fa-chevron-right text-gray-400 group-hover:text-primary transition"></i>
         </a>
 
-        <a href="{{ route('finance.card-reports.monthly') }}" class="finance-card p-4 hover:shadow-lg transition flex items-center justify-between group">
+        <a href="{{ route('card-reports.monthly') }}" class="finance-card p-4 hover:shadow-lg transition flex items-center justify-between group">
             <div>
                 <i class="fas fa-calendar-alt text-primary text-xl mb-1 block"></i>
                 <h4 class="font-bold text-gray-800 text-sm">Monthly Report</h4>
                 <p class="text-xs text-gray-500">Monthly transaction summary</p>
+            </div>
+            <i class="fas fa-chevron-right text-gray-400 group-hover:text-primary transition"></i>
+        </a>
+
+        {{-- ✅ NEW: Card Transactions tile with duplicate badge --}}
+        <a href="{{ route('card-reports.transactions') }}"
+           class="finance-card p-4 hover:shadow-lg transition flex items-center justify-between group
+                  {{ ($duplicateCount ?? 0) > 0 ? 'border-l-4 border-red-500' : '' }}">
+            <div>
+                <i class="fas fa-receipt text-primary text-xl mb-1 block"></i>
+                <h4 class="font-bold text-gray-800 text-sm flex items-center gap-2">
+                    Card Transactions
+                    @if(($duplicateCount ?? 0) > 0)
+                        <span class="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-full font-bold">
+                            {{ $duplicateCount }} dup
+                        </span>
+                    @endif
+                </h4>
+                <p class="text-xs text-gray-500">All transactions with M-Pesa codes</p>
             </div>
             <i class="fas fa-chevron-right text-gray-400 group-hover:text-primary transition"></i>
         </a>

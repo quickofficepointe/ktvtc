@@ -3,67 +3,49 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>KTVTC Website Manager</title>
 
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
-
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Summernote CSS -->
     <link href="https://cdn.jsdelivr.net/npm/summernote@0.8.20/dist/summernote-lite.min.css" rel="stylesheet">
 
     <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              'primary': '#B91C1C',   // Deep red
-              'secondary': '#BF1F30',
-              'light': '#FFFFFF',
-              'dark': '#1D3557',
-              'accent': '#A8DADC',
-            },
-            fontFamily: {
-              sans: ['DM Sans', 'sans-serif'],
-            },
-          }
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary':   '#B91C1C',
+                        'secondary': '#BF1F30',
+                        'light':     '#FFFFFF',
+                        'dark':      '#1D3557',
+                        'accent':    '#A8DADC',
+                    },
+                    fontFamily: { sans: ['DM Sans', 'sans-serif'] },
+                }
+            }
         }
-      }
     </script>
 
     <style>
-        body {
-            font-family: 'DM Sans', sans-serif;
-            background-color: #F8F9FA;
-        }
-        .sidebar {
-          background: linear-gradient(180deg, #B91C1C 0%, #BF1F30 100%);
-        }
-        .nav-link {
-            transition: all 0.3s ease;
-        }
-        .nav-link:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-        .nav-link.active {
-            background-color: #FFFFFF !important;
-            color: #B91C1C !important;
-        }
+        body { font-family: 'DM Sans', sans-serif; background-color: #F8F9FA; }
+        .sidebar { background: linear-gradient(180deg, #B91C1C 0%, #BF1F30 100%); }
+        .nav-link { transition: all 0.3s ease; }
+        .nav-link:hover { background-color: rgba(255, 255, 255, 0.1); }
+        .nav-link.active { background-color: #FFFFFF !important; color: #B91C1C !important; }
     </style>
 </head>
 <body class="bg-gray-50">
-    <!-- Navbar -->
+
+    {{-- Navbar --}}
     <nav class="fixed top-0 left-0 right-0 z-30 bg-primary shadow-sm h-16">
         <div class="flex items-center justify-between h-full px-4">
             <div class="flex items-center">
                 <button class="mr-4 text-white md:hidden" id="mobileSidebarToggle">
                     <i class="fas fa-bars"></i>
                 </button>
-                <a class="flex items-center" href="#">
+                <a class="flex items-center" href="{{ route('website.dashboard') }}">
                     <div class="w-10 h-10 rounded-full bg-white bg-opacity-20 flex items-center justify-center mr-2">
                         <i class="fas fa-globe text-white"></i>
                     </div>
@@ -76,17 +58,20 @@
                         <div class="w-8 h-8 rounded-full bg-white bg-opacity-20 flex items-center justify-center">
                             <i class="fas fa-user-tie text-white"></i>
                         </div>
-                        <span class="ml-2 hidden md:inline font-medium">Manager</span>
+                        <span class="ml-2 hidden md:inline font-medium">
+                            {{ auth()->user()->name ?? 'Manager' }}
+                        </span>
                     </button>
                 </div>
             </div>
         </div>
     </nav>
 
-    <!-- Sidebar -->
+    {{-- Sidebar --}}
     <div class="fixed top-16 left-0 bottom-0 w-64 text-white z-20 overflow-y-auto sidebar hidden md:block" id="sidebar">
         <div class="p-4">
-            <!-- User Profile -->
+
+            {{-- User Profile --}}
             <div class="flex items-center mb-6 p-3 bg-white bg-opacity-10 rounded-lg">
                 <div class="relative mr-3">
                     <div class="w-10 h-10 rounded-full bg-white bg-opacity-20 flex items-center justify-center">
@@ -94,152 +79,182 @@
                     </div>
                     <span class="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-green-400 ring-2 ring-primary"></span>
                 </div>
-                <div>
-                    <h6 class="font-medium">Manager</h6>
+                <div class="truncate">
+                    <h6 class="font-medium truncate">{{ auth()->user()->name ?? 'Manager' }}</h6>
                     <p class="text-xs opacity-75">Website Admin</p>
                 </div>
             </div>
 
-            <!-- Navigation Links -->
             <ul class="space-y-2">
-                <!-- Dashboard -->
+
+                {{-- Dashboard --}}
                 <li>
-                    <a href="{{ route('website.dashboard') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.dashboard') ? 'active' : '' }}">
+                    <a href="{{ route('website.dashboard') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link
+                              {{ request()->routeIs('website.dashboard') ? 'active' : '' }}">
                         <i class="fas fa-tachometer-alt mr-3"></i> Dashboard
                     </a>
                 </li>
 
-                <!-- Website Content -->
+                {{-- Website Content --}}
                 <li class="mt-4">
-                    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">Website Content</p>
+                    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">
+                        Website Content
+                    </p>
                 </li>
                 <li>
-                    <a href="{{ route('website.banners.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.banners.index') ? 'active' : '' }}">
+                    <a href="{{ route('website.banners.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link
+                              {{ request()->routeIs('website.banners.*') ? 'active' : '' }}">
                         <i class="fas fa-image mr-3"></i> Banners
                     </a>
                 </li>
                 <li>
-                    <a href="{{ route('website.blogs.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.blogs.index') ? 'active' : '' }}">
+                    <a href="{{ route('website.blogs.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link
+                              {{ request()->routeIs('website.blogs.*') ? 'active' : '' }}">
                         <i class="fas fa-blog mr-3"></i> Blogs
                     </a>
                 </li>
                 <li>
-                    <a href="{{ route('website.blog-categories.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.blog-categories.index') ? 'active' : '' }}">
+                    <a href="{{ route('website.blog-categories.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link
+                              {{ request()->routeIs('website.blog-categories.*') ? 'active' : '' }}">
                         <i class="fas fa-th-list mr-3"></i> Blog Categories
                     </a>
                 </li>
                 <li>
-                    <a href="{{ route('website.galleries.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.galleries.index') ? 'active' : '' }}">
+                    <a href="{{ route('website.galleries.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link
+                              {{ request()->routeIs('website.galleries.*') ? 'active' : '' }}">
                         <i class="fas fa-photo-video mr-3"></i> Gallery
                     </a>
                 </li>
                 <li>
-                    <a href="{{ route('website.campuses.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.campuses.index') ? 'active' : '' }}">
+                    <a href="{{ route('website.campuses.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link
+                              {{ request()->routeIs('website.campuses.*') ? 'active' : '' }}">
                         <i class="fas fa-school mr-3"></i> Campuses
                     </a>
                 </li>
                 <li>
-                    <a href="{{ route('website.downloads.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.downloads.index') ? 'active' : '' }}">
+                    <a href="{{ route('website.downloads.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link
+                              {{ request()->routeIs('website.downloads.*') ? 'active' : '' }}">
                         <i class="fas fa-file-download mr-3"></i> Downloads
                     </a>
                 </li>
                 <li>
-                    <a href="{{ route('website.testimonials.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.testimonials.index') ? 'active' : '' }}">
+                    <a href="{{ route('website.testimonials.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link
+                              {{ request()->routeIs('website.testimonials.*') ? 'active' : '' }}">
                         <i class="fas fa-comment-dots mr-3"></i> Testimonials
                     </a>
                 </li>
 
-                <!-- Academic -->
+                {{-- Academic --}}
                 <li class="mt-4">
-                    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">Academic</p>
+                    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">
+                        Academic
+                    </p>
                 </li>
                 <li>
-                    <a href="{{ route('website.departments.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.departments.index') ? 'active' : '' }}">
+                    <a href="{{ route('website.departments.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link
+                              {{ request()->routeIs('website.departments.*') ? 'active' : '' }}">
                         <i class="fas fa-building mr-3"></i> Departments
                     </a>
                 </li>
                 <li>
-                    <a href="{{ route('website.courses.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.courses.index') ? 'active' : '' }}">
-                        <i class="fas fa-book mr-3"></i> Courses
-                    </a>
-                </li>
-   <!--
-                <li>
-                    <a href="{{ route('website.course-intakes.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.course-intakes.index') ? 'active' : '' }}">
-                        <i class="fas fa-calendar-alt mr-3"></i> Course Intakes
+                    {{-- Catches courses.index, store, update, destroy, AND trainers.* --}}
+                    <a href="{{ route('website.courses.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link
+                              {{ request()->routeIs('website.courses.*') ? 'active' : '' }}">
+                        <i class="fas fa-book mr-3"></i> Courses &amp; Trainers
                     </a>
                 </li>
                 <li>
-                     -->
-                    <a href="{{ route('website.mschools.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.mschools.index') ? 'active' : '' }}">
+                    <a href="{{ route('website.mschools.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link
+                              {{ request()->routeIs('website.mschools.*') ? 'active' : '' }}">
                         <i class="fas fa-map-marker-alt mr-3"></i> Mobile Schools
                     </a>
                 </li>
 
-                <!-- Events & Communication -->
+                {{-- Events & Communication --}}
                 <li class="mt-4">
-                    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">Events & Communication</p>
+                    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">
+                        Events &amp; Communication
+                    </p>
                 </li>
                 <li>
-                    <a href="{{ route('website.events.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.events.index') ? 'active' : '' }}">
+                    <a href="{{ route('website.events.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link
+                              {{ request()->routeIs('website.events.*') ? 'active' : '' }}">
                         <i class="fas fa-calendar-alt mr-3"></i> Events
                     </a>
                 </li>
- <!--
                 <li>
-                    <a href="{{ route('website.messages.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.messages.index') ? 'active' : '' }}">
-                        <i class="fas fa-envelope mr-3"></i> Messages
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ route('website.subscriptions.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.subscriptions.index') ? 'active' : '' }}">
-                        <i class="fas fa-user-check mr-3"></i> Subscriptions
-                    </a>
-                </li>
-                 -->
-                <li>
-                    <a href="{{ route('website.faqs.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.faqs.index') ? 'active' : '' }}">
+                    <a href="{{ route('website.faqs.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link
+                              {{ request()->routeIs('website.faqs.*') ? 'active' : '' }}">
                         <i class="fas fa-question-circle mr-3"></i> FAQs
                     </a>
                 </li>
 
-                <!-- Settings -->
+                {{-- Settings --}}
                 <li class="mt-4">
-                    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">Settings</p>
+                    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">
+                        Settings
+                    </p>
                 </li>
                 <li>
-                    <a href="{{ route('website.about-pages.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.about-pages.index') ? 'active' : '' }}">
+                    <a href="{{ route('website.about-pages.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link
+                              {{ request()->routeIs('website.about-pages.*') ? 'active' : '' }}">
                         <i class="fas fa-info-circle mr-3"></i> About Page
                     </a>
                 </li>
                 <li>
-                    <a href="{{ route('website.contact-infos.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.contact-infos.index') ? 'active' : '' }}">
+                    <a href="{{ route('website.contact-infos.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link
+                              {{ request()->routeIs('website.contact-infos.*') ? 'active' : '' }}">
                         <i class="fas fa-phone mr-3"></i> Contact Info
                     </a>
                 </li>
                 <li>
-                    <a href="{{ route('website.policies.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.policies.index') ? 'active' : '' }}">
+                    <a href="{{ route('website.policies.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link
+                              {{ request()->routeIs('website.policies.*') ? 'active' : '' }}">
                         <i class="fas fa-file-alt mr-3"></i> Policies
                     </a>
                 </li>
-                    <a href="{{ route('website.certifications.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.certifications.index') ? 'active' : '' }}">
+                <li>
+                    <a href="{{ route('website.certifications.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link
+                              {{ request()->routeIs('website.certifications.*') ? 'active' : '' }}">
                         <i class="fas fa-certificate mr-3"></i> Certifications
                     </a>
                 </li>
                 <li>
-                    <a href="{{ route('website.partners.index') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('website.partners.index') ? 'active' : '' }}">
+                    <a href="{{ route('website.partners.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link
+                              {{ request()->routeIs('website.partners.*') ? 'active' : '' }}">
                         <i class="fas fa-handshake mr-3"></i> Partners
                     </a>
                 </li>
 
-                <!-- Account -->
+                {{-- Account --}}
                 <li class="mt-4">
-                    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">Account</p>
+                    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white text-opacity-70">
+                        Account
+                    </p>
                 </li>
                 <li>
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
-                        <button type="submit" class="w-full flex items-center px-3 py-3 text-sm rounded-md nav-link text-left hover:bg-white hover:bg-opacity-10 transition">
+                        <button type="submit"
+                                class="w-full flex items-center px-3 py-3 text-sm rounded-md nav-link text-left">
                             <i class="fas fa-sign-out-alt mr-3"></i> Logout
                         </button>
                     </form>
@@ -248,20 +263,30 @@
         </div>
     </div>
 
-    <!-- Main Content -->
+    {{-- Main Content --}}
     <div class="main-content ml-0 md:ml-64 mt-16 p-4 min-h-screen" id="mainContent">
+
+        @if(session('success'))
+            <div class="mb-4 p-4 rounded-lg bg-green-50 border border-green-200 flex items-center">
+                <i class="fas fa-check-circle text-green-500 mr-3"></i>
+                <span class="text-green-800 font-medium">{{ session('success') }}</span>
+            </div>
+        @endif
+        @if(session('error'))
+            <div class="mb-4 p-4 rounded-lg bg-red-50 border border-red-200 flex items-center">
+                <i class="fas fa-times-circle text-red-500 mr-3"></i>
+                <span class="text-red-800 font-medium">{{ session('error') }}</span>
+            </div>
+        @endif
+
         @yield('content')
     </div>
 
-    <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- Summernote JS -->
     <script src="https://cdn.jsdelivr.net/npm/summernote@0.8.20/dist/summernote-lite.min.js"></script>
 
     <script>
-        // Initialize Summernote
-        $(document).ready(function() {
-            // Initialize on any textarea with class 'summernote'
+        $(document).ready(function () {
             $('.summernote').summernote({
                 height: 300,
                 toolbar: [
@@ -276,17 +301,16 @@
             });
         });
 
-        // Toggle sidebar on mobile
-        document.getElementById('mobileSidebarToggle').addEventListener('click', function() {
+        document.getElementById('mobileSidebarToggle')?.addEventListener('click', function () {
             document.getElementById('sidebar').classList.toggle('hidden');
         });
 
-        // Close sidebar when clicking outside on mobile
-        document.addEventListener('click', function(event) {
-            const sidebar = document.getElementById('sidebar');
+        document.addEventListener('click', function (event) {
+            const sidebar   = document.getElementById('sidebar');
             const toggleBtn = document.getElementById('mobileSidebarToggle');
 
             if (window.innerWidth < 768 &&
+                sidebar && toggleBtn &&
                 !sidebar.contains(event.target) &&
                 !toggleBtn.contains(event.target) &&
                 !sidebar.classList.contains('hidden')) {
@@ -294,36 +318,19 @@
             }
         });
 
-        // Set active navigation link based on current URL
-        document.addEventListener('DOMContentLoaded', function() {
-            const currentPath = window.location.pathname;
-
-            document.querySelectorAll('.nav-link').forEach(link => {
-                if (link.getAttribute('href') === currentPath) {
-                    link.classList.add('active');
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function () {
+                if (window.innerWidth < 768) {
+                    document.getElementById('sidebar').classList.add('hidden');
                 }
-
-                link.addEventListener('click', function() {
-                    document.querySelectorAll('.nav-link').forEach(item => {
-                        item.classList.remove('active');
-                    });
-                    this.classList.add('active');
-
-                    // Close sidebar on mobile after clicking a link
-                    if (window.innerWidth < 768) {
-                        document.getElementById('sidebar').classList.add('hidden');
-                    }
-                });
             });
         });
 
-        // Handle window resize
-        window.addEventListener('resize', function() {
-            if (window.innerWidth >= 768) {
-                document.getElementById('sidebar').classList.remove('hidden');
-            } else {
-                document.getElementById('sidebar').classList.add('hidden');
-            }
+        window.addEventListener('resize', function () {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) return;
+            if (window.innerWidth >= 768) sidebar.classList.remove('hidden');
+            else sidebar.classList.add('hidden');
         });
     </script>
 

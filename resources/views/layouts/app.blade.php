@@ -11,7 +11,7 @@
   <meta name="keywords" content="@yield('meta_keywords', 'Kenswed College, Kenswed Technical College, KTVTC, Ngong College, Best College in Ngong, Coding College in Ngong, Technical Training Kenya, Vocational Courses, TVET Ngong')" />
   <meta name="author" content="Kenswed Technical and Vocational Training College" />
   <link rel="canonical" href="@yield('canonical', 'https://ktvtc.ac.ke/')" />
-
+<meta name="csrf-token" content="{{ csrf_token() }}">
   <!-- Favicons -->
   <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('Assets/images/Kenswed_logo.png') }}" />
   <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('Assets/images/Kenswed_logo.png') }}" />

@@ -283,7 +283,53 @@
             <h1 class="text-3xl font-bold text-gray-900">Cafeteria Online</h1>
             <p class="text-gray-600 mt-1">Order your favorite meals in seconds</p>
         </div>
+{{-- Pre-Order Portal Card --}}
+<div class="mb-8">
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#B91C1C] to-[#7f1010] text-white shadow-lg">
+        <div class="absolute inset-0 opacity-10"
+             style="background-image: radial-gradient(circle at 20% 80%, white 0%, transparent 40%), radial-gradient(circle at 80% 20%, white 0%, transparent 40%);">
+        </div>
 
+        <div class="relative p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center gap-5">
+            <div class="flex-shrink-0">
+                <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                    <i class="fas fa-bolt text-3xl text-white"></i>
+                </div>
+            </div>
+
+            <div class="flex-1 min-w-0">
+                <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/20 text-xs font-semibold uppercase tracking-wide mb-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse"></span>
+                    New
+                </div>
+                <h2 class="text-xl sm:text-2xl font-bold leading-tight">
+                    Skip the queue  Pre-Order & Pick Up
+                </h2>
+                <p class="text-sm text-white/90 mt-1.5 max-w-2xl">
+                    Staff, college students and high school students can pre-order meals in advance.
+                    Set a 4-digit PIN once, order anytime, and collect from the cafeteria without waiting.
+                </p>
+
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-white/80">
+                    <span><i class="fas fa-shield-alt mr-1"></i> Secure PIN login</span>
+                    <span><i class="fas fa-mobile-alt mr-1"></i> Pay via M-Pesa or card</span>
+                    <span><i class="fas fa-clock mr-1"></i> Ready when you arrive</span>
+                </div>
+            </div>
+
+            <div class="flex-shrink-0 w-full sm:w-auto">
+                <a href="{{ route('pre-order.login') }}"
+                   class="block w-full sm:w-auto text-center bg-white text-[#B91C1C] hover:bg-red-50 font-bold py-3 px-6 rounded-xl shadow-md transition transform hover:-translate-y-0.5">
+                    <i class="fas fa-sign-in-alt mr-2"></i> Pre-Order Now
+                </a>
+                <a href="{{ route('pre-order.setup') }}"
+                   class="block w-full sm:w-auto text-center text-white/90 hover:text-white text-xs mt-2 underline">
+                    First time? Set up your PIN
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Left Column - Cafeteria & Menu -->
             <div class="lg:col-span-2 space-y-6">

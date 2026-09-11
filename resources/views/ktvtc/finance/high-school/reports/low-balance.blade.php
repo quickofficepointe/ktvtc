@@ -6,7 +6,7 @@
 @section('breadcrumb')
 <li>
     <span class="mx-2">/</span>
-    <a href="{{ route('finance.card-reports.index') }}" class="text-gray-600 hover:text-primary">Card Reports</a>
+    <a href="{{ route('card-reports.index') }}" class="text-gray-600 hover:text-primary">Card Reports</a>
 </li>
 <li>
     <span class="mx-2">/</span>
@@ -31,12 +31,12 @@
     <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
         <div class="finance-card p-3 border-l-4 border-yellow-500">
             <p class="text-xs text-gray-500">Low Balance Cards</p>
-            <p class="text-xl font-bold text-yellow-600">{{ number_format($cards->count()) }}</p>
+            <p class="text-xl font-bold text-yellow-600">{{ number_format($cards->total()) }}</p>
             <p class="text-xs text-gray-500">Below KES {{ number_format($threshold ?? 100, 2) }}</p>
         </div>
         <div class="finance-card p-3 border-l-4 border-red-500">
             <p class="text-xs text-gray-500">Zero Balance</p>
-            <p class="text-xl font-bold text-red-600">{{ number_format($cards->where('balance', 0)->count()) }}</p>
+            <p class="text-xl font-bold text-red-600">{{ number_format($zeroBalance ?? 0) }}</p>
         </div>
         <div class="finance-card p-3 border-l-4 border-blue-500">
             <p class="text-xs text-gray-500">Total Owed</p>
@@ -81,7 +81,9 @@
                 <tbody class="divide-y divide-gray-200">
                     @forelse($cards ?? [] as $card)
                         <tr class="hover:bg-gray-50">
-                            <td class="px-3 py-2 text-center">{{ $loop->iteration }}</td>
+                            <td class="px-3 py-2 text-center">
+                                {{ ($cards->currentPage() - 1) * $cards->perPage() + $loop->iteration }}
+                            </td>
                             <td class="px-3 py-2">
                                 <span class="font-medium">{{ $card->student_name }}</span>
                             </td>
@@ -89,7 +91,8 @@
                             <td class="px-3 py-2 text-sm">{{ $card->student_class }}</td>
                             <td class="px-3 py-2 text-sm">{{ $card->student->parent_phone ?? 'N/A' }}</td>
                             <td class="px-3 py-2 text-right font-bold text-sm
-                                @if($card->balance == 0) text-red-600
+                                @if($card->balance < 0) text-red-700 font-extrabold
+                                @elseif($card->balance == 0) text-red-600
                                 @else text-yellow-600 @endif">
                                 KES {{ number_format($card->balance, 2) }}
                             </td>
@@ -145,3 +148,4 @@
     }
 </script>
 @endpush
+@endsection

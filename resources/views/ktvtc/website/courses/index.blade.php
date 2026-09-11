@@ -32,12 +32,12 @@
         </div>
     @endif
 
-    {{-- Header Section --}}
+    {{-- Header --}}
     <div class="mb-8">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
                 <h1 class="text-3xl font-bold text-gray-900">Course Management</h1>
-                <p class="text-gray-600 mt-2">Manage all courses and their details</p>
+                <p class="text-gray-600 mt-2">Manage all courses, their details, and assigned trainers</p>
             </div>
             <button onclick="openCreateModal()"
                 class="bg-primary hover:bg-red-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center">
@@ -121,19 +121,19 @@
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/4 align-top">
                             Course Details
                         </th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/6 align-top">
-                            Duration & Level
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider align-top">
+                            Duration &amp; Level
                         </th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/6 align-top">
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider align-top">
                             Department
                         </th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/6 align-top">
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider align-top">
                             Delivery
                         </th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/6 align-top">
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider align-top">
                             Status
                         </th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/6 align-top">
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider align-top">
                             Actions
                         </th>
                     </tr>
@@ -192,7 +192,24 @@
 
                             {{-- Actions --}}
                             <td class="px-6 py-4 align-top">
-                                <div class="flex gap-2">
+                                <div class="flex flex-wrap gap-2">
+                                    {{-- ✅ MANAGE TRAINERS --}}
+                                    <a href="{{ route('website.courses.trainers.index', $course) }}"
+                                       class="inline-flex items-center px-3 py-1 text-xs rounded bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors"
+                                       title="Assign trainers to this course">
+                                        <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                  d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-5.13a4 4 0 11-8 0 4 4 0 018 0zm6 0a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                        </svg>
+                                        Trainers
+                                        @if(($course->trainers_count ?? 0) > 0)
+                                            <span class="ml-1 bg-purple-200 text-purple-800 px-1.5 rounded-full text-[10px] font-semibold">
+                                                {{ $course->trainers_count }}
+                                            </span>
+                                        @endif
+                                    </a>
+
+                                    {{-- EDIT --}}
                                     <button onclick="openEditModal(
                                         '{{ $course->id }}',
                                         '{{ $course->department_id }}',
@@ -211,8 +228,11 @@
                                         '{{ $course->featured }}',
                                         '{{ $course->sort_order }}',
                                         '{{ $course->is_active }}'
-                                    )" class="px-3 py-1 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100">Edit</button>
-                                    <button onclick="confirmDelete('{{ route('website.courses.destroy', $course->id) }}')" class="px-3 py-1 text-xs rounded bg-red-50 text-red-600 hover:bg-red-100">Delete</button>
+                                    )" class="px-3 py-1 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">Edit</button>
+
+                                    {{-- DELETE --}}
+                                    <button onclick="confirmDelete('{{ route('website.courses.destroy', $course->id) }}')"
+                                            class="px-3 py-1 text-xs rounded bg-red-50 text-red-600 hover:bg-red-100 transition-colors">Delete</button>
                                 </div>
                             </td>
                         </tr>
@@ -227,17 +247,17 @@
     </div>
 </div>
 
-<!-- Include Summernote CSS and JS -->
 <link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.js"></script>
 
-<!-- Create Course Modal -->
+{{-- ════════════════════════════════════════════════════════════════
+     CREATE COURSE MODAL  — unchanged from your original
+     ════════════════════════════════════════════════════════════════ --}}
 <div id="createModal" class="fixed inset-0 z-50 hidden overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4 py-6">
         <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onclick="closeCreateModal()"></div>
 
         <div class="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden transform transition-all">
-            <!-- Modal Header -->
             <div class="bg-gradient-to-r from-primary to-red-600 px-6 py-4">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center space-x-3">
@@ -260,12 +280,10 @@
                 </div>
             </div>
 
-            <!-- Modal Body -->
             <div class="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
                 <form action="{{ route('website.courses.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
                     @csrf
 
-                    <!-- Basic Information -->
                     <div class="bg-gray-50 rounded-xl p-6">
                         <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                             <svg class="w-5 h-5 text-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -301,33 +319,32 @@
                                        placeholder="e.g., CSC101">
                             </div>
 
-                           <!-- In the create modal -->
-<div>
-    <label class="block text-sm font-medium text-gray-700 mb-2">Delivery Modes *</label>
-    <div class="space-y-2">
-        <div class="flex items-center">
-            <input type="checkbox" id="onsite" name="delivery_modes[]" value="onsite"
-                   {{ old('delivery_modes') && in_array('onsite', old('delivery_modes')) ? 'checked' : '' }}
-                   class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary">
-            <label for="onsite" class="ml-2 text-sm text-gray-700">Onsite (Physical)</label>
-        </div>
-        <div class="flex items-center">
-            <input type="checkbox" id="virtual" name="delivery_modes[]" value="virtual"
-                   {{ old('delivery_modes') && in_array('virtual', old('delivery_modes')) ? 'checked' : '' }}
-                   class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary">
-            <label for="virtual" class="ml-2 text-sm text-gray-700">Virtual (Online)</label>
-        </div>
-        <div class="flex items-center">
-            <input type="checkbox" id="hybrid" name="delivery_modes[]" value="hybrid"
-                   {{ old('delivery_modes') && in_array('hybrid', old('delivery_modes')) ? 'checked' : '' }}
-                   class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary">
-            <label for="hybrid" class="ml-2 text-sm text-gray-700">Hybrid (Mixed)</label>
-        </div>
-    </div>
-    @error('delivery_modes')
-        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-    @enderror
-</div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Delivery Modes *</label>
+                                <div class="space-y-2">
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="onsite" name="delivery_modes[]" value="onsite"
+                                               {{ old('delivery_modes') && in_array('onsite', old('delivery_modes')) ? 'checked' : '' }}
+                                               class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary">
+                                        <label for="onsite" class="ml-2 text-sm text-gray-700">Onsite (Physical)</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="virtual" name="delivery_modes[]" value="virtual"
+                                               {{ old('delivery_modes') && in_array('virtual', old('delivery_modes')) ? 'checked' : '' }}
+                                               class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary">
+                                        <label for="virtual" class="ml-2 text-sm text-gray-700">Virtual (Online)</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="hybrid" name="delivery_modes[]" value="hybrid"
+                                               {{ old('delivery_modes') && in_array('hybrid', old('delivery_modes')) ? 'checked' : '' }}
+                                               class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary">
+                                        <label for="hybrid" class="ml-2 text-sm text-gray-700">Hybrid (Mixed)</label>
+                                    </div>
+                                </div>
+                                @error('delivery_modes')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Duration *</label>
@@ -389,7 +406,6 @@
                         </div>
                     </div>
 
-                    <!-- Course Details -->
                     <div class="bg-gray-50 rounded-xl p-6">
                         <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                             <svg class="w-5 h-5 text-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -421,7 +437,6 @@
                         </div>
                     </div>
 
-                    <!-- Fees Information -->
                     <div class="bg-gray-50 rounded-xl p-6">
                         <h4 class="text-lg font-semibold  text-gray-900 mb-4 flex items-center">
                             <svg class="w-5 h-5 text-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -442,7 +457,6 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
                         </div>
                     </div>
 
-                    <!-- Status -->
                     <div class="bg-gray-50 rounded-xl p-6">
                         <div class="flex items-center justify-between">
                             <div>
@@ -469,7 +483,6 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
                         </div>
                     </div>
 
-                    <!-- Modal Footer -->
                     <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
                         <button type="button" onclick="closeCreateModal()"
                                 class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors">
@@ -486,13 +499,14 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
     </div>
 </div>
 
-<!-- Edit Course Modal -->
+{{-- ════════════════════════════════════════════════════════════════
+     EDIT COURSE MODAL — unchanged from your original
+     ════════════════════════════════════════════════════════════════ --}}
 <div id="editModal" class="fixed inset-0 z-50 hidden overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4 py-6">
         <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onclick="closeEditModal()"></div>
 
         <div class="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden transform transition-all">
-            <!-- Modal Header -->
             <div class="bg-gradient-to-r from-primary to-red-600 px-6 py-4">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center space-x-3">
@@ -515,13 +529,11 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
                 </div>
             </div>
 
-            <!-- Modal Body -->
             <div class="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
                 <form id="editForm" method="POST" enctype="multipart/form-data">
                     @csrf
                     @method('PUT')
 
-                    <!-- Basic Information -->
                     <div class="bg-gray-50 rounded-xl p-6">
                         <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                             <svg class="w-5 h-5 text-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -553,27 +565,26 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
                                        class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent transition-colors">
                             </div>
 
-                          <!-- In the edit modal -->
-<div>
-    <label class="block text-sm font-medium text-gray-700 mb-2">Delivery Modes *</label>
-    <div class="space-y-2">
-        <div class="flex items-center">
-            <input type="checkbox" id="editOnsite" name="delivery_modes[]" value="onsite"
-                   class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary">
-            <label for="editOnsite" class="ml-2 text-sm text-gray-700">Onsite (Physical)</label>
-        </div>
-        <div class="flex items-center">
-            <input type="checkbox" id="editVirtual" name="delivery_modes[]" value="virtual"
-                   class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary">
-            <label for="editVirtual" class="ml-2 text-sm text-gray-700">Virtual (Online)</label>
-        </div>
-        <div class="flex items-center">
-            <input type="checkbox" id="editHybrid" name="delivery_modes[]" value="hybrid"
-                   class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary">
-            <label for="editHybrid" class="ml-2 text-sm text-gray-700">Hybrid (Mixed)</label>
-        </div>
-    </div>
-</div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Delivery Modes *</label>
+                                <div class="space-y-2">
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="editOnsite" name="delivery_modes[]" value="onsite"
+                                               class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary">
+                                        <label for="editOnsite" class="ml-2 text-sm text-gray-700">Onsite (Physical)</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="editVirtual" name="delivery_modes[]" value="virtual"
+                                               class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary">
+                                        <label for="editVirtual" class="ml-2 text-sm text-gray-700">Virtual (Online)</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="editHybrid" name="delivery_modes[]" value="hybrid"
+                                               class="h-4 w-4 text-primary border-gray-300 rounded focus:ring-primary">
+                                        <label for="editHybrid" class="ml-2 text-sm text-gray-700">Hybrid (Mixed)</label>
+                                    </div>
+                                </div>
+                            </div>
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Duration *</label>
@@ -628,7 +639,6 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
                         </div>
                     </div>
 
-                    <!-- Course Details -->
                     <div class="bg-gray-50 rounded-xl p-6">
                         <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                             <svg class="w-5 h-5 text-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -657,7 +667,6 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
                         </div>
                     </div>
 
-                    <!-- Fees Information -->
                     <div class="bg-gray-50 rounded-xl p-6">
                         <h4 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                             <svg class="w-5 h-5 text-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -673,7 +682,6 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
                         </div>
                     </div>
 
-                    <!-- Status -->
                     <div class="bg-gray-50 rounded-xl p-6">
                         <div class="flex items-center justify-between">
                             <div>
@@ -700,7 +708,6 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
                         </div>
                     </div>
 
-                    <!-- Modal Footer -->
                     <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
                         <button type="button" onclick="closeEditModal()"
                                 class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors">
@@ -718,13 +725,11 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
 </div>
 
 <script>
-    // Initialize Summernote when the page loads
     document.addEventListener('DOMContentLoaded', function() {
         initializeSummernote();
     });
 
     function initializeSummernote() {
-        // Initialize all summernote textareas
         $('.summernote').summernote({
             height: 200,
             toolbar: [
@@ -736,21 +741,14 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
                 ['table', ['table']],
                 ['insert', ['link', 'picture', 'video']],
                 ['view', ['fullscreen', 'codeview', 'help']]
-            ],
-            callbacks: {
-                onInit: function() {
-                    // console.log('Summernote initialized');
-                }
-            }
+            ]
         });
     }
 
-    // Create Modal Functions
     function openCreateModal() {
         document.getElementById('createModal').classList.remove('hidden');
         document.body.style.overflow = 'hidden';
 
-        // Re-initialize summernote for create modal
         setTimeout(() => {
             $('#createModal .summernote').summernote('destroy');
             $('#createModal .summernote').summernote({
@@ -773,7 +771,6 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
         document.getElementById('createModal').classList.add('hidden');
         document.body.style.overflow = 'auto';
 
-        // Reset create form preview
         const preview = document.getElementById('createImagePreview');
         const placeholder = document.getElementById('createImagePlaceholder');
         if (preview && placeholder) {
@@ -783,40 +780,32 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
         const fileInput = document.getElementById('create_cover_image');
         if (fileInput) fileInput.value = '';
 
-        // Reset summernote content
         $('#createModal .summernote').summernote('reset');
     }
 
-    // Image Preview Functions
     function previewCreateImage(input) {
         const preview = document.getElementById('createImagePreview');
         const placeholder = document.getElementById('createImagePlaceholder');
         const file = input.files[0];
 
         if (file) {
-            // Validate file type
             const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
             if (!validTypes.includes(file.type)) {
                 alert('Please select a valid image file (JPEG, JPG, PNG).');
                 input.value = '';
                 return;
             }
-
-            // Validate file size (2MB)
             if (file.size > 10 * 1024 * 1024) {
                 alert('Image size should be less than 10MB.');
                 input.value = '';
                 return;
             }
-
             const reader = new FileReader();
-
             reader.onload = function(e) {
                 preview.src = e.target.result;
                 preview.classList.remove('hidden');
                 placeholder.classList.add('hidden');
             }
-
             reader.readAsDataURL(file);
         } else {
             preview.classList.add('hidden');
@@ -829,45 +818,34 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
         const file = input.files[0];
 
         if (file) {
-            // Validate file type
             const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
             if (!validTypes.includes(file.type)) {
                 alert('Please select a valid image file (JPEG, JPG, PNG).');
                 input.value = '';
                 return;
             }
-
-            // Validate file size (2MB)
             if (file.size > 10 * 1024 * 1024) {
                 alert('Image size should be less than 10MB.');
                 input.value = '';
                 return;
             }
-
             const reader = new FileReader();
-
             reader.onload = function(e) {
                 preview.src = e.target.result;
             }
-
             reader.readAsDataURL(file);
         }
     }
 
-    // Edit Modal Functions
     function openEditModal(id, departmentId, name, code, duration, totalHours, schedule, description, requirements, feesBreakdown, deliveryMode, whatYouWillLearn, coverImage, level, featured, sortOrder, isActive) {
         const modal = document.getElementById('editModal');
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
 
-        // Set form action - use the route without parameters
         const editForm = document.getElementById('editForm');
         editForm.action = '{{ route("website.courses.update") }}';
         editForm.enctype = 'multipart/form-data';
 
-        console.log('Update URL:', editForm.action);
-
-        // Create or update hidden course_id field
         let idInput = document.getElementById('editCourseId');
         if (!idInput) {
             idInput = document.createElement('input');
@@ -877,16 +855,16 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
             editForm.appendChild(idInput);
         }
         idInput.value = id;
- let modes = [];
-    if (deliveryMode) {
-        modes = deliveryMode.split(',').map(mode => mode.trim());
-    }
 
-    // Set checkboxes based on modes array
-    document.getElementById('editOnsite').checked = modes.includes('onsite');
-    document.getElementById('editVirtual').checked = modes.includes('virtual');
-    document.getElementById('editHybrid').checked = modes.includes('hybrid');
-        // Fill form fields
+        let modes = [];
+        if (deliveryMode) {
+            modes = deliveryMode.split(',').map(mode => mode.trim());
+        }
+
+        document.getElementById('editOnsite').checked = modes.includes('onsite');
+        document.getElementById('editVirtual').checked = modes.includes('virtual');
+        document.getElementById('editHybrid').checked = modes.includes('hybrid');
+
         document.getElementById('editDepartmentId').value = departmentId;
         document.getElementById('editName').value = name;
         document.getElementById('editCode').value = code || '';
@@ -899,7 +877,6 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
         document.getElementById('editIsActive').checked = isActive === '1';
         document.getElementById('editFeatured').checked = featured === '1';
 
-        // Set image preview
         const preview = document.getElementById('editImagePreview');
         if (coverImage && coverImage !== 'null' && coverImage !== '') {
             if (coverImage.startsWith('courses/cover-images/')) {
@@ -911,22 +888,14 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
             preview.src = '/images/placeholder-course.jpg';
         }
 
-        // Reset file input
         document.getElementById('edit_cover_image').value = '';
 
-        // Initialize summernote
         setTimeout(() => {
             $('#editModal .summernote').summernote('destroy');
 
-            if (description) {
-                $('#editModal textarea[name="description"]').val(description);
-            }
-            if (requirements) {
-                $('#editModal textarea[name="requirements"]').val(requirements);
-            }
-            if (whatYouWillLearn) {
-                $('#editModal textarea[name="what_you_will_learn"]').val(whatYouWillLearn);
-            }
+            if (description) $('#editModal textarea[name="description"]').val(description);
+            if (requirements) $('#editModal textarea[name="requirements"]').val(requirements);
+            if (whatYouWillLearn) $('#editModal textarea[name="what_you_will_learn"]').val(whatYouWillLearn);
 
             document.getElementById('editFeesBreakdown').value = feesBreakdown || '';
 
@@ -951,7 +920,6 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
         document.body.style.overflow = 'auto';
     }
 
-    // Delete Confirmation
     function confirmDelete(url) {
         if (typeof Swal !== 'undefined') {
             Swal.fire({
@@ -964,14 +932,10 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
                 confirmButtonText: 'Yes, delete it!',
                 cancelButtonText: 'Cancel'
             }).then((result) => {
-                if (result.isConfirmed) {
-                    submitDeleteForm(url);
-                }
+                if (result.isConfirmed) submitDeleteForm(url);
             });
         } else {
-            if (confirm('Are you sure you want to delete this course?')) {
-                submitDeleteForm(url);
-            }
+            if (confirm('Are you sure you want to delete this course?')) submitDeleteForm(url);
         }
     }
 
@@ -996,7 +960,6 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
         form.submit();
     }
 
-    // Close modals on Escape key
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape') {
             closeCreateModal();
@@ -1004,7 +967,6 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
         }
     });
 
-    // Close modals when clicking on backdrop
     document.addEventListener('click', function(event) {
         if (event.target.classList.contains('fixed') && event.target.classList.contains('inset-0')) {
             closeCreateModal();
@@ -1019,44 +981,11 @@ Examination: 1,500">{{ old('fees_breakdown') }}</textarea>
         -webkit-box-orient: vertical;
         overflow: hidden;
     }
-
-    .transform {
-        transition: transform 0.2s ease-in-out;
-    }
-
-    /* Summernote customization */
-    .note-editor.note-frame {
-        border: 1px solid #d1d5db;
-        border-radius: 0.5rem;
-    }
-
-    .note-editor.note-frame .note-toolbar {
-        background-color: #f9fafb;
-        border-bottom: 1px solid #e5e7eb;
-        border-radius: 0.5rem 0.5rem 0 0;
-    }
-
-    .note-editor.note-frame .note-statusbar {
-        background-color: #f9fafb;
-        border-top: 1px solid #e5e7eb;
-        border-radius: 0 0 0.5rem 0.5rem;
-    }
-
-    /* Ensure table cells have proper spacing */
-    table {
-        border-collapse: collapse;
-        width: 100%;
-    }
-
-    th, td {
-        padding: 0.75rem 1.5rem;
-        text-align: left;
-        border-bottom: 1px solid #e5e7eb;
-    }
-
-    /* Make sure actions column doesn't wrap */
-    td:last-child {
-        white-space: nowrap;
-    }
+    .transform { transition: transform 0.2s ease-in-out; }
+    .note-editor.note-frame { border: 1px solid #d1d5db; border-radius: 0.5rem; }
+    .note-editor.note-frame .note-toolbar { background-color: #f9fafb; border-bottom: 1px solid #e5e7eb; border-radius: 0.5rem 0.5rem 0 0; }
+    .note-editor.note-frame .note-statusbar { background-color: #f9fafb; border-top: 1px solid #e5e7eb; border-radius: 0 0 0.5rem 0.5rem; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { padding: 0.75rem 1.5rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
 </style>
 @endsection

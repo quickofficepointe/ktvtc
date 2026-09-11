@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AboutImage;
+use App\Models\PreOrderItem;
 use Illuminate\Http\Request;
 
-class AboutImageController extends Controller
+class PreOrderItemController extends Controller
 {
     /**
      * Display a listing of the resource.
@@ -34,7 +34,7 @@ class AboutImageController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(AboutImage $aboutImage)
+    public function show(PreOrderItem $preOrderItem)
     {
         //
     }
@@ -42,7 +42,7 @@ class AboutImageController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(AboutImage $aboutImage)
+    public function edit(PreOrderItem $preOrderItem)
     {
         //
     }
@@ -50,7 +50,7 @@ class AboutImageController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, AboutImage $aboutImage)
+    public function update(Request $request, PreOrderItem $preOrderItem)
     {
         //
     }
@@ -58,7 +58,7 @@ class AboutImageController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(AboutImage $aboutImage)
+    public function destroy(PreOrderItem $preOrderItem)
     {
         //
     }

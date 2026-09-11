@@ -81,7 +81,17 @@ class Course extends Model
     {
         return $this->hasMany(Enrollment::class);
     }
+public function trainers()
+{
+    return $this->belongsToMany(User::class, 'course_trainer')
+                ->withPivot('role', 'is_active', 'assigned_by', 'assigned_at', 'notes')
+                ->withTimestamps();
+}
 
+public function activeTrainers()
+{
+    return $this->trainers()->wherePivot('is_active', true);
+}
     /**
      * ============ FEE STRUCTURE METHODS ============
      */
@@ -308,7 +318,13 @@ class Course extends Model
         return $query->whereNull('fee_modification_approved_by')
             ->whereNotNull('fee_modified_by');
     }
-
+public function scopeForTrainer($query, int $trainerId)
+{
+    return $query->whereHas('trainers', function ($q) use ($trainerId) {
+        $q->where('users.id', $trainerId)
+          ->where('course_trainer.is_active', true);
+    });
+}
     /**
      * ============ ACCESSORS ============
      */

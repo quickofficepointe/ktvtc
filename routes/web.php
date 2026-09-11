@@ -8,13 +8,14 @@ use App\Http\Controllers\FaqController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AnalyticController;
 use App\Http\Controllers\ParentFundingController;
-
+use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\CardFundingIpnController;
 use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\QRScannerController;
 use App\Http\Controllers\ApplicationPaymentController;
 use App\Http\Controllers\AuthorController;
 use App\Http\Controllers\BannerController;
+use App\Http\Controllers\IloController;
 use App\Http\Controllers\BlogCategoryController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\BookCategoryController;
@@ -38,6 +39,7 @@ use App\Http\Controllers\EventApplicationController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\EventPaymentController;
 use App\Http\Controllers\ExamRegistrationController;
+use App\Http\Controllers\StudentAttachmentController;
 use App\Http\Controllers\FeePaymentController;
 use App\Http\Controllers\FinanceController;
 use App\Http\Controllers\FeeStructureController;
@@ -99,7 +101,67 @@ use App\Http\Controllers\CardQrController;
 use App\Http\Controllers\CardReportController;
 use App\Http\Controllers\KcbIpnController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\CafeteriaPreOrderController;
+use App\Http\Controllers\PreOrderAuthController;
+use App\Http\Controllers\PreOrderPortalController;
+// ============================================================================
+// PRE-ORDER AUTH (public)
+// ============================================================================
+// ============================================================================
+// PRE-ORDER PORTAL (public — own session, no Laravel auth)
+// ============================================================================
+Route::prefix('pre-order')->name('pre-order.')->group(function () {
 
+    // ── Not logged in ──
+    Route::middleware('preorder.guest')->group(function () {
+        Route::get('/login', [PreOrderAuthController::class, 'showLogin'])->name('login');
+        Route::post('/login', [PreOrderAuthController::class, 'login'])->name('login.submit');
+
+        // First-visit setup (3 steps)
+        Route::get('/setup', [PreOrderAuthController::class, 'showSetup'])->name('setup');
+        Route::post('/setup', [PreOrderAuthController::class, 'initiateSetup'])->name('setup.submit');
+
+        Route::get('/setup/phone', [PreOrderAuthController::class, 'showSetupPhone'])->name('setup.phone');
+        Route::post('/setup/phone', [PreOrderAuthController::class, 'submitSetupPhone'])->name('setup.phone.submit');
+
+        Route::get('/setup/verify', [PreOrderAuthController::class, 'showSetupVerify'])->name('setup.verify');
+        Route::post('/setup/verify', [PreOrderAuthController::class, 'submitSetupVerify'])->name('setup.verify.submit');
+
+        // Forgot PIN (2 steps)
+        Route::get('/forgot', [PreOrderAuthController::class, 'showForgot'])->name('forgot');
+        Route::post('/forgot', [PreOrderAuthController::class, 'sendResetCode'])->name('forgot.submit');
+
+        Route::get('/reset', [PreOrderAuthController::class, 'showReset'])->name('reset');
+        Route::post('/reset', [PreOrderAuthController::class, 'submitReset'])->name('reset.submit');
+    });
+
+    // ── Logged in ──
+    Route::middleware('preorder.auth')->group(function () {
+        Route::get('/', [PreOrderPortalController::class, 'index'])->name('home');
+        Route::get('/menu', [PreOrderPortalController::class, 'menu'])->name('menu');
+
+        Route::post('/cart/add', [PreOrderPortalController::class, 'addToCart'])->name('cart.add');
+        Route::post('/cart/update', [PreOrderPortalController::class, 'updateCart'])->name('cart.update');
+        Route::post('/cart/remove', [PreOrderPortalController::class, 'removeFromCart'])->name('cart.remove');
+        Route::get('/cart', [PreOrderPortalController::class, 'viewCart'])->name('cart');
+        Route::post('/cart/clear', [PreOrderPortalController::class, 'clearCart'])->name('cart.clear');
+
+        Route::post('/checkout', [PreOrderPortalController::class, 'checkout'])->name('checkout');
+        Route::get('/check-status/{checkoutId}', [PreOrderPortalController::class, 'checkStatus'])->name('check-status');
+
+        Route::get('/orders', [PreOrderPortalController::class, 'myOrders'])->name('orders');
+        Route::get('/orders/{id}', [PreOrderPortalController::class, 'orderDetail'])->name('orders.show');
+        Route::post('/orders/{id}/cancel', [PreOrderPortalController::class, 'cancelOrder'])->name('orders.cancel');
+
+        Route::post('/logout', [PreOrderAuthController::class, 'logout'])->name('logout');
+    });
+});
+
+// ============================================================================
+// PRE-ORDER KCB CALLBACK (public — CSRF skipped in bootstrap/app.php)
+// ============================================================================
+Route::post('/pre-order/api/kcb/callback', [PreOrderPortalController::class, 'kcbCallback'])
+    ->name('pre-order.kcb.callback');
 // ============================================================================
 // PUBLIC ROUTES
 // ============================================================================
@@ -110,33 +172,30 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::post('/profile/update', [ProfileController::class, 'update'])->name('profile.update');
 });
-
 Route::get('/certifications', [CertificationController::class, 'publicIndex'])->name('certifications.public');
 
 Route::get('/home', function () {
     $user = Auth::user();
-
     if (!$user->phone_number || !$user->bio || !$user->profile_picture) {
         return redirect()->route('profile.edit');
     }
-
     if (!$user->is_approved) {
         return redirect()->route('student.dashboard');
     }
-
-    switch ($user->role) {
-        case 0: return redirect()->route('super-admin.dashboard');
-        case 1: return redirect()->route('mschool.dashboard');
-        case 2: return redirect()->route('admin.dashboard');
-        case 3: return redirect()->route('scholarship.dashboard');
-        case 4: return redirect()->route('library.dashboard');
-        case 5: return redirect()->route('student.dashboard');
-        case 6: return redirect()->route('cafeteria.dashboard');
-        case 7: return redirect()->route('finance.dashboard');
-        case 8: return redirect()->route('trainers.dashboard');
-        case 9: return redirect()->route('website.dashboard');
-        default: return redirect()->route('student.dashboard');
-    }
+   switch ($user->role) {
+    case 0:  return redirect()->route('super-admin.dashboard');
+    case 1:  return redirect()->route('mschool.dashboard');
+    case 2:  return redirect()->route('admin.dashboard');
+    case 3:  return redirect()->route('scholarship.dashboard');
+    case 4:  return redirect()->route('library.dashboard');
+    case 5:  return redirect()->route('student.dashboard');
+    case 6:  return redirect()->route('cafeteria.dashboard');
+    case 7:  return redirect()->route('finance.dashboard');
+    case 8:  return redirect()->route('trainers.dashboard');
+    case 9:  return redirect()->route('website.dashboard');
+    case 10: return redirect()->route('ilo.dashboard');
+    default: return redirect()->route('student.dashboard');
+}
 })->name('home');
 
 // ============================================================================
@@ -389,7 +448,28 @@ Route::middleware(['auth', 'verified', 'role.admin'])
         Route::put('/{id}/reset-password', [AdminController::class, 'resetPassword'])->name('reset-password');
         Route::post('/bulk-reset-passwords', [AdminController::class, 'bulkResetPasswords'])->name('bulk-reset-passwords');
     });
+Route::prefix('academic-terms')->name('academic-terms.')->group(function () {
+        Route::get('/', [AcademicTermController::class, 'adminindex'])->name('index');
+        Route::get('/create', [AcademicTermController::class, 'create'])->name('create');
+        Route::post('/', [AcademicTermController::class, 'store'])->name('store');
 
+        // API endpoints (before wildcard to avoid conflicts)
+        Route::get('/api/current', [AcademicTermController::class, 'getCurrent'])->name('api.current');
+        Route::get('/api/by-campus', [AcademicTermController::class, 'getByCampus'])->name('api.by-campus');
+        Route::get('/api/for-select', [AcademicTermController::class, 'getForSelect'])->name('api.for-select');
+
+        // Wildcard routes last
+        Route::get('/{academicTerm}', [AcademicTermController::class, 'show'])->name('show');
+        Route::get('/{academicTerm}/edit', [AcademicTermController::class, 'edit'])->name('edit');
+        Route::put('/{academicTerm}', [AcademicTermController::class, 'update'])->name('update');
+        Route::delete('/{academicTerm}', [AcademicTermController::class, 'destroy'])->name('destroy');
+
+        // Status actions
+        Route::post('/{academicTerm}/activate', [AcademicTermController::class, 'activate'])->name('activate');
+        Route::post('/{academicTerm}/deactivate', [AcademicTermController::class, 'deactivate'])->name('deactivate');
+        Route::post('/{academicTerm}/set-current', [AcademicTermController::class, 'setCurrent'])->name('set-current');
+        Route::post('/{academicTerm}/toggle-registration', [AcademicTermController::class, 'toggleRegistration'])->name('toggle-registration');
+    });
     // Applications Management
     Route::prefix('applications')->name('applications.')->group(function () {
         Route::get('/', [ApplicationController::class, 'list'])->name('index');
@@ -702,7 +782,92 @@ Route::middleware(['auth', 'verified', 'role.student'])
         Route::get('/status/{transactionId}', [App\Http\Controllers\StudentFeesController::class, 'checkStatus'])->name('status');
         Route::get('/statement/download', [App\Http\Controllers\StudentFeesController::class, 'downloadStatement'])->name('statement.download');
     });
+Route::prefix('attachment')->name('attachment.')->group(function () {
+    // Existing:
+    Route::get('/',                     [StudentAttachmentController::class, 'index'])->name('index');
+    Route::get('/opportunities',        [StudentAttachmentController::class, 'opportunities'])->name('opportunities');
+    Route::get('/opportunities/{opportunity}', [StudentAttachmentController::class, 'showOpportunity'])->name('opportunities.show');
+    Route::post('/opportunities/{opportunity}/apply', [StudentAttachmentController::class, 'apply'])->name('opportunities.apply');
+    Route::get('/applications',         [StudentAttachmentController::class, 'applications'])->name('applications');
+    Route::post('/applications/{application}/withdraw', [StudentAttachmentController::class, 'withdraw'])->name('applications.withdraw');
+
+    // ═══ NEW: attachment details (uses AttachmentController) ═══
+    Route::get('/details',                              [AttachmentController::class, 'index'])->name('details');
+    Route::get('/details/create',                       [AttachmentController::class, 'create'])->name('details.create');
+    Route::post('/details',                             [AttachmentController::class, 'store'])->name('details.store');
+    Route::get('/details/{attachment}',                 [AttachmentController::class, 'show'])->name('details.show');
+    Route::get('/details/{attachment}/edit',            [AttachmentController::class, 'edit'])->name('details.edit');
+    Route::put('/details/{attachment}',                 [AttachmentController::class, 'update'])->name('details.update');
+    Route::delete('/details/{attachment}',              [AttachmentController::class, 'destroy'])->name('details.destroy');
 });
+    // ✅ Self-Enrollment (50% rule enforced server-side)
+    Route::prefix('enrollment')->name('enrollment.')->group(function () {
+        Route::get('/', [App\Http\Controllers\StudentSelfEnrollmentController::class, 'index'])->name('index');
+        Route::post('/', [App\Http\Controllers\StudentSelfEnrollmentController::class, 'store'])->name('store');
+   Route::get('/exam-card/{enrollment}', [StudentSelfEnrollmentController::class, 'examCard'])->name('exam-card');
+   
+        });
+});
+
+// ============================================================================
+// ILO (INDUSTRIAL LIAISON OFFICE) ROUTES
+// ============================================================================
+Route::middleware(['auth', 'verified', 'role.ilo'])
+    ->prefix('ilo')
+    ->name('ilo.')
+    ->group(function () {
+
+    Route::get('/dashboard', [IloController::class, 'dashboard'])->name('dashboard');
+
+    // Companies registry
+    Route::prefix('companies')->name('companies.')->group(function () {
+        Route::get('/',                [IloController::class, 'companies'])->name('index');
+        Route::get('/create',          [IloController::class, 'createCompany'])->name('create');
+        Route::post('/',               [IloController::class, 'storeCompany'])->name('store');
+        Route::get('/{company}',       [IloController::class, 'showCompany'])->name('show');
+        Route::get('/{company}/edit',  [IloController::class, 'editCompany'])->name('edit');
+        Route::put('/{company}',       [IloController::class, 'updateCompany'])->name('update');
+        Route::delete('/{company}',    [IloController::class, 'destroyCompany'])->name('destroy');
+    });
+
+    // Opportunities
+    Route::prefix('opportunities')->name('opportunities.')->group(function () {
+        Route::get('/',                    [IloController::class, 'opportunities'])->name('index');
+        Route::get('/create',              [IloController::class, 'createOpportunity'])->name('create');
+        Route::post('/',                   [IloController::class, 'storeOpportunity'])->name('store');
+        Route::get('/{opportunity}',       [IloController::class, 'showOpportunity'])->name('show');
+        Route::get('/{opportunity}/edit',  [IloController::class, 'editOpportunity'])->name('edit');
+        Route::put('/{opportunity}',       [IloController::class, 'updateOpportunity'])->name('update');
+        Route::delete('/{opportunity}',    [IloController::class, 'destroyOpportunity'])->name('destroy');
+        Route::post('/{opportunity}/publish', [IloController::class, 'publishOpportunity'])->name('publish');
+        Route::post('/{opportunity}/close',   [IloController::class, 'closeOpportunity'])->name('close');
+    });
+
+    // Applications review
+    Route::prefix('applications')->name('applications.')->group(function () {
+        Route::get('/',                          [IloController::class, 'applications'])->name('index');
+        Route::get('/{application}',             [IloController::class, 'showApplication'])->name('show');
+        Route::post('/{application}/approve',    [IloController::class, 'approveApplication'])->name('approve');
+        Route::post('/{application}/reject',     [IloController::class, 'rejectApplication'])->name('reject');
+        Route::post('/{application}/shortlist',  [IloController::class, 'shortlistApplication'])->name('shortlist');
+    });
+// Attachments review (was a placeholder, now real)
+Route::prefix('attachments')->name('attachments.')->group(function () {
+    Route::get('/',                     [AttachmentController::class, 'iloIndex'])->name('index');
+    Route::get('/{attachment}',         [AttachmentController::class, 'iloShow'])->name('show');
+    Route::post('/{attachment}/approve',        [AttachmentController::class, 'iloApprove'])->name('approve');
+    Route::post('/{attachment}/request-revision', [AttachmentController::class, 'iloRequestRevision'])->name('request-revision');
+    Route::post('/{attachment}/reject',         [AttachmentController::class, 'iloReject'])->name('reject');
+    Route::post('/{attachment}/complete',       [AttachmentController::class, 'iloComplete'])->name('complete');
+    Route::post('/{attachment}/grade',          [AttachmentController::class, 'iloGrade'])->name('grade');
+    Route::post('/{attachment}/visit',          [AttachmentController::class, 'iloVisit'])->name('visit');
+    Route::post('/{attachment}/promote-company',[AttachmentController::class, 'iloPromoteCompany'])->name('promote-company');
+});
+   
+});
+
+
+
 
 // ============================================================================
 // CAFETERIA ROUTES (No Payment Transaction Routes - Moved to Finance)
@@ -715,7 +880,16 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])
     Route::get('/dashboard', [CafeteriaController::class, 'dashboard'])->name('dashboard');
     Route::get('/stats', [CafeteriaController::class, 'getStats'])->name('stats');
     Route::get('/recent-activity', [CafeteriaController::class, 'recentActivity'])->name('recent-activity');
-
+// ── Pre-Orders from Staff / Students ──
+    Route::prefix('pre-orders')->name('pre-orders.')->group(function () {
+        Route::get('/', [CafeteriaPreOrderController::class, 'index'])->name('index');
+        Route::get('/stats', [CafeteriaPreOrderController::class, 'stats'])->name('stats');
+        Route::get('/{id}', [CafeteriaPreOrderController::class, 'show'])->name('show');
+        Route::post('/{id}/accept', [CafeteriaPreOrderController::class, 'accept'])->name('accept');
+        Route::post('/{id}/ready', [CafeteriaPreOrderController::class, 'markReady'])->name('ready');
+        Route::post('/{id}/pickup', [CafeteriaPreOrderController::class, 'markPickedUp'])->name('pickup');
+        Route::post('/{id}/reject', [CafeteriaPreOrderController::class, 'reject'])->name('reject');
+    });
     // Products
     Route::prefix('products')->name('products.')->group(function () {
         Route::get('/', [ProductController::class, 'index'])->name('index');
@@ -1111,20 +1285,28 @@ Route::middleware(['auth', 'verified', 'role.finance'])
         Route::get('/export/{type}', [FinanceController::class, 'exportFinancialReport'])->name('export-financial');
         Route::get('/enrollment-financial', [FinanceController::class, 'enrollmentFinancialReport'])->name('enrollment-financial');
     });
+Route::prefix('fee-structure')->name('fee-structure.')->group(function () {
+    Route::get('/', [FeeStructureController::class, 'index'])->name('index');
+    Route::get('/stats', [FeeStructureController::class, 'stats'])->name('stats');
+    Route::get('/export', [FeeStructureController::class, 'export'])->name('export');
 
-    // ==================== FEE STRUCTURE MANAGEMENT ====================
-    Route::prefix('fee-structure')->name('fee-structure.')->group(function () {
-        Route::get('/', [FeeStructureController::class, 'index'])->name('index');
-        Route::get('/stats', [FeeStructureController::class, 'stats'])->name('stats');
-        Route::get('/export', [FeeStructureController::class, 'export'])->name('export');
-        Route::get('/{course}', [FeeStructureController::class, 'show'])->name('show');
-        Route::get('/{course}/edit', [FeeStructureController::class, 'edit'])->name('edit');
-        Route::put('/{course}', [FeeStructureController::class, 'update'])->name('update');
-        Route::post('/{course}/approve', [FeeStructureController::class, 'approve'])->name('approve');
-        Route::post('/{course}/reject', [FeeStructureController::class, 'reject'])->name('reject');
-        Route::post('/{course}/rollback', [FeeStructureController::class, 'rollback'])->name('rollback');
-        Route::get('/{course}/history', [FeeStructureController::class, 'history'])->name('history');
-    });
+    // Create a fee structure for a course (uses {course} because we haven't created the fee row yet)
+    Route::get('/create/{course}', [FeeStructureController::class, 'create'])->name('create');
+    Route::post('/', [FeeStructureController::class, 'store'])->name('store');
+
+    // Per-course view: shows every term's fee side by side
+    Route::get('/course/{course}', [FeeStructureController::class, 'courseTerms'])->name('course-terms');
+
+    // Edit one fee structure row (course × term)
+    Route::get('/{feeStructure}/edit', [FeeStructureController::class, 'edit'])->name('edit');
+    Route::put('/{feeStructure}', [FeeStructureController::class, 'update'])->name('update');
+    Route::delete('/{feeStructure}', [FeeStructureController::class, 'destroy'])->name('destroy');
+    Route::get('/{feeStructure}', [FeeStructureController::class, 'show'])->name('show');
+
+    // Approve/reject
+    Route::post('/{feeStructure}/approve', [FeeStructureController::class, 'approve'])->name('approve');
+    Route::post('/{feeStructure}/reject', [FeeStructureController::class, 'reject'])->name('reject');
+});
 
     // ==================== FINANCE SETTINGS ====================
     Route::prefix('settings')->name('settings.')->group(function () {
@@ -1243,11 +1425,13 @@ Route::prefix('funding')->name('funding.')->group(function () {
 Route::prefix('card-reports')->name('card-reports.')->group(function () {
     Route::get('/', [CardReportController::class, 'index'])->name('index');
     Route::get('/daily', [CardReportController::class, 'daily'])->name('daily');
+    Route::get('/transactions', [CardReportController::class, 'transactions'])->name('transactions');
     Route::get('/monthly', [CardReportController::class, 'monthly'])->name('monthly');
     Route::get('/students', [CardReportController::class, 'students'])->name('students');
     Route::get('/balances', [CardReportController::class, 'balances'])->name('balances');
     Route::get('/low-balance', [CardReportController::class, 'lowBalance'])->name('low-balance');
     Route::get('/inactive', [CardReportController::class, 'inactive'])->name('inactive');
+     Route::get('/transactions/export', [CardReportController::class, 'transactionsExport'])->name('transactions.export');
     Route::get('/export', [CardReportController::class, 'export'])->name('export');
 });
 
@@ -1284,11 +1468,43 @@ Route::prefix('card-qr')->name('card-qr.')->group(function () {
 // ============================================================================
 // TRAINERS ROUTES
 // ============================================================================
+// ============================================================================
+// TRAINERS ROUTES
+// ============================================================================
 Route::middleware(['auth', 'verified', 'role.trainers'])
     ->prefix('trainers')
     ->name('trainers.')
     ->group(function () {
-    Route::get('/dashboard', [TrainersController::class, 'dashboard'])->name('dashboard');
+
+    Route::get('/dashboard', [TrainersController::class, 'dashboard'])
+        ->name('dashboard');
+
+    Route::get('/students', [TrainersController::class, 'students'])
+        ->name('students.index');
+
+    // Attachments — served by AttachmentController (trainer side)
+    Route::prefix('attachments')->name('attachments.')->group(function () {
+
+        // Static routes first
+        Route::get('/', [AttachmentController::class, 'trainerIndex'])
+            ->name('index');
+
+        // Wildcard routes last
+        Route::get('/{attachment}', [AttachmentController::class, 'trainerShow'])
+            ->name('show');
+
+        Route::post('/{attachment}/approve', [AttachmentController::class, 'trainerApprove'])
+            ->name('approve');
+
+        Route::post('/{attachment}/request-revision', [AttachmentController::class, 'trainerRequestRevision'])
+            ->name('request-revision');
+
+        Route::post('/{attachment}/eligibility', [AttachmentController::class, 'trainerMarkEligibility'])
+            ->name('eligibility');
+
+        Route::post('/{attachment}/visit', [AttachmentController::class, 'trainerLogVisit'])
+            ->name('visit');
+    });
 });
 
 // ============================================================================
@@ -1388,12 +1604,19 @@ Route::middleware(['auth', 'verified', 'role.website'])
     Route::put('departments/{department}', [DepartmentController::class, 'update'])->name('departments.update');
     Route::delete('departments/{department}', [DepartmentController::class, 'destroy'])->name('departments.destroy');
 
-    // Courses
-    Route::get('courses', [CourseController::class, 'index'])->name('courses.index');
-    Route::post('courses', [CourseController::class, 'store'])->name('courses.store');
-    Route::put('courses/update', [CourseController::class, 'update'])->name('courses.update');
-    Route::delete('courses/{course}', [CourseController::class, 'destroy'])->name('courses.destroy');
+// Courses
+Route::prefix('courses')->name('courses.')->group(function () {
+    Route::get('/', [CourseController::class, 'index'])->name('index');
+    Route::post('/', [CourseController::class, 'store'])->name('store');
+    Route::put('/update', [CourseController::class, 'update'])->name('update');
+    Route::delete('/{course}', [CourseController::class, 'destroy'])->name('destroy');
 
+    // ── Trainer assignment ──
+    Route::get('/{course}/trainers',              [CourseController::class, 'trainers'])      ->name('trainers.index');
+    Route::post('/{course}/trainers',             [CourseController::class, 'assignTrainer']) ->name('trainers.assign');
+    Route::put('/{course}/trainers/{trainer}',    [CourseController::class, 'updateTrainer']) ->name('trainers.update');
+    Route::delete('/{course}/trainers/{trainer}', [CourseController::class, 'removeTrainer']) ->name('trainers.remove');
+});
     // Course Intakes
     Route::get('course-intakes', [CourseIntakesController::class, 'index'])->name('course-intakes.index');
     Route::post('course-intakes', [CourseIntakesController::class, 'store'])->name('course-intakes.store');

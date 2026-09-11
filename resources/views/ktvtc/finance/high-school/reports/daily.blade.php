@@ -1,12 +1,12 @@
 @extends('ktvtc.finance.layouts.app')
 
 @section('title', 'Daily Report')
-@section('subtitle', 'Daily transaction summary')
+@section('subtitle', 'Sales and behaviour for a single day')
 
 @section('breadcrumb')
 <li>
     <span class="mx-2">/</span>
-    <a href="{{ route('finance.card-reports.index') }}" class="text-gray-600 hover:text-primary">Card Reports</a>
+    <a href="{{ route('card-reports.index') }}" class="text-gray-600 hover:text-primary">Card Reports</a>
 </li>
 <li>
     <span class="mx-2">/</span>
@@ -14,108 +14,189 @@
 </li>
 @endsection
 
-@section('header-actions')
-<div class="flex flex-wrap gap-2">
-    <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-semibold flex items-center text-sm transition">
-        <i class="fas fa-print mr-2"></i> Print
-    </button>
-    <a href="{{ route('finance.card-reports.export') }}" class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded-lg font-semibold flex items-center text-sm transition">
-        <i class="fas fa-file-export mr-2"></i> Export
-    </a>
-</div>
-@endsection
-
 @section('content')
 <div class="space-y-6">
-    <!-- Date Selector -->
+
+    {{-- Date picker --}}
     <div class="finance-card p-3">
         <form method="GET" class="flex flex-wrap gap-3 items-end">
             <div>
                 <label class="text-xs font-semibold text-gray-600">Date</label>
-                <input type="date" name="date" value="{{ $date ?? now()->format('Y-m-d') }}" class="px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm">
+                <input type="date" name="date" value="{{ $date }}"
+                       class="px-3 py-2 border rounded-lg text-sm">
             </div>
-            <div>
-                <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition text-sm">
-                    <i class="fas fa-search mr-2"></i> View
-                </button>
-            </div>
+            <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg text-sm">
+                <i class="fas fa-search mr-2"></i> View
+            </button>
         </form>
     </div>
 
-    <!-- Summary -->
-    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+    {{-- Summary --}}
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div class="finance-card p-3 border-l-4 border-green-500">
             <p class="text-xs text-gray-500">Total Spent</p>
-            <p class="text-xl font-bold text-green-600">KES {{ number_format($totalSpent ?? 0, 2) }}</p>
+            <p class="text-xl font-bold text-green-600">KES {{ number_format($totalSpent, 2) }}</p>
         </div>
         <div class="finance-card p-3 border-l-4 border-blue-500">
             <p class="text-xs text-gray-500">Transactions</p>
-            <p class="text-xl font-bold text-blue-600">{{ number_format($totalTransactions ?? 0) }}</p>
+            <p class="text-xl font-bold text-blue-600">{{ number_format($totalTransactions) }}</p>
         </div>
         <div class="finance-card p-3 border-l-4 border-purple-500">
             <p class="text-xs text-gray-500">Students</p>
-            <p class="text-xl font-bold text-purple-600">{{ number_format($totalStudents ?? 0) }}</p>
+            <p class="text-xl font-bold text-purple-600">{{ number_format($totalStudents) }}</p>
+        </div>
+        <div class="finance-card p-3 border-l-4 border-yellow-500">
+            <p class="text-xs text-gray-500">Avg per Txn</p>
+            <p class="text-xl font-bold text-yellow-600">KES {{ number_format($averagePerTxn, 2) }}</p>
         </div>
     </div>
 
-    <!-- Daily Usage Table -->
-    <div class="finance-card p-3 overflow-hidden">
+    {{-- Hourly heat chart --}}
+    <div class="finance-card p-4">
+        <h3 class="font-bold text-gray-800 text-sm mb-3">Spending by Hour of Day</h3>
+        <div style="position: relative; height: 280px;">
+            <canvas id="hourlyChart"></canvas>
+        </div>
+    </div>
+
+    {{-- Top spenders --}}
+    <div class="finance-card p-4">
+        <h3 class="font-bold text-gray-800 text-sm mb-3">Top 10 Spenders</h3>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+            @forelse($topSpenders ?? [] as $spender)
+                <div class="bg-gray-50 p-3 rounded-lg">
+                    <p class="text-xs text-gray-500 truncate">{{ $spender['student_name'] }}</p>
+                    <p class="text-lg font-bold text-primary">KES {{ number_format($spender['total_spent'], 2) }}</p>
+                    <p class="text-xs text-gray-400">{{ $spender['transaction_count'] }} txns</p>
+                </div>
+            @empty
+                <p class="text-gray-500 text-sm col-span-5 text-center">No purchases</p>
+            @endforelse
+        </div>
+    </div>
+
+    {{-- Top products of the day --}}
+    <div class="finance-card p-4">
+        <h3 class="font-bold text-gray-800 text-sm mb-3">Top Products Sold Today</h3>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="bg-gray-50">
                         <th class="px-3 py-2 text-left font-semibold text-gray-600">#</th>
-                        <th class="px-3 py-2 text-left font-semibold text-gray-600">Student</th>
-                        <th class="px-3 py-2 text-left font-semibold text-gray-600">Class</th>
-                        <th class="px-3 py-2 text-right font-semibold text-gray-600">Amount Spent</th>
-                        <th class="px-3 py-2 text-right font-semibold text-gray-600">Transactions</th>
-                        <th class="px-3 py-2 text-left font-semibold text-gray-600">Last Transaction</th>
+                        <th class="px-3 py-2 text-left font-semibold text-gray-600">Product</th>
+                        <th class="px-3 py-2 text-right font-semibold text-gray-600">Units Sold</th>
+                        <th class="px-3 py-2 text-right font-semibold text-gray-600">Revenue</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
-                    @forelse($dailyUsage ?? [] as $usage)
+                    @forelse($topProducts ?? [] as $i => $p)
                         <tr class="hover:bg-gray-50">
-                            <td class="px-3 py-2 text-center">{{ $loop->iteration }}</td>
+                            <td class="px-3 py-2">{{ $i + 1 }}</td>
                             <td class="px-3 py-2">
-                                <span class="font-medium">{{ $usage->cardAccount->student_name ?? 'N/A' }}</span>
+                                <div class="font-medium">{{ $p['product_name'] }}</div>
+                                <div class="text-xs text-gray-400">{{ $p['product_code'] }}</div>
                             </td>
-                            <td class="px-3 py-2 text-sm">{{ $usage->cardAccount->student_class ?? 'N/A' }}</td>
-                            <td class="px-3 py-2 text-right font-bold">KES {{ number_format($usage->total_spent, 2) }}</td>
-                            <td class="px-3 py-2 text-right">{{ $usage->transaction_count }}</td>
-                            <td class="px-3 py-2 text-sm">{{ $usage->last_transaction_at ? $usage->last_transaction_at->format('H:i') : 'N/A' }}</td>
+                            <td class="px-3 py-2 text-right font-bold">{{ number_format($p['quantity']) }}</td>
+                            <td class="px-3 py-2 text-right">KES {{ number_format($p['revenue'], 2) }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-3 py-8 text-center text-gray-500">No transactions on this date</td>
+                            <td colspan="4" class="px-3 py-8 text-center text-gray-500">No items sold this day</td>
                         </tr>
                     @endforelse
                 </tbody>
-                <tfoot class="border-t-2 border-gray-300">
-                    <tr>
-                        <td colspan="3" class="px-3 py-2 font-bold">Total</td>
-                        <td class="px-3 py-2 text-right font-bold">KES {{ number_format($totalSpent ?? 0, 2) }}</td>
-                        <td class="px-3 py-2 text-right font-bold">{{ number_format($totalTransactions ?? 0) }}</td>
-                        <td class="px-3 py-2"></td>
-                    </tr>
-                </tfoot>
             </table>
         </div>
     </div>
 
-    <!-- Top Spenders -->
-    <div class="finance-card p-4">
-        <h3 class="font-bold text-gray-800 text-sm mb-3">Top Spenders</h3>
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
-            @forelse($topSpenders ?? [] as $usage)
-                <div class="bg-gray-50 p-3 rounded-lg text-center">
-                    <p class="text-xs text-gray-500 truncate">{{ $usage->cardAccount->student_name ?? 'N/A' }}</p>
-                    <p class="text-lg font-bold text-primary">KES {{ number_format($usage->total_spent, 2) }}</p>
-                    <p class="text-xs text-gray-400">{{ $usage->transaction_count }} transactions</p>
-                </div>
-            @empty
-                <p class="text-gray-500 text-sm col-span-5 text-center">No data available</p>
-            @endforelse
+    {{-- Transactions table --}}
+    <div class="finance-card p-3 overflow-hidden">
+        <h3 class="font-bold text-gray-800 text-sm mb-3 px-2">All Transactions</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-3 py-2 text-left font-semibold text-gray-600">Time</th>
+                        <th class="px-3 py-2 text-left font-semibold text-gray-600">Student</th>
+                        <th class="px-3 py-2 text-left font-semibold text-gray-600">Class</th>
+                        <th class="px-3 py-2 text-left font-semibold text-gray-600">Items</th>
+                        <th class="px-3 py-2 text-right font-semibold text-gray-600">Amount</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    @forelse($usage ?? [] as $row)
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-3 py-2 text-gray-600">{{ $row['time']->format('H:i') }}</td>
+                            <td class="px-3 py-2 font-medium">{{ $row['student_name'] }}</td>
+                            <td class="px-3 py-2 text-sm">{{ $row['student_class'] }}</td>
+                            <td class="px-3 py-2 text-sm">{{ $row['description'] }}</td>
+                            <td class="px-3 py-2 text-right font-bold text-red-600">-KES {{ number_format($row['amount'], 2) }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="5" class="px-3 py-8 text-center text-gray-500">No purchases on this date</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const canvas = document.getElementById('hourlyChart');
+    if (!canvas) return;
+
+    const hourlySpend = {!! json_encode(array_values($hourlySpend ?? [])) !!};
+    const hourlyCount = {!! json_encode(array_values($hourlyCount ?? [])) !!};
+    const hasData = hourlySpend.some(v => v > 0);
+
+    if (!hasData) {
+        canvas.parentElement.innerHTML =
+            '<div class="flex items-center justify-center h-full text-gray-400 text-sm">No purchases</div>';
+        return;
+    }
+
+    const labels = Array.from({length: 24}, (_, i) => String(i).padStart(2, '0') + ':00');
+
+    new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'KES spent',
+                data: hourlySpend,
+                backgroundColor: 'rgba(185, 28, 28, 0.7)',
+                borderColor: 'rgba(185, 28, 28, 1)',
+                borderWidth: 1,
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => 'KES ' + Number(ctx.parsed.y).toLocaleString()
+                            + '  (' + hourlyCount[ctx.dataIndex] + ' txns)'
+                    }
+                }
+            },
+            scales: {
+                x: { grid: { display: false } },
+                y: {
+                    beginAtZero: true,
+                    ticks: { callback: v => 'KES ' + Number(v).toLocaleString() }
+                }
+            }
+        }
+    });
+});
+</script>
+@endpush

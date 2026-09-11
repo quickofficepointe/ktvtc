@@ -1,10 +1,13 @@
 <?php
+// app/Models/Enrollment.php
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Enrollment extends Model
 {
@@ -15,6 +18,12 @@ class Enrollment extends Model
         'student_id',
         'course_id',
         'campus_id',
+        'term_id',
+
+        // SELF-ENROLLMENT TRACKING
+        'is_self_enrolled',
+        'enrolled_by_user_id',
+        'self_enrolled_at',
 
         // DENORMALIZED STUDENT DATA
         'student_name',
@@ -48,8 +57,9 @@ class Enrollment extends Model
         // FINANCIAL
         'total_fees',
         'amount_paid',
+        'balance',
 
-        // 🔒 FEE LOCK FIELDS (NEW)
+        // FEE LOCK FIELDS
         'fee_locked',
         'fee_locked_at',
         'fee_locked_by',
@@ -84,13 +94,16 @@ class Enrollment extends Model
         'actual_end_date' => 'date',
         'total_fees' => 'decimal:2',
         'amount_paid' => 'decimal:2',
+        'balance' => 'decimal:2',
         'requires_external_exam' => 'boolean',
         'is_active' => 'boolean',
         'needs_review' => 'boolean',
+        'is_self_enrolled' => 'boolean',
+        'self_enrolled_at' => 'datetime',
         'intake_year' => 'integer',
         'duration_months' => 'integer',
 
-        // 🔒 NEW CASTS
+        // FEE LOCK CASTS
         'fee_locked' => 'boolean',
         'fee_locked_at' => 'datetime',
         'fee_snapshot' => 'array',
@@ -98,58 +111,74 @@ class Enrollment extends Model
         'fees_modified_at' => 'datetime',
     ];
 
-    /**
-     * ============ RELATIONSHIPS ============
-     */
-    public function student()
+    // ============================================================
+    // RELATIONSHIPS
+    // ============================================================
+
+    public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class);
     }
 
-    public function course()
+    public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
     }
 
-    public function campus()
+    public function campus(): BelongsTo
     {
         return $this->belongsTo(Campus::class);
     }
 
-    public function payments()
+    public function term(): BelongsTo
+    {
+        return $this->belongsTo(AcademicTerm::class, 'term_id');
+    }
+
+    public function enrolledByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'enrolled_by_user_id');
+    }
+
+    public function payments(): HasMany
     {
         return $this->hasMany(FeePayment::class);
     }
 
-    public function examRegistrations()
+    public function examRegistrations(): HasMany
     {
         return $this->hasMany(ExamRegistration::class);
     }
 
-    public function feeLockedBy()
+    public function feeLockedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'fee_locked_by');
     }
 
-    public function feesModifiedBy()
+    public function feesModifiedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'fees_modified_by');
     }
 
-    /**
-     * ============ BOOT METHOD - AUTO LOCK FEES ============
-     */
+    // ============================================================
+    // BOOT — auto-lock fees and auto-calculate balance
+    // ============================================================
+
     protected static function boot()
     {
         parent::boot();
 
-        // 🔒 Automatically lock fees when creating enrollment
         static::creating(function ($enrollment) {
+            // Lock fees on creation
             $enrollment->fee_locked = true;
             $enrollment->fee_locked_at = now();
-            $enrollment->fee_locked_by = auth()->id();
 
-            // Store the fee breakdown snapshot if course exists
+            // Only set fee_locked_by if we have an authenticated user
+            if (auth()->check()) {
+                $enrollment->fee_locked_by = auth()->id();
+            }
+
+            // Store fee snapshot if course is available
             if ($enrollment->course_id) {
                 $course = Course::find($enrollment->course_id);
                 if ($course) {
@@ -159,6 +188,7 @@ class Enrollment extends Model
                         'course_code' => $course->code,
                         'fee_structure' => $course->fee_breakdown ?? [],
                         'fee_version' => $course->fee_version ?? 'v1.0',
+                        'term_id' => $enrollment->term_id,
                         'created_at' => now()->toDateTimeString(),
                         'created_by' => auth()->user()?->name ?? 'System',
                     ];
@@ -167,41 +197,32 @@ class Enrollment extends Model
             }
         });
 
-        // 🔒 Prevent changing total_fees if fee is locked
         static::updating(function ($enrollment) {
             if ($enrollment->isDirty('total_fees') && $enrollment->fee_locked) {
                 throw new \Exception('Fees are locked for this enrollment and cannot be changed.');
             }
         });
 
-        // Auto-calculate balance
         static::saving(function ($model) {
             $model->balance = $model->total_fees - $model->amount_paid;
         });
     }
 
-    /**
-     * ============ FEE LOCK METHODS ============
-     */
+    // ============================================================
+    // FEE LOCK METHODS
+    // ============================================================
 
-    /**
-     * Check if fees are locked
-     */
     public function isFeeLocked(): bool
     {
         return $this->fee_locked === true;
     }
 
-    /**
-     * Lock fees manually (admin only)
-     */
     public function lockFees(?string $reason = null): void
     {
         $this->fee_locked = true;
         $this->fee_locked_at = now();
         $this->fee_locked_by = auth()->id();
 
-        // Store snapshot if not already stored
         if (!$this->fee_snapshot && $this->course_id) {
             $course = Course::find($this->course_id);
             if ($course) {
@@ -211,6 +232,7 @@ class Enrollment extends Model
                     'course_code' => $course->code,
                     'fee_structure' => $course->fee_breakdown ?? [],
                     'fee_version' => $course->fee_version ?? 'v1.0',
+                    'term_id' => $this->term_id,
                     'locked_at' => now()->toDateTimeString(),
                     'locked_by' => auth()->user()?->name ?? 'System',
                     'reason' => $reason,
@@ -224,29 +246,24 @@ class Enrollment extends Model
             'enrollment_id' => $this->id,
             'student' => $this->student_name,
             'locked_by' => auth()->id(),
-            'reason' => $reason
+            'reason' => $reason,
         ]);
     }
 
-    /**
-     * Unlock fees (ADMIN ONLY - with caution)
-     */
     public function unlockFees(string $reason): void
     {
-        // Log the unlock action
         \Log::warning('Fees unlocked for enrollment', [
             'enrollment_id' => $this->id,
             'student' => $this->student_name,
             'reason' => $reason,
             'admin_id' => auth()->id(),
-            'ip' => request()->ip()
+            'ip' => request()->ip(),
         ]);
 
         $this->fee_locked = false;
         $this->fee_locked_at = null;
         $this->fee_locked_by = null;
 
-        // Update snapshot to reflect unlock
         if ($this->fee_snapshot) {
             $snapshot = $this->fee_snapshot;
             $snapshot['unlocked_at'] = now()->toDateTimeString();
@@ -258,32 +275,23 @@ class Enrollment extends Model
         $this->save();
     }
 
-    /**
-     * Check if enrollment is protected from fee changes
-     */
     public function isProtectedFromFeeChanges(): bool
     {
-        return $this->fee_locked ||
-               in_array($this->status, ['completed', 'graduated']) ||
-               $this->payments()->where('status', 'completed')->exists();
+        return $this->fee_locked
+            || in_array($this->status, ['completed', 'graduated'])
+            || $this->payments()->where('status', 'completed')->exists();
     }
 
-    /**
-     * Check if fees can be modified
-     */
     public function canModifyFees(): bool
     {
-        // If fee is locked, cannot modify
         if ($this->fee_locked) {
             return false;
         }
 
-        // If any payment has been made, cannot modify
         if ($this->payments()->where('status', 'completed')->exists()) {
             return false;
         }
 
-        // If enrollment is completed, cannot modify
         if (in_array($this->status, ['completed', 'graduated'])) {
             return false;
         }
@@ -291,9 +299,6 @@ class Enrollment extends Model
         return true;
     }
 
-    /**
-     * Update fees with audit trail (ADMIN ONLY)
-     */
     public function updateFeesWithAudit(float $newTotal, string $reason): self
     {
         if (!$this->canModifyFees()) {
@@ -302,7 +307,6 @@ class Enrollment extends Model
 
         $oldTotal = $this->total_fees;
 
-        // Store original fee if not already stored
         if (!$this->original_fees || $this->original_fees == 0) {
             $this->original_fees = $oldTotal;
         }
@@ -312,7 +316,6 @@ class Enrollment extends Model
         $this->fees_modified_by = auth()->id();
         $this->fee_modification_reason = $reason;
 
-        // Update snapshot
         if ($this->fee_snapshot) {
             $snapshot = $this->fee_snapshot;
             $snapshot['modified_at'] = now()->toDateTimeString();
@@ -325,29 +328,24 @@ class Enrollment extends Model
 
         $this->save();
 
-        // Log the fee change
         \Log::info('Fees updated for enrollment', [
             'enrollment_id' => $this->id,
             'student' => $this->student_name,
             'old_amount' => $oldTotal,
             'new_amount' => $newTotal,
             'reason' => $reason,
-            'changed_by' => auth()->id()
+            'changed_by' => auth()->id(),
         ]);
 
         return $this;
     }
 
-    /**
-     * Get the fee breakdown (from snapshot or generate)
-     */
     public function getFeeBreakdownAttribute(): array
     {
         if ($this->fee_snapshot) {
             return $this->fee_snapshot;
         }
 
-        // Generate from course if available
         if ($this->course_id) {
             $course = Course::find($this->course_id);
             if ($course) {
@@ -363,41 +361,41 @@ class Enrollment extends Model
         return ['total_fees' => $this->total_fees];
     }
 
-    /**
-     * ============ ACCESSORS ============
-     */
-    public function getBalanceAttribute()
-    {
-        return $this->total_fees - $this->amount_paid;
-    }
+    // ============================================================
+    // ACCESSORS
+    // ============================================================
 
-    public function getIsFullyPaidAttribute()
+    public function getIsFullyPaidAttribute(): bool
     {
         return $this->balance <= 0;
     }
 
-    public function getPaymentProgressAttribute()
+    public function getPaymentProgressAttribute(): int
     {
-        if ($this->total_fees <= 0) return 0;
-        return min(100, round(($this->amount_paid / $this->total_fees) * 100));
+        if ($this->total_fees <= 0) {
+            return 0;
+        }
+
+        return (int) min(100, round(($this->amount_paid / $this->total_fees) * 100));
     }
 
-    public function getStatusColorAttribute()
+    public function getStatusColorAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'active' => 'green',
             'graduated' => 'purple',
             'completed' => 'blue',
             'dropped' => 'red',
             'suspended' => 'yellow',
             'pending' => 'gray',
-            default => 'gray'
+            default => 'gray',
         };
     }
 
-    /**
-     * ============ SCOPES ============
-     */
+    // ============================================================
+    // SCOPES
+    // ============================================================
+
     public function scopeActive($query)
     {
         return $query->where('status', 'active');
@@ -410,7 +408,7 @@ class Enrollment extends Model
 
     public function scopeByIntake($query, $year, $month = null)
     {
-        $query = $query->where('intake_year', $year);
+        $query->where('intake_year', $year);
         if ($month) {
             $query->where('intake_month', $month);
         }
@@ -425,46 +423,114 @@ class Enrollment extends Model
     public function scopeNeedsExamRegistration($query)
     {
         return $query->where('requires_external_exam', true)
-            ->whereDoesntHave('examRegistrations', function($q) {
+            ->whereDoesntHave('examRegistrations', function ($q) {
                 $q->whereIn('status', ['registered', 'submitted', 'completed']);
             });
     }
 
-    /**
-     * Scope: Fee locked enrollments
-     */
     public function scopeFeeLocked($query)
     {
         return $query->where('fee_locked', true);
     }
 
-    /**
-     * Scope: Fee unlocked enrollments
-     */
     public function scopeFeeUnlocked($query)
     {
         return $query->where('fee_locked', false);
     }
 
-    /**
-     * Scope: Enrollments with modifiable fees
-     */
     public function scopeModifiableFees($query)
     {
         return $query->where('fee_locked', false)
             ->whereNotIn('status', ['completed', 'graduated'])
-            ->whereDoesntHave('payments', function($q) {
+            ->whereDoesntHave('payments', function ($q) {
                 $q->where('status', 'completed');
             });
     }
 
+    public function scopeSelfEnrolled($query)
+    {
+        return $query->where('is_self_enrolled', true);
+    }
+
+    public function scopeForTerm($query, $termId)
+    {
+        return $query->where('term_id', $termId);
+    }
+
     /**
-     * ============ STUDENT NUMBER METHOD ============
+ * Can the student download the exam card for this enrollment?
+ * Requires full payment of the term.
+ */
+public function examCardUnlocked(): bool
+{
+    return $this->getIsFullyPaidAttribute();
+}
+public function scopeForCourses($query, array $courseIds)
+{
+    if (empty($courseIds)) {
+        return $query->whereRaw('1 = 0'); // never match
+    }
+
+    return $query->whereIn('course_id', $courseIds);
+}
+public function scopeFullyPaid($query)
+{
+    return $query->whereRaw('total_fees <= amount_paid');
+}
+    // ============================================================
+    // SELF-ENROLLMENT ELIGIBILITY (50% RULE)
+    // ============================================================
+
+    /**
+     * Minimum percentage of fees that must be paid before a student
+     * can self-enroll for the next term.
      */
+    public const SELF_ENROLL_THRESHOLD = 50;
+
+    /**
+     * Percentage of fees paid so far (0–100, one decimal).
+     */
+    public function getPercentagePaidAttribute(): float
+    {
+        $total = (float) $this->total_fees;
+
+        if ($total <= 0) {
+            return 0.0;
+        }
+
+        $paid = (float) $this->amount_paid;
+
+        return round(min(100, ($paid / $total) * 100), 1);
+    }
+
+    /**
+     * Does this enrollment meet the 50% threshold for self-enrollment?
+     */
+    public function meetsSelfEnrollThreshold(): bool
+    {
+        return $this->percentage_paid >= self::SELF_ENROLL_THRESHOLD;
+    }
+
+    /**
+     * Amount (KES) still required to reach the 50% threshold.
+     * Returns 0 if already at or above the threshold.
+     */
+    public function getAmountToThresholdAttribute(): float
+    {
+        $total     = (float) $this->total_fees;
+        $paid      = (float) $this->amount_paid;
+        $threshold = $total * (self::SELF_ENROLL_THRESHOLD / 100);
+
+        return max(0, round($threshold - $paid, 2));
+    }
+    // ============================================================
+    // STUDENT NUMBER HELPER
+    // ============================================================
+
     public function updateStudentNumberWithCourse()
     {
         if (!$this->student || !$this->course) {
-            return;
+            return null;
         }
 
         $student = $this->student;
@@ -472,20 +538,16 @@ class Enrollment extends Model
         $year = $this->intake_year ?? date('Y');
         $baseNumber = $student->student_number;
 
-        // If student number is already formatted, extract the number part
         if (strpos($baseNumber, '/') !== false) {
             $parts = explode('/', $baseNumber);
             $baseNumber = $parts[1] ?? $parts[0];
         }
 
-        // Generate new formatted student number
         $newStudentNumber = strtoupper($courseCode) . '/' . $baseNumber . '/' . $year;
 
-        // Update student number
         $student->student_number = $newStudentNumber;
         $student->save();
 
-        // Update enrollment student_number field too
         $this->student_number = $newStudentNumber;
         $this->save();
 

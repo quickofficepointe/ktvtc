@@ -1,19 +1,23 @@
 @extends('ktvtc.finance.layouts.app')
 
-@section('title', 'Edit Fee Structure: ' . $course->name)
-@section('subtitle', 'Modify course fee breakdown')
+@section('title', 'Edit Fee Structure: ' . $feeStructure->course->name)
+@section('subtitle', $feeStructure->term->name ?? 'Legacy Fee')
 
 @section('breadcrumb')
 <li>
     <div class="flex items-center">
         <i class="fas fa-angle-right text-gray-400"></i>
-        <span class="ml-1 text-sm font-medium text-gray-500 md:ml-2">Fee Structure</span>
+        <a href="{{ route('finance.fee-structure.index') }}" class="ml-1 text-sm font-medium text-gray-500 hover:text-primary md:ml-2">
+            Fee Structure
+        </a>
     </div>
 </li>
 <li>
     <div class="flex items-center">
         <i class="fas fa-angle-right text-gray-400"></i>
-        <span class="ml-1 text-sm font-medium text-gray-500 md:ml-2">{{ $course->name }}</span>
+        <a href="{{ route('finance.fee-structure.course-terms', $feeStructure->course_id) }}" class="ml-1 text-sm font-medium text-gray-500 hover:text-primary md:ml-2">
+            {{ $feeStructure->course->name }}
+        </a>
     </div>
 </li>
 <li aria-current="page">
@@ -25,255 +29,188 @@
 @endsection
 
 @section('header-actions')
-<div class="flex space-x-2">
-    <a href="{{ route('finance.fee-structure.show', $course) }}"
-       class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors flex items-center space-x-2">
-        <i class="fas fa-arrow-left"></i>
-        <span>Back</span>
-    </a>
-</div>
+<a href="{{ route('finance.fee-structure.course-terms', $feeStructure->course_id) }}"
+   class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors">
+    <i class="fas fa-arrow-left mr-1"></i> Back
+</a>
 @endsection
 
 @section('content')
 <div class="max-w-4xl mx-auto">
-    <!-- Status Banner -->
-    @if($course->hasPendingFeeChanges())
-        <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-            <div class="flex items-center">
-                <i class="fas fa-clock text-amber-600 text-lg mr-3"></i>
-                <div>
-                    <p class="text-sm font-medium text-amber-800">Pending Approval</p>
-                    <p class="text-xs text-amber-700">This fee structure has pending changes waiting for approval.</p>
-                </div>
+    <form action="{{ route('finance.fee-structure.update', $feeStructure) }}" method="POST">
+        @csrf
+        @method('PUT')
+
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-primary/5 to-transparent">
+                <h2 class="text-lg font-semibold text-gray-800">
+                    Edit Fee Structure
+                </h2>
+                <p class="text-sm text-gray-500 mt-1">
+                    {{ $feeStructure->course->name }} · {{ $feeStructure->term->name ?? 'Legacy' }}
+                </p>
             </div>
-        </div>
-    @endif
-
-    @if($course->isFeeStructureApproved())
-        <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-            <div class="flex items-center">
-                <i class="fas fa-check-circle text-green-600 text-lg mr-3"></i>
-                <div>
-                    <p class="text-sm font-medium text-green-800">Approved</p>
-                    <p class="text-xs text-green-700">This fee structure has been approved.</p>
-                </div>
-            </div>
-        </div>
-    @endif
-
-    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-primary/5 to-transparent">
-            <h2 class="text-lg font-semibold text-gray-800">
-                Edit Fee Structure: {{ $course->name }}
-            </h2>
-            <p class="text-sm text-gray-500 mt-1">Current Version: {{ $course->fee_version ?? 'v1.0' }}</p>
-        </div>
-
-        <form action="{{ route('finance.fee-structure.update', $course) }}" method="POST">
-            @csrf
-            @method('PUT')
 
             <div class="p-6 space-y-6">
-                <!-- Fee Items -->
+
+                {{-- Term selection --}}
                 <div>
-                    <div class="flex items-center justify-between mb-4">
-                        <label class="block text-sm font-medium text-gray-700">
-                            Fee Items <span class="text-red-500">*</span>
-                        </label>
-                        <button type="button" onclick="addFeeRow()"
-                                class="px-3 py-1.5 bg-primary text-white text-sm rounded-lg hover:bg-primary-dark transition-colors flex items-center">
-                            <i class="fas fa-plus-circle mr-1"></i>
-                            Add Fee
-                        </button>
-                    </div>
+                    <h4 class="text-sm font-bold text-gray-700 uppercase tracking-wide mb-3">
+                        <i class="fas fa-calendar mr-1 text-primary"></i> Academic Term
+                    </h4>
 
-                    <div id="feeItemsContainer" class="space-y-3">
-                        @if(!empty($feeItems))
-                            @foreach($feeItems as $index => $item)
-                            <div class="fee-row grid grid-cols-1 md:grid-cols-12 gap-3 items-start bg-gray-50 p-3 rounded-lg border border-gray-200">
-                                <div class="md:col-span-4">
-                                    <input type="text" name="fees[{{ $index }}][name]"
-                                           value="{{ $item['name'] }}"
-                                           placeholder="Fee name (e.g., Tuition)"
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
-                                           required>
-                                </div>
-                                <div class="md:col-span-3">
-                                    <div class="relative">
-                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm">KES</span>
-                                        <input type="number" name="fees[{{ $index }}][amount]"
-                                               value="{{ $item['amount'] }}"
-                                               placeholder="0.00"
-                                               step="0.01"
-                                               min="0"
-                                               class="w-full pl-12 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
-                                               required>
-                                    </div>
-                                </div>
-                                <div class="md:col-span-4">
-                                    <input type="text" name="fees[{{ $index }}][description]"
-                                           value="{{ $item['description'] ?? '' }}"
-                                           placeholder="Description (optional)"
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm">
-                                </div>
-                                <div class="md:col-span-1 flex justify-end">
-                                    <button type="button" onclick="removeFeeRow(this)"
-                                            class="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            @endforeach
-                        @else
-                            <div class="fee-row grid grid-cols-1 md:grid-cols-12 gap-3 items-start bg-gray-50 p-3 rounded-lg border border-gray-200">
-                                <div class="md:col-span-4">
-                                    <input type="text" name="fees[0][name]"
-                                           placeholder="Fee name (e.g., Tuition)"
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
-                                           required>
-                                </div>
-                                <div class="md:col-span-3">
-                                    <div class="relative">
-                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm">KES</span>
-                                        <input type="number" name="fees[0][amount]"
-                                               placeholder="0.00"
-                                               step="0.01"
-                                               min="0"
-                                               class="w-full pl-12 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
-                                               required>
-                                    </div>
-                                </div>
-                                <div class="md:col-span-4">
-                                    <input type="text" name="fees[0][description]"
-                                           placeholder="Description (optional)"
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm">
-                                </div>
-                                <div class="md:col-span-1 flex justify-end">
-                                    <button type="button" onclick="removeFeeRow(this)"
-                                            class="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        @endif
-                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">
+                                Term <span class="text-red-500">*</span>
+                            </label>
+                            <select name="term_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                                @foreach($terms as $term)
+                                    <option value="{{ $term->id }}" {{ old('term_id', $feeStructure->term_id) == $term->id ? 'selected' : '' }}>
+                                        {{ $term->name }} ({{ $term->academic_year }})
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
 
-                    <p class="text-xs text-gray-500 mt-2">
-                        <i class="fas fa-info-circle mr-1"></i>
-                        Add all fee items that make up the total course cost.
-                    </p>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Campus</label>
+                            <select name="campus_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                                <option value="">All Campuses</option>
+                                @foreach($campuses as $campus)
+                                    <option value="{{ $campus->id }}" {{ old('campus_id', $feeStructure->campus_id) == $campus->id ? 'selected' : '' }}>
+                                        {{ $campus->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Modification Reason -->
+                {{-- Fee items --}}
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Modification Reason <span class="text-red-500">*</span>
+                    <h4 class="text-sm font-bold text-gray-700 uppercase tracking-wide mb-3">
+                        <i class="fas fa-list-ul mr-1 text-primary"></i> Fee Breakdown
+                    </h4>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        @php
+                            $feeFields = [
+                                'tuition_per_month' => ['Tuition per Month', true],
+                                'registration_fee' => ['Registration Fee', false],
+                                'caution_money' => ['Caution Money', false],
+                                'student_id_fee' => ['Student ID Fee', false],
+                                'library_fee' => ['Library Fee', false],
+                                'medical_fee' => ['Medical Fee', false],
+                                'sports_fee' => ['Sports Fee', false],
+                                'activity_fee' => ['Activity Fee', false],
+                                'workshop_levy' => ['Workshop Levy', false],
+                                'practical_materials' => ['Practical Materials', false],
+                                'tool_kit_deposit' => ['Tool Kit Deposit', false],
+                                'protective_clothing' => ['Protective Clothing', false],
+                                'industrial_attachment_fee' => ['Industrial Attachment Fee', false],
+                                'cdacc_registration_fee' => ['CDACC Registration Fee', false],
+                                'cdacc_examination_fee' => ['CDACC Examination Fee', false],
+                                'cdacc_certification_fee' => ['CDACC Certification Fee', false],
+                                'tvet_authority_levy' => ['TVET Authority Levy', false],
+                                'trade_test_fee' => ['Trade Test Fee', false],
+                            ];
+                        @endphp
+
+                        @foreach($feeFields as $field => $config)
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1">
+                                    {{ $config[0] }} @if($config[1]) <span class="text-red-500">*</span> @endif
+                                </label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm">KES</span>
+                                    <input type="number" name="{{ $field }}" step="0.01" min="0"
+                                           value="{{ old($field, $feeStructure->$field ?? 0) }}"
+                                           {{ $config[1] ? 'required' : '' }}
+                                           class="w-full pl-12 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary text-sm">
+                                </div>
+                            </div>
+                        @endforeach
+
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">
+                                Total Course Months <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number" name="total_course_months" required min="1"
+                                   value="{{ old('total_course_months', $feeStructure->total_course_months) }}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary">
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Government sponsorship --}}
+                <div>
+                    <h4 class="text-sm font-bold text-gray-700 uppercase tracking-wide mb-3">
+                        <i class="fas fa-university mr-1 text-primary"></i> Government Sponsorship
+                    </h4>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                            <input type="checkbox" name="has_government_sponsorship" value="1"
+                                   {{ old('has_government_sponsorship', $feeStructure->has_government_sponsorship) ? 'checked' : '' }}
+                                   class="rounded border-gray-300 text-primary focus:ring-primary">
+                            <span class="ml-2 text-sm font-medium text-gray-700">This course has government sponsorship</span>
+                        </label>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">Subsidy Amount (KES)</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm">KES</span>
+                                <input type="number" name="government_subsidy_amount" step="0.01" min="0"
+                                       value="{{ old('government_subsidy_amount', $feeStructure->government_subsidy_amount ?? 0) }}"
+                                       class="w-full pl-12 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary text-sm">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Modification reason --}}
+                <div>
+                    <h4 class="text-sm font-bold text-gray-700 uppercase tracking-wide mb-3">
+                        <i class="fas fa-edit mr-1 text-primary"></i> Change Reason
+                    </h4>
+
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">
+                        Why are you making this change? <span class="text-red-500">*</span>
                     </label>
-                    <textarea name="modification_reason" rows="3"
-                              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                              placeholder="Please explain why you are modifying the fee structure..."
-                              required>{{ old('modification_reason') }}</textarea>
+                    <textarea name="modification_reason" rows="3" required
+                              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary"
+                              placeholder="e.g. Annual fee review for 2026">{{ old('modification_reason') }}</textarea>
                     <p class="text-xs text-gray-500 mt-1">
                         <i class="fas fa-info-circle mr-1"></i>
                         This will be recorded in the audit trail.
                     </p>
                 </div>
 
-                <!-- Current Total Preview -->
-                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm font-medium text-gray-700">Current Total:</span>
-                        <span class="text-lg font-bold text-primary" id="totalPreview">KES 0.00</span>
-                    </div>
-                    <p class="text-xs text-gray-500 mt-1">
-                        <i class="fas fa-calculator mr-1"></i>
-                        Total updates automatically as you add or modify fee items.
-                    </p>
-                </div>
             </div>
 
-            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-end space-x-3">
-                <a href="{{ route('finance.fee-structure.show', $course) }}"
-                   class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
-                    Cancel
-                </a>
-                <button type="submit"
-                        class="px-6 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors flex items-center">
-                    <i class="fas fa-save mr-2"></i>
-                    Update Fee Structure
-                </button>
+            <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between gap-3">
+                <form action="{{ route('finance.fee-structure.destroy', $feeStructure) }}" method="POST"
+                      onsubmit="return confirm('Delete this fee structure? This cannot be undone.');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="px-4 py-2 border border-red-300 text-red-600 hover:bg-red-50 rounded-lg font-medium transition">
+                        <i class="fas fa-trash mr-1"></i> Delete
+                    </button>
+                </form>
+
+                <div class="flex gap-3">
+                    <a href="{{ route('finance.fee-structure.course-terms', $feeStructure->course_id) }}"
+                       class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition">
+                        Cancel
+                    </a>
+                    <button type="submit"
+                            class="px-6 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition flex items-center">
+                        <i class="fas fa-save mr-2"></i> Save Changes
+                    </button>
+                </div>
             </div>
-        </form>
-    </div>
+        </div>
+    </form>
 </div>
 @endsection
-
-@push('scripts')
-<script>
-    let feeIndex = {{ count($feeItems ?? []) }};
-
-    function addFeeRow() {
-        const container = document.getElementById('feeItemsContainer');
-        const row = document.createElement('div');
-        row.className = 'fee-row grid grid-cols-1 md:grid-cols-12 gap-3 items-start bg-gray-50 p-3 rounded-lg border border-gray-200';
-        row.innerHTML = `
-            <div class="md:col-span-4">
-                <input type="text" name="fees[${feeIndex}][name]"
-                       placeholder="Fee name (e.g., Tuition)"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
-                       required>
-            </div>
-            <div class="md:col-span-3">
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm">KES</span>
-                    <input type="number" name="fees[${feeIndex}][amount]"
-                           placeholder="0.00"
-                           step="0.01"
-                           min="0"
-                           class="w-full pl-12 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
-                           required onchange="updateTotal()" onkeyup="updateTotal()">
-                </div>
-            </div>
-            <div class="md:col-span-4">
-                <input type="text" name="fees[${feeIndex}][description]"
-                       placeholder="Description (optional)"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm">
-            </div>
-            <div class="md:col-span-1 flex justify-end">
-                <button type="button" onclick="removeFeeRow(this)"
-                        class="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        `;
-        container.appendChild(row);
-        feeIndex++;
-        updateTotal();
-    }
-
-    function removeFeeRow(button) {
-        const row = button.closest('.fee-row');
-        if (document.querySelectorAll('.fee-row').length > 1) {
-            row.remove();
-            updateTotal();
-        } else {
-            alert('You must have at least one fee item.');
-        }
-    }
-
-    function updateTotal() {
-        const inputs = document.querySelectorAll('input[name$="[amount]"]');
-        let total = 0;
-        inputs.forEach(input => {
-            const val = parseFloat(input.value);
-            if (!isNaN(val) && val > 0) {
-                total += val;
-            }
-        });
-        document.getElementById('totalPreview').textContent = 'KES ' + total.toFixed(2);
-    }
-
-    // Update total on page load
-    document.addEventListener('DOMContentLoaded', updateTotal);
-</script>
-@endpush

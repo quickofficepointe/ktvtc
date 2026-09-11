@@ -1,10 +1,13 @@
 <?php
+// app/Models/FeeStructure.php
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class FeeStructure extends Model
 {
@@ -13,6 +16,7 @@ class FeeStructure extends Model
     protected $fillable = [
         'course_id',
         'campus_id',
+        'term_id',
         'cdacc_program_code',
         'tvet_qualification_type',
         'academic_year',
@@ -86,35 +90,54 @@ class FeeStructure extends Model
         'total_course_fee' => 'decimal:2',
         'government_subsidy_amount' => 'decimal:2',
         'late_fee_percentage' => 'decimal:2',
+        'academic_year' => 'integer',
+        'total_course_months' => 'integer',
+        'grace_period_days' => 'integer',
+        'suspension_days' => 'integer',
     ];
 
-    // Relationships
-    public function course()
+    // ============================================================
+    // RELATIONSHIPS
+    // ============================================================
+
+    public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
     }
 
-    public function campus()
+    public function campus(): BelongsTo
     {
         return $this->belongsTo(Campus::class);
     }
 
-    public function approver()
+    public function term(): BelongsTo
+    {
+        return $this->belongsTo(AcademicTerm::class, 'term_id');
+    }
+
+    public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
     }
 
-    public function studentFees()
+    public function studentFees(): HasMany
     {
         return $this->hasMany(StudentFee::class);
     }
 
-    // Scopes
+    // ============================================================
+    // SCOPES
+    // ============================================================
+
     public function scopeActive($query)
     {
         return $query->where('is_active', true)
-                     ->where('valid_from', '<=', now())
-                     ->where('valid_to', '>=', now());
+            ->where(function ($q) {
+                $q->whereNull('valid_from')->orWhere('valid_from', '<=', now());
+            })
+            ->where(function ($q) {
+                $q->whereNull('valid_to')->orWhere('valid_to', '>=', now());
+            });
     }
 
     public function scopeForCampus($query, $campusId)
@@ -127,10 +150,15 @@ class FeeStructure extends Model
         return $query->where('course_id', $courseId);
     }
 
+    public function scopeForTerm($query, $termId)
+    {
+        return $query->where('term_id', $termId);
+    }
+
     public function scopeForIntake($query, $year, $month)
     {
         return $query->where('academic_year', $year)
-                     ->where('intake_month', $month);
+            ->where('intake_month', $month);
     }
 
     public function scopeCdaccProgram($query, $programCode)
@@ -138,48 +166,59 @@ class FeeStructure extends Model
         return $query->where('cdacc_program_code', $programCode);
     }
 
-    // Business Logic Methods
-    public function calculateMonthlyTotal()
+    // ============================================================
+    // BUSINESS LOGIC
+    // ============================================================
+
+    public function calculateMonthlyTotal(): float
     {
-        return $this->tuition_per_month
-             + $this->workshop_levy
-             + $this->library_fee
-             + $this->medical_fee
-             + $this->sports_fee
-             + $this->activity_fee;
+        return (float) (
+            $this->tuition_per_month
+            + $this->workshop_levy
+            + $this->library_fee
+            + $this->medical_fee
+            + $this->sports_fee
+            + $this->activity_fee
+        );
     }
 
-    public function calculateOneTimeFees()
+    public function calculateOneTimeFees(): float
     {
-        return $this->registration_fee
-             + $this->caution_money
-             + $this->student_id_fee
-             + $this->cdacc_registration_fee
-             + $this->tool_kit_deposit
-             + $this->protective_clothing;
+        return (float) (
+            $this->registration_fee
+            + $this->caution_money
+            + $this->student_id_fee
+            + $this->cdacc_registration_fee
+            + $this->tool_kit_deposit
+            + $this->protective_clothing
+        );
     }
 
-    public function calculateFinalMonthFees()
+    public function calculateFinalMonthFees(): float
     {
-        return $this->cdacc_examination_fee
-             + $this->cdacc_certification_fee
-             + $this->trade_test_fee;
+        return (float) (
+            $this->cdacc_examination_fee
+            + $this->cdacc_certification_fee
+            + $this->trade_test_fee
+        );
     }
 
-    public function calculateTotalCourseFee()
+    public function calculateTotalCourseFee(): float
     {
         $monthlyTotal = $this->calculateMonthlyTotal();
         $oneTimeFees = $this->calculateOneTimeFees();
         $finalFees = $this->calculateFinalMonthFees();
 
-        // Monthly total for all months except first and last (if they have special fees)
-        $regularMonths = $this->total_course_months > 2 ? $this->total_course_months - 2 : 0;
+        $regularMonths = $this->total_course_months > 2
+            ? $this->total_course_months - 2
+            : 0;
+
         $monthlyPayments = $monthlyTotal * max(0, $regularMonths);
 
-        return $oneTimeFees + $monthlyPayments + $finalFees;
+        return (float) ($oneTimeFees + $monthlyPayments + $finalFees);
     }
 
-    public function updateCalculatedFields()
+    public function updateCalculatedFields(): void
     {
         $this->monthly_total = $this->calculateMonthlyTotal();
         $this->one_time_fees = $this->calculateOneTimeFees();
@@ -188,46 +227,47 @@ class FeeStructure extends Model
         $this->save();
     }
 
-    public function getStudentMonthlyFee()
+    public function getStudentMonthlyFee(): float
     {
         if ($this->has_government_sponsorship) {
-            return max(0, $this->monthly_total - $this->government_subsidy_amount);
+            return max(0, (float) $this->monthly_total - (float) $this->government_subsidy_amount);
         }
-        return $this->monthly_total;
+
+        return (float) $this->monthly_total;
     }
 
-    public function getAvailablePaymentPlans()
+    public function getAvailablePaymentPlans(): array
     {
         $defaultPlans = [
             [
                 'name' => 'Full Course Payment',
                 'type' => 'full_course',
                 'discount' => 5.00,
-                'description' => 'Pay entire course fee upfront and get 5% discount'
+                'description' => 'Pay entire course fee upfront and get 5% discount',
             ],
             [
                 'name' => 'Monthly Installments',
                 'type' => 'monthly',
                 'installments' => $this->total_course_months,
-                'description' => 'Pay monthly throughout the course duration'
+                'description' => 'Pay monthly throughout the course duration',
             ],
             [
                 'name' => 'Quarterly Payments',
                 'type' => 'quarterly',
                 'installments' => ceil($this->total_course_months / 3),
-                'description' => 'Pay every 3 months'
+                'description' => 'Pay every 3 months',
             ],
         ];
 
         return array_merge($defaultPlans, $this->payment_plans ?? []);
     }
 
-    public function getLateFeeAmount($amount, $daysOverdue)
+    public function getLateFeeAmount(float $amount, int $daysOverdue): float
     {
         if ($daysOverdue <= $this->grace_period_days) {
-            return 0;
+            return 0.0;
         }
 
-        return $amount * ($this->late_fee_percentage / 100);
+        return (float) ($amount * ($this->late_fee_percentage / 100));
     }
 }

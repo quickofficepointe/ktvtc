@@ -40,10 +40,8 @@ class CardFundingIpnController extends Controller
 
             Log::info('Extracted payload', $payload);
 
-            // Create transaction record
             $transaction = $this->createTransactionRecord($payload);
 
-            // Reconcile the payment
             $result = $this->reconcilePayment($transaction);
 
             Log::info('High School Card Funding IPN Processed', ['result' => $result]);
@@ -86,7 +84,7 @@ class CardFundingIpnController extends Controller
     private function extractPayload(Request $request)
     {
         $payload = $request->json()->all();
-        
+
         if (empty($payload)) {
             $payload = $request->all();
         }
@@ -98,17 +96,16 @@ class CardFundingIpnController extends Controller
             }
         }
 
-        // Handle KCB wrapper format
         if (isset($payload['requestPayload'])) {
             $requestPayload = $payload['requestPayload'];
-            
+
             if (isset($payload['header'])) {
                 $payload['messageID'] = $payload['header']['messageID'] ?? null;
                 $payload['originatorConversationID'] = $payload['header']['originatorConversationID'] ?? null;
                 $payload['channelCode'] = $payload['header']['channelCode'] ?? null;
                 $payload['timeStamp'] = $payload['header']['timeStamp'] ?? null;
             }
-            
+
             if (isset($requestPayload['additionalData']['notificationData'])) {
                 $notificationData = $requestPayload['additionalData']['notificationData'];
                 $payload = array_merge($payload, $notificationData);
@@ -129,7 +126,6 @@ class CardFundingIpnController extends Controller
     {
         Log::info('Creating High School Card Funding transaction record', $payload);
 
-        // Get all possible fields
         $transactionReference = $payload['transaction_reference'] ?? $payload['TransID'] ?? $payload['transaction_id'] ?? null;
         $invoiceNumber = $payload['customer_reference'] ?? $payload['BillRefNumber'] ?? $payload['businessKey'] ?? $payload['invoice_number'] ?? null;
         $transactionAmount = $payload['transaction_amount'] ?? $payload['TransAmount'] ?? $payload['amount'] ?? null;
@@ -141,13 +137,11 @@ class CardFundingIpnController extends Controller
 
         Log::info('Parsing invoice number', ['invoice_number' => $invoiceNumber]);
 
-        // Parse invoice number: 8118445#T101 or 8118445#C101
         $admissionNumber = null;
         $fundingType = 'G';
         $tillNumber = null;
 
         if ($invoiceNumber) {
-            // Pattern 1: 8118445#T101
             if (preg_match('/^(\d+)#([A-Za-z])(\d+)$/', $invoiceNumber, $matches)) {
                 $tillNumber = $matches[1];
                 $fundingType = strtoupper($matches[2]);
@@ -157,18 +151,14 @@ class CardFundingIpnController extends Controller
                     'type' => $fundingType,
                     'admission' => $admissionNumber
                 ]);
-            } 
-            // Pattern 2: 8118445#101
-            elseif (preg_match('/^(\d+)#(\d+)$/', $invoiceNumber, $matches)) {
+            } elseif (preg_match('/^(\d+)#(\d+)$/', $invoiceNumber, $matches)) {
                 $tillNumber = $matches[1];
                 $admissionNumber = $matches[2];
                 Log::info('Parsed invoice without type', [
                     'till' => $tillNumber,
                     'admission' => $admissionNumber
                 ]);
-            }
-            // Pattern 3: T101 or C101
-            elseif (preg_match('/^([A-Za-z])(\d+)$/', $invoiceNumber, $matches)) {
+            } elseif (preg_match('/^([A-Za-z])(\d+)$/', $invoiceNumber, $matches)) {
                 $fundingType = strtoupper($matches[1]);
                 $admissionNumber = $matches[2];
                 Log::info('Parsed type + admission', [
@@ -181,7 +171,6 @@ class CardFundingIpnController extends Controller
             }
         }
 
-        // If still null, try customer_reference
         if (!$admissionNumber) {
             $admissionNumber = $payload['customer_reference'] ?? $payload['BillRefNumber'] ?? null;
             Log::info('Using customer_reference as admission', ['admission' => $admissionNumber]);
@@ -193,7 +182,6 @@ class CardFundingIpnController extends Controller
             'till_number' => $tillNumber
         ]);
 
-        // Check if transaction already exists
         $existing = HighSchoolKcbTransaction::where('transaction_reference', $transactionReference)->first();
         if ($existing) {
             Log::warning('Transaction already exists', ['transaction_reference' => $transactionReference]);
@@ -245,22 +233,18 @@ class CardFundingIpnController extends Controller
                 'transaction_amount' => $transaction->amount
             ]);
 
-            // Check if already processed
             if ($transaction->status === 'completed') {
                 Log::info('Transaction already processed', ['transaction_id' => $transaction->id]);
                 DB::commit();
                 return ['success' => true, 'message' => 'Already processed'];
             }
 
-            // ✅ Get request data properly
             $requestData = $transaction->request_data;
-            
-            // Decode if it's a string
+
             if (is_string($requestData)) {
                 $requestData = json_decode($requestData, true);
             }
-            
-            // If still empty, try callback_data
+
             if (empty($requestData) || !is_array($requestData)) {
                 $requestData = $transaction->callback_data;
                 if (is_string($requestData)) {
@@ -268,16 +252,14 @@ class CardFundingIpnController extends Controller
                 }
             }
 
-            // ✅ Extract admission number
             $admissionNumber = $requestData['admission_number'] ?? null;
             $fundingType = $requestData['funding_type'] ?? 'G';
             $typeLabel = $requestData['funding_type_label'] ?? ($fundingType === 'T' ? 'Transport' : ($fundingType === 'C' ? 'Canteen' : 'General'));
 
-            // ✅ If still null, try to extract from invoice_number
             if (!$admissionNumber && $transaction->invoice_number) {
                 $invoiceNumber = $transaction->invoice_number;
                 Log::info('Extracting from invoice_number', ['invoice_number' => $invoiceNumber]);
-                
+
                 if (strpos($invoiceNumber, '#') !== false) {
                     $parts = explode('#', $invoiceNumber);
                     if (count($parts) == 2) {
@@ -326,7 +308,6 @@ class CardFundingIpnController extends Controller
                 return ['success' => false, 'message' => 'No admission number found'];
             }
 
-            // Find student by admission number
             $student = HighSchoolStudent::where('admission_number', $admissionNumber)->first();
 
             if (!$student) {
@@ -344,8 +325,11 @@ class CardFundingIpnController extends Controller
                 'admission' => $student->admission_number
             ]);
 
-            // Find card
-            $card = CardAccount::where('high_school_student_id', $student->id)->first();
+            // ✅ LOCK THE CARD ROW — prevents two transactions reading the
+            //    same balance in parallel (row-level lock for InnoDB).
+            $card = CardAccount::where('high_school_student_id', $student->id)
+                ->lockForUpdate()
+                ->first();
 
             if (!$card) {
                 Log::error('Card not found', ['student_id' => $student->id]);
@@ -362,7 +346,6 @@ class CardFundingIpnController extends Controller
                 'current_balance' => $card->balance
             ]);
 
-            // Check if card is active
             if (!$card->is_active) {
                 Log::error('Card is inactive', ['card_id' => $card->id]);
                 $transaction->status = 'failed';
@@ -375,10 +358,17 @@ class CardFundingIpnController extends Controller
             $amount = $transaction->amount;
             $mpesaReceipt = $transaction->transaction_reference;
 
-            // Check for duplicate card transaction
-            $existingCardTransaction = CardTransaction::where('mpesa_receipt', $mpesaReceipt)->first();
+            // ─────────────────────────────────────────────────────────────
+            // SAME-FLOW DUPLICATE CHECK
+            // Have we already inserted a card_transaction with this exact
+            // receipt from a PREVIOUS IPN delivery (KCB retries)?
+            // ─────────────────────────────────────────────────────────────
+            $existingCardTransaction = CardTransaction::where('mpesa_receipt', $mpesaReceipt)
+                ->lockForUpdate()
+                ->first();
+
             if ($existingCardTransaction) {
-                Log::warning('Duplicate detected', ['mpesa_receipt' => $mpesaReceipt]);
+                Log::warning('Duplicate IPN receipt detected', ['mpesa_receipt' => $mpesaReceipt]);
                 $transaction->status = 'completed';
                 $transaction->mpesa_receipt_number = $mpesaReceipt;
                 $transaction->completed_at = now();
@@ -388,7 +378,7 @@ class CardFundingIpnController extends Controller
                 DB::commit();
                 return [
                     'success' => true,
-                    'message' => 'Duplicate transaction already processed',
+                    'message' => 'Duplicate IPN already processed',
                     'data' => [
                         'student_name' => $student->full_name,
                         'admission_number' => $student->admission_number,
@@ -397,6 +387,65 @@ class CardFundingIpnController extends Controller
                     ]
                 ];
             }
+
+            // ═════════════════════════════════════════════════════════════
+            // 🔒 CROSS-FLOW DUPLICATE CHECK  ← THE ACTUAL FIX
+            // The STK Push flow writes a DIFFERENT receipt number for the
+            // SAME payment. Look for a funding on this card, same amount,
+            // created in the last 90 seconds, that came from the STK flow.
+            // ═════════════════════════════════════════════════════════════
+            $stkDuplicate = $this->findStkDuplicate($card, $amount, $mpesaReceipt);
+
+            if ($stkDuplicate) {
+                Log::warning('🚫 IPN skipped — STK flow already funded this payment', [
+                    'ipn_transaction_id'   => $transaction->id,
+                    'ipn_receipt'          => $mpesaReceipt,
+                    'existing_card_txn_id' => $stkDuplicate->id,
+                    'existing_receipt'     => $stkDuplicate->mpesa_receipt,
+                    'existing_reference'   => $stkDuplicate->reference,
+                    'amount'               => $amount,
+                    'card_id'              => $card->id,
+                ]);
+
+                $transaction->status = 'completed';
+                $transaction->mpesa_receipt_number = $mpesaReceipt;
+                $transaction->result_code = 0;
+                $transaction->result_description =
+                    'Duplicate — already funded via STK (receipt: ' . $stkDuplicate->mpesa_receipt . ')';
+                $transaction->completed_at = now();
+                $transaction->card_account_id = $card->id;
+                $transaction->high_school_student_id = $student->id;
+                $transaction->save();
+
+                // Audit trail — records the skip without touching balance
+                CardAuditLog::log(
+                    $card->id,
+                    'funding_duplicate_skipped',
+                    "IPN skipped as duplicate of STK funding (STK receipt: {$stkDuplicate->mpesa_receipt}, IPN receipt: {$mpesaReceipt})",
+                    $card->balance,
+                    $card->balance, // no change
+                    [
+                        'amount' => $amount,
+                        'ipn_transaction_id' => $transaction->id,
+                        'existing_card_transaction_id' => $stkDuplicate->id,
+                        'existing_receipt' => $stkDuplicate->mpesa_receipt,
+                        'ipn_receipt' => $mpesaReceipt,
+                    ]
+                );
+
+                DB::commit();
+                return [
+                    'success' => true,
+                    'message' => 'Duplicate prevented — STK flow already processed',
+                    'data' => [
+                        'student_name'     => $student->full_name,
+                        'admission_number' => $student->admission_number,
+                        'amount'           => $amount,
+                        'new_balance'      => $card->balance, // unchanged
+                    ]
+                ];
+            }
+            // ═════════════════════════════════════════════════════════════
 
             // ✅ FUND THE CARD
             $balanceBefore = $card->balance;
@@ -411,7 +460,6 @@ class CardFundingIpnController extends Controller
                 'amount_added' => $amount
             ]);
 
-            // Create card transaction
             $reference = CardTransaction::generateReference('IPN');
             $cardTransaction = CardTransaction::create([
                 'card_account_id' => $card->id,
@@ -435,7 +483,6 @@ class CardFundingIpnController extends Controller
                 ])
             ]);
 
-            // Update HighSchoolKcbTransaction
             $transaction->status = 'completed';
             $transaction->mpesa_receipt_number = $mpesaReceipt;
             $transaction->completed_at = now();
@@ -443,7 +490,6 @@ class CardFundingIpnController extends Controller
             $transaction->high_school_student_id = $student->id;
             $transaction->save();
 
-            // Log audit
             CardAuditLog::log(
                 $card->id,
                 'funding_completed',
@@ -472,7 +518,6 @@ class CardFundingIpnController extends Controller
                 'funding_type' => $typeLabel,
             ]);
 
-            // Send SMS notification
             if ($student->parent_phone) {
                 try {
                     $smsService = app(\App\Services\SmsService::class);
@@ -507,15 +552,45 @@ class CardFundingIpnController extends Controller
                 'transaction_id' => $transaction->id ?? null,
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             if (isset($transaction)) {
                 $transaction->status = 'failed';
                 $transaction->result_description = $e->getMessage();
                 $transaction->save();
             }
-            
+
             return ['success' => false, 'message' => $e->getMessage()];
         }
+    }
+
+    /**
+     * Find an existing STK-push funding for the same payment.
+     *
+     * KCB delivers two callbacks per payment:
+     *   - STK Push → receipt like "UI94U61GVH", reference like "8118445#C1255"
+     *   - IPN       → receipt like "FT26252ZNK2N", reference like "IPN2026..."
+     *
+     * Both carry the same amount and hit the same card within seconds.
+     * Look for the STK one before we credit again.
+     */
+    private function findStkDuplicate(CardAccount $card, $amount, $currentReceipt)
+    {
+        return CardTransaction::where('card_account_id', $card->id)
+            ->where('transaction_type', 'funding')
+            ->where('status', 'completed')
+            ->where('amount', $amount)
+            ->where('created_at', '>=', now()->subSeconds(90))
+            // STK flow writes references like "8118445#..." or its metadata
+            // contains a checkout_request_id
+            ->where(function ($q) {
+                $q->where('reference', 'LIKE', '8118445%')
+                  ->orWhere('metadata', 'LIKE', '%checkout_request_id%');
+            })
+            // Exclude our own incoming receipt (defensive)
+            ->where('mpesa_receipt', '!=', $currentReceipt)
+            ->orderBy('created_at', 'desc')
+            ->lockForUpdate()
+            ->first();
     }
 
     /**

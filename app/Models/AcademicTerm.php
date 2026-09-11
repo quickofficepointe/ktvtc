@@ -1,10 +1,13 @@
 <?php
+// app/Models/AcademicTerm.php
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AcademicTerm extends Model
 {
@@ -71,32 +74,97 @@ class AcademicTerm extends Model
         'sort_order' => 'integer',
     ];
 
-    /**
-     * ============ RELATIONSHIPS ============
-     */
-    public function campus()
+    // ============================================================
+    // RELATIONSHIPS
+    // ============================================================
+
+    public function campus(): BelongsTo
     {
         return $this->belongsTo(Campus::class);
     }
 
-    public function creator()
+    public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function updater()
+    public function updater(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
     }
 
-    public function enrollments()
+    /**
+     * Enrollments that belong to this term.
+     */
+    public function enrollments(): HasMany
     {
-        return $this->hasMany(Enrollment::class);
+        return $this->hasMany(Enrollment::class, 'term_id');
     }
 
     /**
-     * ============ SCOPES ============
+     * Fee structures that are scoped to this term.
      */
+    public function feeStructures(): HasMany
+    {
+        return $this->hasMany(FeeStructure::class, 'term_id');
+    }
+
+    // ============================================================
+    // WINDOW CHECKS — is self-enrollment open right now?
+    // ============================================================
+
+    /**
+     * Is the current date inside the normal registration window?
+     */
+    public function isInRegistrationWindow(): bool
+    {
+        $today = now()->startOfDay();
+
+        return $this->is_registration_open
+            && $this->registration_start_date
+            && $this->registration_end_date
+            && $today->between($this->registration_start_date, $this->registration_end_date);
+    }
+
+    /**
+     * Is the current date inside the late-registration window?
+     */
+    public function isInLateWindow(): bool
+    {
+        $today = now()->startOfDay();
+
+        return $this->allow_late_registration
+            && $this->late_registration_start_date
+            && $this->late_registration_end_date
+            && $today->between($this->late_registration_start_date, $this->late_registration_end_date);
+    }
+
+    /**
+     * Can a student self-enroll right now?
+     */
+    public function isOpenForSelfEnrollment(): bool
+    {
+        if (!$this->is_active) {
+            return false;
+        }
+
+        return $this->isInRegistrationWindow() || $this->isInLateWindow();
+    }
+
+    /**
+     * Late fee that applies right now (null if not in late window).
+     */
+    public function currentLateFee(): ?float
+    {
+        return $this->isInLateWindow()
+            ? (float) $this->late_registration_fee
+            : null;
+    }
+
+    // ============================================================
+    // SCOPES
+    // ============================================================
+
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
@@ -114,8 +182,10 @@ class AcademicTerm extends Model
 
     public function scopeByCampus($query, $campusId)
     {
-        return $query->where('campus_id', $campusId)
-            ->orWhereNull('campus_id'); // Include global terms
+        return $query->where(function ($q) use ($campusId) {
+            $q->where('campus_id', $campusId)
+              ->orWhereNull('campus_id');
+        });
     }
 
     public function scopeByYear($query, $year)
@@ -130,8 +200,33 @@ class AcademicTerm extends Model
     }
 
     /**
-     * ============ ACCESSORS ============
+     * Scope: terms currently open for student self-enrollment.
      */
+    public function scopeOpenForEnrollment($q)
+    {
+        $today = now()->toDateString();
+
+        return $q->where('is_active', true)
+            ->where('is_registration_open', true)
+            ->where(function ($sub) use ($today) {
+                // Normal window
+                $sub->where(function ($w) use ($today) {
+                    $w->whereDate('registration_start_date', '<=', $today)
+                      ->whereDate('registration_end_date', '>=', $today);
+                })
+                // Or late window
+                ->orWhere(function ($w) use ($today) {
+                    $w->where('allow_late_registration', true)
+                      ->whereDate('late_registration_start_date', '<=', $today)
+                      ->whereDate('late_registration_end_date', '>=', $today);
+                });
+            });
+    }
+
+    // ============================================================
+    // ACCESSORS
+    // ============================================================
+
     public function getFullNameAttribute()
     {
         return $this->name . ' (' . $this->academic_year . ')';
@@ -139,6 +234,10 @@ class AcademicTerm extends Model
 
     public function getDateRangeAttribute()
     {
+        if (!$this->start_date || !$this->end_date) {
+            return '—';
+        }
+
         return $this->start_date->format('M d, Y') . ' - ' . $this->end_date->format('M d, Y');
     }
 
@@ -164,37 +263,43 @@ class AcademicTerm extends Model
         return 'Inactive';
     }
 
-    /**
-     * ============ METHODS ============
-     */
-    public function isCurrent()
+    public function getDisplayNameAttribute(): string
     {
-        return $this->is_current;
+        return $this->name ?: "Term {$this->term_number} {$this->academic_year}";
     }
 
-    public function isRegistrationOpen()
+    // ============================================================
+    // METHODS
+    // ============================================================
+
+    public function isCurrent(): bool
     {
-        return $this->is_registration_open;
+        return (bool) $this->is_current;
     }
 
-    public function isFeeGenerationLocked()
+    public function isRegistrationOpen(): bool
     {
-        return $this->is_fee_generation_locked;
+        return (bool) $this->is_registration_open;
     }
 
-    public function getLateRegistrationFeeAmount()
+    public function isFeeGenerationLocked(): bool
     {
-        if ($this->late_registration_fee > 0) {
-            return $this->late_registration_fee;
-        }
-        return 0;
+        return (bool) $this->is_fee_generation_locked;
     }
 
-    public function getLatePaymentFeeAmount($balance)
+    public function getLateRegistrationFeeAmount(): float
+    {
+        return $this->late_registration_fee > 0
+            ? (float) $this->late_registration_fee
+            : 0.0;
+    }
+
+    public function getLatePaymentFeeAmount(float $balance): float
     {
         if ($this->late_payment_percentage > 0) {
             return ($balance * $this->late_payment_percentage) / 100;
         }
-        return $this->late_payment_fee;
+
+        return (float) $this->late_payment_fee;
     }
 }

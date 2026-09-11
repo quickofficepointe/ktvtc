@@ -1,9 +1,11 @@
 <?php
+// app/Http/Controllers/CourseController.php
 
 namespace App\Http\Controllers;
 
 use App\Models\Course;
 use App\Models\Department;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
@@ -11,30 +13,36 @@ use Illuminate\Support\Facades\Storage;
 
 class CourseController extends Controller
 {
+    // ============================================================
+    // PUBLIC
+    // ============================================================
+
     public function publicIndex()
-{
-    $courses = Course::with(['department', 'intakes'])
-        ->where('is_active', true)
-        ->orderBy('featured', 'desc')
-        ->orderBy('sort_order', 'asc')
-        ->orderBy('name', 'asc')
-        ->paginate(9); // or whatever number you prefer per page
+    {
+        $courses = Course::with(['department', 'intakes'])
+            ->where('is_active', true)
+            ->orderBy('featured', 'desc')
+            ->orderBy('sort_order', 'asc')
+            ->orderBy('name', 'asc')
+            ->paginate(9);
 
-    $departments = Department::where('is_active', true)
-        ->has('courses')
-        ->withCount(['courses' => function($query) {
-            $query->where('is_active', true);
-        }])
-        ->get();
+        $departments = Department::where('is_active', true)
+            ->has('courses')
+            ->withCount(['courses' => function ($query) {
+                $query->where('is_active', true);
+            }])
+            ->get();
 
-    return view('ktvtc.website.courses.public-index', compact('courses', 'departments'));
-}
+        return view('ktvtc.website.courses.public-index', compact('courses', 'departments'));
+    }
 
-    // Show single course
     public function show($slug)
     {
-        $course = Course::with(['department', 'intakes' => function($query) {
-            $query->where('is_active', true)->orderBy('year', 'desc')->orderByRaw("FIELD(month, 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December')");
+        $course = Course::with(['department', 'intakes' => function ($query) {
+            $query->where('is_active', true)
+                  ->orderBy('year', 'desc')
+                  ->orderByRaw("FIELD(month, 'January', 'February', 'March', 'April', 'May', 'June',
+                                     'July', 'August', 'September', 'October', 'November', 'December')");
         }])
         ->where('slug', $slug)
         ->where('is_active', true)
@@ -49,160 +57,179 @@ class CourseController extends Controller
 
         return view('ktvtc.website.courses.show', compact('course', 'relatedCourses'));
     }
+
+    // ============================================================
+    // ADMIN INDEX
+    // ============================================================
+
     public function index()
     {
-        $courses = Course::with('department')->latest()->get();
+        $courses = Course::with('department')
+            ->withCount([
+                'trainers as trainers_count' => function ($q) {
+                    $q->where('course_trainer.is_active', true);
+                },
+            ])
+            ->latest()
+            ->get();
+
         $departments = Department::where('is_active', true)->get();
+
         return view('ktvtc.website.courses.index', compact('courses', 'departments'));
     }
+
+    // ============================================================
+    // CREATE / UPDATE / DELETE
+    // ============================================================
 
     public function store(Request $request)
     {
         $request->validate([
-            'department_id' => 'required|exists:departments,id',
-            'name' => 'required|string|max:255',
-            'code' => 'nullable|string|max:50',
-            'duration' => 'required|string|max:100',
-            'total_hours' => 'nullable|string|max:50',
-            'schedule' => 'nullable|string|max:255',
-            'description' => 'nullable|string',
-            'requirements' => 'nullable|string',
-            'fees_breakdown' => 'nullable|string',
-           'delivery_modes' => 'required|array',
-        'delivery_modes.*' => 'in:onsite,virtual,hybrid',
+            'department_id'       => 'required|exists:departments,id',
+            'name'                => 'required|string|max:255',
+            'code'                => 'nullable|string|max:50',
+            'duration'            => 'required|string|max:100',
+            'total_hours'         => 'nullable|string|max:50',
+            'schedule'            => 'nullable|string|max:255',
+            'description'         => 'nullable|string',
+            'requirements'        => 'nullable|string',
+            'fees_breakdown'      => 'nullable|string',
+            'delivery_modes'      => 'required|array',
+            'delivery_modes.*'    => 'in:onsite,virtual,hybrid',
             'what_you_will_learn' => 'nullable|string',
-            'cover_image' => 'nullable|image|mimes:jpeg,png,jpg|max:10240',
-            'level' => 'required|in:beginner,intermediate,advanced',
-            'featured' => 'nullable|boolean',
-            'sort_order' => 'nullable|integer|min:0',
-            'is_active' => 'nullable|boolean',
+            'cover_image'         => 'nullable|image|mimes:jpeg,png,jpg|max:10240',
+            'level'               => 'required|in:beginner,intermediate,advanced',
+            'featured'            => 'nullable|boolean',
+            'sort_order'          => 'nullable|integer|min:0',
+            'is_active'           => 'nullable|boolean',
         ]);
 
         // Handle image upload
         $coverImagePath = null;
         if ($request->hasFile('cover_image')) {
-            $coverImagePath = $request->file('cover_image')->store('courses/cover-images', 'public');
+            $coverImagePath = $request->file('cover_image')
+                ->store('courses/cover-images', 'public');
         }
 
         // Generate unique slug
-        $slug = Str::slug($request->name);
+        $slug         = Str::slug($request->name);
         $originalSlug = $slug;
-        $counter = 1;
+        $counter      = 1;
 
         while (Course::where('slug', $slug)->exists()) {
             $slug = $originalSlug . '-' . $counter;
             $counter++;
         }
 
-        // Parse fees breakdown if provided
+        // Parse fees breakdown
         $feesBreakdown = $this->parseFeesBreakdown($request->fees_breakdown);
 
         Course::create([
-            'department_id' => $request->department_id,
-            'name' => $request->name,
-            'slug' => $slug,
-            'code' => $request->code,
-            'duration' => $request->duration,
-            'total_hours' => $request->total_hours,
-            'schedule' => $request->schedule,
-            'description' => $request->description,
-            'requirements' => $request->requirements,
-            'fees_breakdown' => $feesBreakdown,
-           'delivery_mode' => implode(',', $request->delivery_modes),
+            'department_id'       => $request->department_id,
+            'name'                => $request->name,
+            'slug'                => $slug,
+            'code'                => $request->code,
+            'duration'            => $request->duration,
+            'total_hours'         => $request->total_hours,
+            'schedule'            => $request->schedule,
+            'description'         => $request->description,
+            'requirements'        => $request->requirements,
+            'fees_breakdown'      => $feesBreakdown,
+            'delivery_mode'       => implode(',', $request->delivery_modes),
             'what_you_will_learn' => $request->what_you_will_learn,
-            'cover_image' => $coverImagePath,
-            'level' => $request->level,
-            'featured' => $request->boolean('featured'),
-            'sort_order' => $request->sort_order ?? 0,
-            'is_active' => $request->boolean('is_active'),
-            'created_by' => Auth::id(),
-            'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent(),
+            'cover_image'         => $coverImagePath,
+            'level'               => $request->level,
+            'featured'            => $request->boolean('featured'),
+            'sort_order'          => $request->sort_order ?? 0,
+            'is_active'           => $request->boolean('is_active'),
+            'created_by'          => Auth::id(),
+            'ip_address'          => $request->ip(),
+            'user_agent'          => $request->userAgent(),
         ]);
 
         return back()->with('success', 'Course added successfully');
     }
-public function update(Request $request)
-{
-    // Get course ID from request
-    $request->validate([
-        'course_id' => 'required|exists:courses,id', // Add course_id validation
-        'department_id' => 'required|exists:departments,id',
-        'name' => 'required|string|max:255',
-        'code' => 'nullable|string|max:50',
-        'duration' => 'required|string|max:100',
-        'total_hours' => 'nullable|string|max:50',
-        'schedule' => 'nullable|string|max:255',
-        'description' => 'nullable|string',
-        'requirements' => 'nullable|string',
-        'fees_breakdown' => 'nullable|string',
-          'delivery_modes' => 'required|array',
-        'delivery_modes.*' => 'in:onsite,virtual,hybrid',
-        'what_you_will_learn' => 'nullable|string',
-        'cover_image' => 'nullable|image|mimes:jpeg,png,jpg|max:10240',
-        'level' => 'required|in:beginner,intermediate,advanced',
-        'featured' => 'nullable|boolean',
-        'sort_order' => 'nullable|integer|min:0',
-        'is_active' => 'nullable|boolean',
-    ]);
 
-    $course = Course::findOrFail($request->course_id);
+    public function update(Request $request)
+    {
+        $request->validate([
+            'course_id'           => 'required|exists:courses,id',
+            'department_id'       => 'required|exists:departments,id',
+            'name'                => 'required|string|max:255',
+            'code'                => 'nullable|string|max:50',
+            'duration'            => 'required|string|max:100',
+            'total_hours'         => 'nullable|string|max:50',
+            'schedule'            => 'nullable|string|max:255',
+            'description'         => 'nullable|string',
+            'requirements'        => 'nullable|string',
+            'fees_breakdown'      => 'nullable|string',
+            'delivery_modes'      => 'required|array',
+            'delivery_modes.*'    => 'in:onsite,virtual,hybrid',
+            'what_you_will_learn' => 'nullable|string',
+            'cover_image'         => 'nullable|image|mimes:jpeg,png,jpg|max:10240',
+            'level'               => 'required|in:beginner,intermediate,advanced',
+            'featured'            => 'nullable|boolean',
+            'sort_order'          => 'nullable|integer|min:0',
+            'is_active'           => 'nullable|boolean',
+        ]);
 
-    // Handle image upload
-    $coverImagePath = $course->cover_image;
-    if ($request->hasFile('cover_image')) {
-        // Delete old image if exists
-        if ($course->cover_image && Storage::disk('public')->exists($course->cover_image)) {
-            Storage::disk('public')->delete($course->cover_image);
+        $course = Course::findOrFail($request->course_id);
+
+        // Handle image upload
+        $coverImagePath = $course->cover_image;
+        if ($request->hasFile('cover_image')) {
+            if ($course->cover_image && Storage::disk('public')->exists($course->cover_image)) {
+                Storage::disk('public')->delete($course->cover_image);
+            }
+            $coverImagePath = $request->file('cover_image')
+                ->store('courses/cover-images', 'public');
         }
-        $coverImagePath = $request->file('cover_image')->store('courses/cover-images', 'public');
-    }
 
-    // Generate new slug only if name changed
-    $slug = $course->slug;
-    if ($request->name !== $course->name) {
-        $slug = Str::slug($request->name);
-        $originalSlug = $slug;
-        $counter = 1;
+        // Regenerate slug only if name changed
+        $slug = $course->slug;
+        if ($request->name !== $course->name) {
+            $slug         = Str::slug($request->name);
+            $originalSlug = $slug;
+            $counter      = 1;
 
-        while (Course::where('slug', $slug)->where('id', '!=', $request->course_id)->exists()) {
-            $slug = $originalSlug . '-' . $counter;
-            $counter++;
+            while (Course::where('slug', $slug)
+                        ->where('id', '!=', $request->course_id)
+                        ->exists()) {
+                $slug = $originalSlug . '-' . $counter;
+                $counter++;
+            }
         }
+
+        $feesBreakdown = $this->parseFeesBreakdown($request->fees_breakdown);
+
+        $course->update([
+            'department_id'       => $request->department_id,
+            'name'                => $request->name,
+            'slug'                => $slug,
+            'code'                => $request->code,
+            'duration'            => $request->duration,
+            'total_hours'         => $request->total_hours,
+            'schedule'            => $request->schedule,
+            'description'         => $request->description,
+            'requirements'        => $request->requirements,
+            'fees_breakdown'      => $feesBreakdown,
+            'delivery_mode'       => implode(',', $request->delivery_modes),
+            'what_you_will_learn' => $request->what_you_will_learn,
+            'cover_image'         => $coverImagePath,
+            'level'               => $request->level,
+            'featured'            => $request->boolean('featured'),
+            'sort_order'          => $request->sort_order ?? $course->sort_order,
+            'is_active'           => $request->boolean('is_active'),
+            'updated_by'          => Auth::id(),
+        ]);
+
+        return back()->with('success', 'Course updated successfully');
     }
-
-    // Parse fees breakdown if provided
-    $feesBreakdown = $this->parseFeesBreakdown($request->fees_breakdown);
-
-    $course->update([
-        'department_id' => $request->department_id,
-        'name' => $request->name,
-        'slug' => $slug,
-        'code' => $request->code,
-        'duration' => $request->duration,
-        'total_hours' => $request->total_hours,
-        'schedule' => $request->schedule,
-        'description' => $request->description,
-        'requirements' => $request->requirements,
-        'fees_breakdown' => $feesBreakdown,
-         'delivery_mode' => implode(',', $request->delivery_modes),
-        'what_you_will_learn' => $request->what_you_will_learn,
-        'cover_image' => $coverImagePath,
-        'level' => $request->level,
-        'featured' => $request->boolean('featured'),
-        'sort_order' => $request->sort_order ?? $course->sort_order,
-        'is_active' => $request->boolean('is_active'),
-        'updated_by' => Auth::id(),
-    ]);
-
-    return back()->with('success', 'Course updated successfully');
-}
 
     public function destroy($id)
     {
         $course = Course::findOrFail($id);
 
-        // Delete cover image if exists
         if ($course->cover_image && Storage::disk('public')->exists($course->cover_image)) {
             Storage::disk('public')->delete($course->cover_image);
         }
@@ -212,8 +239,96 @@ public function update(Request $request)
         return back()->with('success', 'Course deleted successfully');
     }
 
+    // ============================================================
+    // COURSE ↔ TRAINERS
+    // ============================================================
+
     /**
-     * Parse fees breakdown text into JSON format
+     * List trainers assigned to a course + a picker to add more.
+     */
+    public function trainers(Course $course)
+    {
+        $course->load(['department', 'trainers']);
+
+        $attachedIds = $course->trainers()->pluck('users.id')->all();
+
+        $availableTrainers = User::where('role', User::ROLE_TRAINERS)
+            ->where('is_approved', true)
+            ->when(!empty($attachedIds), fn ($q) => $q->whereNotIn('id', $attachedIds))
+            ->orderBy('name')
+            ->get();
+
+        return view('ktvtc.website.courses.trainers', compact(
+            'course',
+            'availableTrainers'
+        ));
+    }
+
+    /**
+     * Attach a trainer to a course.
+     */
+    public function assignTrainer(Request $request, Course $course)
+    {
+        $data = $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'role'    => 'nullable|in:lead,assistant,trainer',
+        ]);
+
+        $trainer = User::findOrFail($data['user_id']);
+
+        abort_unless($trainer->isTrainer(), 422, 'Selected user is not a trainer.');
+
+        $course->trainers()->syncWithoutDetaching([
+            $trainer->id => [
+                'role'        => $data['role'] ?? 'trainer',
+                'is_active'   => true,
+                'assigned_by' => Auth::id(),
+                'assigned_at' => now(),
+            ],
+        ]);
+
+        return back()->with('success', "{$trainer->name} assigned to {$course->name}.");
+    }
+
+    /**
+     * Update a trainer's pivot (role / is_active).
+     */
+    public function updateTrainer(Request $request, Course $course, User $trainer)
+    {
+        $data = $request->validate([
+            'role'      => 'nullable|in:lead,assistant,trainer',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        abort_unless(
+            $course->trainers()->where('users.id', $trainer->id)->exists(),
+            404,
+            'Trainer is not assigned to this course.'
+        );
+
+        $course->trainers()->updateExistingPivot($trainer->id, [
+            'role'      => $data['role'] ?? 'trainer',
+            'is_active' => (bool) ($data['is_active'] ?? true),
+        ]);
+
+        return back()->with('success', 'Trainer assignment updated.');
+    }
+
+    /**
+     * Detach a trainer from a course.
+     */
+   public function removeTrainer(Course $course, User $user)
+{
+    $course->trainers()->detach($user->id);
+    return back()->with('success', "{$user->name} removed from {$course->name}.");
+}
+
+    // ============================================================
+    // HELPERS
+    // ============================================================
+
+    /**
+     * Parse fees breakdown text into an associative array.
      */
     private function parseFeesBreakdown($feesText)
     {
@@ -222,7 +337,7 @@ public function update(Request $request)
         }
 
         $feesArray = [];
-        $lines = explode("\n", $feesText);
+        $lines     = explode("\n", $feesText);
 
         foreach ($lines as $line) {
             $line = trim($line);
@@ -230,7 +345,7 @@ public function update(Request $request)
 
             $parts = explode(':', $line, 2);
             if (count($parts) === 2) {
-                $key = trim($parts[0]);
+                $key   = trim($parts[0]);
                 $value = trim($parts[1]);
                 if (!empty($key) && !empty($value)) {
                     $feesArray[$key] = $value;

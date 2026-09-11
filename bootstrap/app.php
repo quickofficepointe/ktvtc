@@ -24,7 +24,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'role.website' => \App\Http\Middleware\CheckWebsiteRole::class,
             'profile.complete' => \App\Http\Middleware\EnsureProfileIsCompleteAndApproved::class,
             'role.super-admin' => \App\Http\Middleware\RoleSuperAdmin::class,
-            'super.admin.access' => \App\Http\Middleware\SuperAdminAccess::class, // For global access
+            'super.admin.access' => \App\Http\Middleware\SuperAdminAccess::class, 
+              'preorder.auth' => \App\Http\Middleware\EnsurePreOrderAuthenticated::class,
+'preorder.guest' => \App\Http\Middleware\EnsurePreOrderGuest::class,
+   'role.ilo'         => \App\Http\Middleware\CheckIloRole::class,
         ]);
 
         // Modify the VerifyCsrfToken middleware to exclude payment callbacks
@@ -58,7 +61,9 @@ return Application::configure(basePath: dirname(__DIR__))
             // KCB Status Check - Card Funding
             '/api/kcb/card/funding/status',
             'api/kcb/card/funding/status',
-
+ // ✅ NEW: Pre-Order KCB callback
+    'pre-order/api/kcb/callback',
+    '/pre-order/api/kcb/callback',
             // M-Pesa general callback
             '/mpesa/callback',
             'mpesa/callback',

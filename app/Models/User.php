@@ -2,18 +2,35 @@
 
 namespace App\Models;
 
-use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
     use HasFactory, Notifiable, SoftDeletes;
+
+    public const ROLE_SUPER_ADMIN = 0;
+    public const ROLE_MSCHOOL     = 1;
+    public const ROLE_ADMIN       = 2;
+    public const ROLE_SCHOLARSHIP = 3;
+    public const ROLE_LIBRARY     = 4;
+    public const ROLE_STUDENT     = 5;
+    public const ROLE_CAFETERIA   = 6;
+    public const ROLE_FINANCE     = 7;
+    public const ROLE_TRAINERS    = 8;
+    public const ROLE_WEBSITE     = 9;
+    public const ROLE_ILO         = 10;
+
+    public const ROLE_APPROVAL_NONE     = 'none';
+    public const ROLE_APPROVAL_PENDING  = 'pending';
+    public const ROLE_APPROVAL_APPROVED = 'approved';
+    public const ROLE_APPROVAL_REJECTED = 'rejected';
 
     protected $fillable = [
         'name',
@@ -22,6 +39,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'phone_number',
         'password',
         'avatar',
+        'profile_picture',
         'bio',
         'role',
         'is_verified',
@@ -46,57 +64,44 @@ class User extends Authenticatable implements MustVerifyEmail
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'phone_verified_at' => 'datetime',
-            'last_login_at' => 'datetime',
-            'role_approved_at' => 'datetime',
-            'password' => 'hashed',
-            'is_verified' => 'boolean',
-            'is_active' => 'boolean',
-            'is_approved' => 'boolean',
-            'preferences' => 'array',
+            'email_verified_at'  => 'datetime',
+            'phone_verified_at'  => 'datetime',
+            'last_login_at'      => 'datetime',
+            'role_approved_at'   => 'datetime',
+            'password'           => 'hashed',
+            'is_verified'        => 'boolean',
+            'is_active'          => 'boolean',
+            'is_approved'        => 'boolean',
+            'preferences'        => 'array',
         ];
     }
 
-    // Role Constants
-    const ROLE_SUPER_ADMIN = 1;
-    const ROLE_ADMIN = 2;
-    const ROLE_DEALER = 3;
-    const ROLE_GARAGE = 4;
-    const ROLE_BUYER = 5;
-    const ROLE_PRIVATE_SELLER = 6;
-    const ROLE_INSPECTOR = 7;
-    const ROLE_DRIVING_SCHOOL = 8;
-    const ROLE_INSURANCE = 9;
-    const ROLE_FINANCING = 10;
-
-    // Role Approval Status Constants
-    const ROLE_APPROVAL_NONE = 'none';
-    const ROLE_APPROVAL_PENDING = 'pending';
-    const ROLE_APPROVAL_APPROVED = 'approved';
-    const ROLE_APPROVAL_REJECTED = 'rejected';
+    // ============================================================
+    // ROLE HELPERS
+    // ============================================================
 
     public static function getRoles(): array
     {
         return [
             self::ROLE_SUPER_ADMIN => 'Super Admin',
-            self::ROLE_ADMIN => 'Admin',
-            self::ROLE_DEALER => 'Dealer',
-            self::ROLE_GARAGE => 'Garage',
-            self::ROLE_BUYER => 'Buyer',
-            self::ROLE_PRIVATE_SELLER => 'Private Seller',
-            self::ROLE_INSPECTOR => 'Inspector',
-            self::ROLE_DRIVING_SCHOOL => 'Driving School',
-            self::ROLE_INSURANCE => 'Insurance Provider',
-            self::ROLE_FINANCING => 'Financing Provider',
+            self::ROLE_MSCHOOL     => 'Main School',
+            self::ROLE_ADMIN       => 'Admin',
+            self::ROLE_SCHOLARSHIP => 'Scholarship',
+            self::ROLE_LIBRARY     => 'Library',
+            self::ROLE_STUDENT     => 'Student',
+            self::ROLE_CAFETERIA   => 'Cafeteria',
+            self::ROLE_FINANCE     => 'Finance',
+            self::ROLE_TRAINERS    => 'Trainers',
+            self::ROLE_WEBSITE     => 'Website',
+            self::ROLE_ILO         => 'ILO',
         ];
     }
 
     public static function getRoleApprovalStatuses(): array
     {
         return [
-            self::ROLE_APPROVAL_NONE => 'None',
-            self::ROLE_APPROVAL_PENDING => 'Pending Approval',
+            self::ROLE_APPROVAL_NONE     => 'None',
+            self::ROLE_APPROVAL_PENDING  => 'Pending Approval',
             self::ROLE_APPROVAL_APPROVED => 'Approved',
             self::ROLE_APPROVAL_REJECTED => 'Rejected',
         ];
@@ -109,33 +114,75 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function hasRole(int $role): bool
     {
-        return $this->role === $role;
+        return (int) $this->role === $role;
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return (int) $this->role === self::ROLE_SUPER_ADMIN;
     }
 
     public function isAdmin(): bool
     {
-        return in_array($this->role, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN]);
+        return in_array((int) $this->role, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN], true);
     }
 
-    public function isDealer(): bool
+    public function isMschool(): bool
     {
-        return $this->role === self::ROLE_DEALER;
+        return (int) $this->role === self::ROLE_MSCHOOL;
     }
 
-    public function isBuyer(): bool
+    public function isScholarship(): bool
     {
-        return $this->role === self::ROLE_BUYER;
+        return (int) $this->role === self::ROLE_SCHOLARSHIP;
     }
 
-    public function isPrivateSeller(): bool
+    public function isLibrary(): bool
     {
-        return $this->role === self::ROLE_PRIVATE_SELLER;
+        return (int) $this->role === self::ROLE_LIBRARY;
     }
 
-    public function student()
+    public function isStudent(): bool
     {
-        return $this->belongsTo(\App\Models\Student::class, 'student_id');
+        return (int) $this->role === self::ROLE_STUDENT;
     }
+
+    public function isCafeteria(): bool
+    {
+        return (int) $this->role === self::ROLE_CAFETERIA;
+    }
+
+    public function isFinance(): bool
+    {
+        return (int) $this->role === self::ROLE_FINANCE;
+    }
+
+    public function isTrainers(): bool
+    {
+        return (int) $this->role === self::ROLE_TRAINERS;
+    }
+
+    /**
+     * Alias for isTrainers() — singular reads more naturally in controllers.
+     */
+    public function isTrainer(): bool
+    {
+        return $this->isTrainers();
+    }
+
+    public function isWebsite(): bool
+    {
+        return (int) $this->role === self::ROLE_WEBSITE;
+    }
+
+    public function isIlo(): bool
+    {
+        return (int) $this->role === self::ROLE_ILO;
+    }
+
+    // ============================================================
+    // ROLE APPROVAL WORKFLOW
+    // ============================================================
 
     public function hasPendingRoleRequest(): bool
     {
@@ -149,144 +196,32 @@ class User extends Authenticatable implements MustVerifyEmail
             $this->requested_role = null;
         }
         $this->role_approval_status = self::ROLE_APPROVAL_APPROVED;
-        $this->role_approved_at = now();
-        $this->role_approved_by = $approvedBy;
+        $this->role_approved_at     = now();
+        $this->role_approved_by     = $approvedBy;
         $this->save();
     }
 
     public function rejectRoleChange(string $reason, int $rejectedBy): void
     {
-        $this->requested_role = null;
+        $this->requested_role       = null;
         $this->role_approval_status = self::ROLE_APPROVAL_REJECTED;
-        $this->role_approval_notes = $reason;
-        $this->role_approved_by = $rejectedBy;
-        $this->role_approved_at = now();
+        $this->role_approval_notes  = $reason;
+        $this->role_approved_by     = $rejectedBy;
+        $this->role_approved_at     = now();
         $this->save();
     }
 
-    public function getRoleProfile()
-    {
-        return match($this->role) {
-            self::ROLE_DEALER => $this->dealerProfile,
-            self::ROLE_PRIVATE_SELLER => $this->privateSellerProfile,
-            self::ROLE_BUYER => $this->buyerProfile,
-            self::ROLE_GARAGE => $this->garageProfile,
-            self::ROLE_INSPECTOR => $this->inspectorProfile,
-            self::ROLE_DRIVING_SCHOOL => $this->drivingSchoolProfile,
-            self::ROLE_INSURANCE => $this->insuranceProfile,
-            self::ROLE_FINANCING => $this->financingProfile,
-            default => $this->profile,
-        };
-    }
-
-    public function canCreatePosts(): bool
-    {
-        if (!in_array($this->role, [self::ROLE_DEALER, self::ROLE_PRIVATE_SELLER])) {
-            return false;
-        }
-
-        if (!$this->is_active || !$this->is_verified) {
-            return false;
-        }
-
-        if ($this->isDealer()) {
-            $dealerProfile = $this->dealerProfile;
-            return $dealerProfile && $dealerProfile->verification_status === 'approved';
-        }
-
-        if ($this->isPrivateSeller()) {
-            $sellerProfile = $this->privateSellerProfile;
-            return $sellerProfile && $sellerProfile->verification_status === 'fully_verified';
-        }
-
-        return false;
-    }
-
-    public function getPostCreationRoute(): ?string
-    {
-        if (!$this->canCreatePosts()) {
-            return null;
-        }
-
-        if ($this->isDealer()) {
-            return route('dealer.vehicles.create');
-        }
-
-        if ($this->isPrivateSeller()) {
-            return route('seller.vehicles.create');
-        }
-
-        return null;
-    }
-
-    public function getAvatarUrlAttribute(): string
-    {
-        if ($this->avatar) {
-            return asset('storage/' . $this->avatar);
-        }
-        if ($this->profile && $this->profile->avatar) {
-            return asset('storage/' . $this->profile->avatar);
-        }
-        return 'https://ui-avatars.com/api/?name=' . urlencode($this->name) . '&background=EE3131&color=fff';
-    }
-
-    // ============================================
+    // ============================================================
     // RELATIONSHIPS
-    // ============================================
+    // ============================================================
 
-    public function profile(): HasOne
+    /**
+     * The student record linked to this user account.
+     * One user → one student (users.student_id → students.id).
+     */
+    public function student(): BelongsTo
     {
-        return $this->hasOne(Profile::class);
-    }
-
-    public function dealerProfile(): HasOne
-    {
-        return $this->hasOne(DealerProfile::class);
-    }
-
-    public function privateSellerProfile(): HasOne
-    {
-        return $this->hasOne(PrivateSellerProfile::class);
-    }
-
-    public function buyerProfile(): HasOne
-    {
-        return $this->hasOne(BuyerProfile::class);
-    }
-
-    public function garageProfile(): HasOne
-    {
-        return $this->hasOne(GarageProfile::class);
-    }
-
-    public function inspectorProfile(): HasOne
-    {
-        return $this->hasOne(InspectorProfile::class);
-    }
-
-    public function drivingSchoolProfile(): HasOne
-    {
-        return $this->hasOne(DrivingSchoolProfile::class);
-    }
-
-    public function insuranceProfile(): HasOne
-    {
-        return $this->hasOne(InsuranceProfile::class);
-    }
-
-    public function financingProfile(): HasOne
-    {
-        return $this->hasOne(FinancingProfile::class);
-    }
-
-    public function kycDocuments(): HasMany
-    {
-        return $this->hasMany(KycDocument::class);
-    }
-
-    public function vehicles(): HasMany
-    {
-        return $this->hasMany(Vehicle::class);
+        return $this->belongsTo(Student::class, 'student_id');
     }
 
     public function blogs(): HasMany
@@ -299,18 +234,68 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(ContactMessage::class);
     }
 
-    public function verifiedKycDocuments(): HasMany
-    {
-        return $this->hasMany(KycDocument::class, 'verified_by');
-    }
-
-    public function verifiedDealerProfiles(): HasMany
-    {
-        return $this->hasMany(DealerProfile::class, 'verified_by');
-    }
-
     public function approvedRoleRequests(): HasMany
     {
         return $this->hasMany(User::class, 'role_approved_by');
+    }
+
+    /**
+     * Courses this user teaches (pivot: course_trainer).
+     */
+    public function coursesAsTrainer()
+    {
+        return $this->belongsToMany(Course::class, 'course_trainer')
+                    ->withPivot('role', 'is_active', 'assigned_by', 'assigned_at', 'notes')
+                    ->withTimestamps();
+    }
+
+    public function activeCoursesAsTrainer()
+    {
+        return $this->coursesAsTrainer()->wherePivot('is_active', true);
+    }
+
+    // ============================================================
+    // TRAINER HELPERS
+    // ============================================================
+
+    public function teachesCourse(int $courseId): bool
+    {
+        return $this->activeCoursesAsTrainer()
+                    ->where('courses.id', $courseId)
+                    ->exists();
+    }
+
+    public function trainerCourseIds(): array
+    {
+        return $this->activeCoursesAsTrainer()
+                    ->pluck('courses.id')
+                    ->all();
+    }
+
+    public function teachesAnyOf(array $courseIds): bool
+    {
+        if (empty($courseIds)) {
+            return false;
+        }
+
+        return $this->activeCoursesAsTrainer()
+                    ->whereIn('courses.id', $courseIds)
+                    ->exists();
+    }
+
+    // ============================================================
+    // AVATAR HELPER
+    // ============================================================
+
+    public function getAvatarUrlAttribute(): string
+    {
+        $path = $this->profile_picture ?? $this->avatar ?? null;
+
+        if ($path) {
+            return asset('storage/' . $path);
+        }
+
+        return 'https://ui-avatars.com/api/?name=' . urlencode($this->name ?? 'User')
+             . '&background=B91C1C&color=fff';
     }
 }

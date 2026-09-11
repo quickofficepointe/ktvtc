@@ -32,7 +32,9 @@
 @endsection
 
 @section('content')
-<!-- Statistics Cards -->
+{{-- ═══════════════════════════════════════════════════════════ --}}
+{{-- STATS --}}
+{{-- ═══════════════════════════════════════════════════════════ --}}
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
     <div class="bg-white rounded-xl border border-gray-200 p-6 card-hover">
         <div class="flex items-center justify-between">
@@ -83,7 +85,9 @@
     </div>
 </div>
 
-<!-- Search and Filters -->
+{{-- ═══════════════════════════════════════════════════════════ --}}
+{{-- FILTERS --}}
+{{-- ═══════════════════════════════════════════════════════════ --}}
 <div class="bg-white rounded-xl border border-gray-200 p-4 mb-6">
     <form method="GET" action="{{ route('admin.users.index') }}" class="flex flex-wrap items-end gap-3">
         <div class="flex-1 min-w-[200px]">
@@ -131,7 +135,9 @@
     </form>
 </div>
 
-<!-- Users Table -->
+{{-- ═══════════════════════════════════════════════════════════ --}}
+{{-- USERS TABLE --}}
+{{-- ═══════════════════════════════════════════════════════════ --}}
 <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
     <div class="px-6 py-4 border-b border-gray-200">
         <div class="flex items-center justify-between">
@@ -141,7 +147,7 @@
                     Showing {{ $users->firstItem() ?? 0 }} to {{ $users->lastItem() ?? 0 }} of {{ $users->total() ?? 0 }} users
                 </p>
             </div>
-            <button onclick="refreshTable()" class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+            <button onclick="refreshTable()" class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="Refresh">
                 <i class="fas fa-sync-alt"></i>
             </button>
         </div>
@@ -156,11 +162,10 @@
                     </th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profile</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name / Details</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registered</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
@@ -174,56 +179,126 @@
                         <span class="text-sm font-mono text-gray-600">#{{ str_pad($user->id, 5, '0', STR_PAD_LEFT) }}</span>
                     </td>
                     <td class="px-4 py-3 whitespace-nowrap">
-                        <img src="{{ $user->profile_picture ? asset('storage/'.$user->profile_picture) : 'https://ui-avatars.com/api/?name=' . urlencode($user->name) . '&background=B91C1C&color=fff' }}" class="w-8 h-8 rounded-full object-cover border border-gray-200">
+                        <img src="{{ $user->profile_picture ? asset('storage/'.$user->profile_picture) : 'https://ui-avatars.com/api/?name=' . urlencode($user->name) . '&background=B91C1C&color=fff' }}" class="w-9 h-9 rounded-full object-cover border border-gray-200">
                     </td>
+
+                    {{-- NAME + STUDENT INFO --}}
                     <td class="px-4 py-3">
                         <div>
-                            <p class="font-medium text-gray-800">{{ $user->name }}</p>
-                            @if($user->bio)
-                            <p class="text-xs text-gray-500 mt-1">{{ Str::limit($user->bio, 50) }}</p>
+                            <div class="flex items-center gap-2">
+                                <p class="font-medium text-gray-800">{{ $user->name }}</p>
+                                @if($user->email_verified_at)
+                                    <i class="fas fa-circle-check text-green-500 text-xs" title="Email verified"></i>
+                                @else
+                                    <i class="fas fa-clock text-yellow-500 text-xs" title="Email not verified"></i>
+                                @endif
+                            </div>
+
+                            <a href="mailto:{{ $user->email }}" class="text-xs text-primary hover:text-primary-dark">{{ $user->email }}</a>
+
+                            @if($user->phone_number)
+                                <p class="text-xs text-gray-500 mt-0.5">
+                                    <i class="fas fa-phone mr-1 text-gray-400"></i>{{ $user->phone_number }}
+                                </p>
+                            @endif
+
+                            @if($user->role == 5 && !empty($user->student_profile) && ($user->student_profile['exists'] ?? false))
+                                @php $profile = $user->student_profile; @endphp
+                                <div class="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+                                    @if(!empty($profile['student_number']))
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-mono">
+                                            <i class="fas fa-id-card mr-1 text-gray-400"></i>
+                                            {{ $profile['student_number'] }}
+                                        </span>
+                                    @endif
+
+                                    @if(!empty($profile['course_name']))
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">
+                                            <i class="fas fa-book mr-1"></i>
+                                            {{ $profile['course_name'] }}
+                                            @if(!empty($profile['course_code']))
+                                                <span class="ml-1 text-indigo-400 font-mono">({{ $profile['course_code'] }})</span>
+                                            @endif
+                                        </span>
+                                    @endif
+
+                                    @if(($profile['enrollment_status'] ?? '') === 'enrolled')
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded bg-green-100 text-green-700 font-semibold">
+                                            <i class="fas fa-user-check mr-1"></i> Enrolled
+                                        </span>
+                                    @elseif(($profile['enrollment_status'] ?? '') === 'finished')
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-semibold">
+                                            <i class="fas fa-graduation-cap mr-1"></i> Finished
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded bg-gray-100 text-gray-500">
+                                            <i class="fas fa-user-slash mr-1"></i> Not enrolled
+                                        </span>
+                                    @endif
+                                </div>
+                            @elseif($user->role == 5)
+                                <div class="mt-1 text-xs text-gray-400 italic">No student profile linked</div>
                             @endif
                         </div>
                     </td>
-                    <td class="px-4 py-3">
-                        <div>
-                            <a href="mailto:{{ $user->email }}" class="text-primary hover:text-primary-dark text-sm">{{ $user->email }}</a>
-                            <div class="flex items-center mt-1">
-                                @if($user->email_verified_at)
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                                    <i class="fas fa-check-circle mr-1 text-xs"></i> Verified
-                                </span>
-                                @else
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                                    <i class="fas fa-clock mr-1 text-xs"></i> Unverified
-                                </span>
-                                @endif
-                            </div>
-                        </div>
-                    </td>
+
                     <td class="px-4 py-3 whitespace-nowrap">
                         @php
-                            $roleColors = [1 => 'bg-purple-100 text-purple-800', 2 => 'bg-red-100 text-red-800', 3 => 'bg-green-100 text-green-800', 4 => 'bg-blue-100 text-blue-800', 5 => 'bg-indigo-100 text-indigo-800', 6 => 'bg-pink-100 text-pink-800', 7 => 'bg-yellow-100 text-yellow-800', 8 => 'bg-gray-100 text-gray-800', 9 => 'bg-teal-100 text-teal-800'];
-                            $roleNames = [1 => 'Main School', 2 => 'Admin', 3 => 'Scholarship', 4 => 'Library', 5 => 'Student', 6 => 'Cafeteria', 7 => 'Finance', 8 => 'Trainers', 9 => 'Website'];
+                            $roleColors = [
+                                1  => 'bg-purple-100 text-purple-800',
+                                2  => 'bg-red-100 text-red-800',
+                                3  => 'bg-green-100 text-green-800',
+                                4  => 'bg-blue-100 text-blue-800',
+                                5  => 'bg-indigo-100 text-indigo-800',
+                                6  => 'bg-pink-100 text-pink-800',
+                                7  => 'bg-yellow-100 text-yellow-800',
+                                8  => 'bg-gray-100 text-gray-800',
+                                9  => 'bg-teal-100 text-teal-800',
+                                10 => 'bg-emerald-100 text-emerald-800',
+                            ];
+                            $roleNames = [
+                                1  => 'Main School',
+                                2  => 'Admin',
+                                3  => 'Scholarship',
+                                4  => 'Library',
+                                5  => 'Student',
+                                6  => 'Cafeteria',
+                                7  => 'Finance',
+                                8  => 'Trainers',
+                                9  => 'Website',
+                                10 => 'ILO',
+                            ];
                         @endphp
                         <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $roleColors[$user->role] ?? 'bg-gray-100 text-gray-800' }}">
                             {{ $roleNames[$user->role] ?? 'Unknown' }}
                         </span>
                     </td>
+
                     <td class="px-4 py-3 whitespace-nowrap">
                         @if($user->is_approved)
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            <i class="fas fa-check-circle mr-1"></i> Active
-                        </span>
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <i class="fas fa-check-circle mr-1"></i> Active
+                            </span>
                         @else
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                            <i class="fas fa-clock mr-1"></i> Pending
-                        </span>
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                <i class="fas fa-clock mr-1"></i> Pending
+                            </span>
                         @endif
                     </td>
+
+                    {{-- LAST LOGIN --}}
                     <td class="px-4 py-3 whitespace-nowrap">
-                        <div class="text-sm text-gray-600">{{ $user->created_at->format('M j, Y') }}</div>
-                        <div class="text-xs text-gray-400">{{ $user->created_at->format('g:i A') }}</div>
+                        @if($user->last_login_at)
+                            <div class="text-sm text-gray-700">{{ $user->last_login_at->format('M j, Y') }}</div>
+                            <div class="text-xs text-gray-400">{{ $user->last_login_at->diffForHumans() }}</div>
+                        @else
+                            <span class="text-xs text-gray-400 italic">Never logged in</span>
+                        @endif
+                        <div class="text-xs text-gray-400 mt-0.5">
+                            Registered {{ $user->created_at?->format('M j, Y') ?? '—' }}
+                        </div>
                     </td>
+
                     <td class="px-4 py-3 whitespace-nowrap">
                         <div class="flex items-center space-x-1">
                             <button onclick="viewUser({{ $user->id }})" class="p-1.5 text-gray-600 hover:text-primary hover:bg-gray-100 rounded-lg transition-colors" title="View Details">
@@ -247,11 +322,11 @@
                                             <i class="fas fa-power-off mr-2"></i> {{ $user->is_approved ? 'Deactivate' : 'Activate' }}
                                         </button>
                                         <div class="border-t border-gray-200 my-1"></div>
-                                        <button onclick="openResetPasswordModal('{{ $user->id }}', '{{ $user->name }}', '{{ $user->phone_number }}')" class="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-50 flex items-center">
+                                        <button onclick="openResetPasswordModal('{{ $user->id }}', '{{ addslashes($user->name) }}', '{{ $user->phone_number }}')" class="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-50 flex items-center">
                                             <i class="fas fa-key mr-2"></i> Reset Password
                                         </button>
                                         @if($user->phone_number)
-                                        <button onclick="resetPasswordWithSms('{{ $user->id }}', '{{ $user->name }}', '{{ $user->phone_number }}')" class="w-full text-left px-4 py-2 text-sm text-indigo-600 hover:bg-gray-50 flex items-center">
+                                        <button onclick="resetPasswordWithSms('{{ $user->id }}', '{{ addslashes($user->name) }}', '{{ $user->phone_number }}')" class="w-full text-left px-4 py-2 text-sm text-indigo-600 hover:bg-gray-50 flex items-center">
                                             <i class="fas fa-sms mr-2"></i> Reset & Send SMS
                                         </button>
                                         @endif
@@ -267,7 +342,11 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="9" class="px-4 py-8 text-center text-gray-500">No users found</td>
+                    <td colspan="8" class="px-4 py-12 text-center text-gray-500">
+                        <i class="fas fa-users-slash text-4xl text-gray-300 mb-3"></i>
+                        <p class="text-lg font-semibold">No users found</p>
+                        <p class="text-sm text-gray-400">Try adjusting your filters</p>
+                    </td>
                 </tr>
                 @endforelse
             </tbody>
@@ -286,7 +365,9 @@
     </div>
 </div>
 
-<!-- Bulk Actions -->
+{{-- ═══════════════════════════════════════════════════════════ --}}
+{{-- BULK ACTIONS BAR --}}
+{{-- ═══════════════════════════════════════════════════════════ --}}
 <div class="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white rounded-lg shadow-lg border border-gray-200 p-4 hidden" id="bulkActions">
     <div class="flex items-center space-x-4">
         <span class="text-sm font-medium text-gray-700" id="selectedCount">0 users selected</span>
@@ -304,11 +385,11 @@
     </div>
 </div>
 
-<!-- ============================================================ -->
-<!-- ALL MODALS -->
-<!-- ============================================================ -->
+{{-- ═══════════════════════════════════════════════════════════ --}}
+{{-- MODALS --}}
+{{-- ═══════════════════════════════════════════════════════════ --}}
 
-<!-- Add User Modal -->
+{{-- Add User Modal --}}
 <div id="addUserModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4">
         <div class="fixed inset-0 bg-black/50 modal-overlay" onclick="closeModal('addUserModal')"></div>
@@ -320,13 +401,20 @@
             <form action="{{ route('admin.users.store') }}" method="POST">
                 @csrf
                 <div class="space-y-4">
-                    <div><label class="block text-sm font-medium text-gray-700">Full Name <span class="text-red-500">*</span></label>
-                        <input type="text" name="name" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"></div>
-                    <div><label class="block text-sm font-medium text-gray-700">Email <span class="text-red-500">*</span></label>
-                        <input type="email" name="email" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"></div>
-                    <div><label class="block text-sm font-medium text-gray-700">Phone Number</label>
-                        <input type="text" name="phone_number" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"></div>
-                    <div><label class="block text-sm font-medium text-gray-700">Role <span class="text-red-500">*</span></label>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Full Name <span class="text-red-500">*</span></label>
+                        <input type="text" name="name" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Email <span class="text-red-500">*</span></label>
+                        <input type="email" name="email" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Phone Number</label>
+                        <input type="text" name="phone_number" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Role <span class="text-red-500">*</span></label>
                         <select name="role" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary">
                             <option value="">Select Role</option>
                             @foreach($roleNames ?? [] as $key => $name)
@@ -334,7 +422,8 @@
                             @endforeach
                         </select>
                     </div>
-                    <div><label class="block text-sm font-medium text-gray-700">Bio</label>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Bio</label>
                         <textarea name="bio" rows="3" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary"></textarea>
                     </div>
                 </div>
@@ -347,17 +436,17 @@
     </div>
 </div>
 
-<!-- View User Modal -->
+{{-- View User Modal --}}
 <div id="viewUserModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
-    <div class="flex items-center justify-center min-h-screen px-4">
+    <div class="flex items-center justify-center min-h-screen px-4 py-8">
         <div class="fixed inset-0 bg-black/50 modal-overlay" onclick="closeModal('viewUserModal')"></div>
-        <div class="relative bg-white rounded-xl max-w-2xl w-full p-6 shadow-2xl">
+        <div class="relative bg-white rounded-xl max-w-3xl w-full shadow-2xl overflow-hidden">
             <div id="viewUserContent">
-                <div class="flex justify-between items-center mb-4">
+                <div class="flex justify-between items-center p-6 border-b">
                     <h3 class="text-xl font-bold">User Details</h3>
                     <button onclick="closeModal('viewUserModal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
                 </div>
-                <div class="flex justify-center py-8">
+                <div class="flex justify-center py-16">
                     <div class="loading-spinner"></div>
                 </div>
             </div>
@@ -365,7 +454,7 @@
     </div>
 </div>
 
-<!-- Edit User Modal -->
+{{-- Edit User Modal --}}
 <div id="editUserModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4">
         <div class="fixed inset-0 bg-black/50 modal-overlay" onclick="closeModal('editUserModal')"></div>
@@ -383,7 +472,7 @@
     </div>
 </div>
 
-<!-- Approve Role Modal -->
+{{-- Approve Role Modal --}}
 <div id="approveRoleModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4">
         <div class="fixed inset-0 bg-black/50 modal-overlay" onclick="closeApproveRoleModal()"></div>
@@ -413,7 +502,7 @@
     </div>
 </div>
 
-<!-- Reset Password Modal -->
+{{-- Reset Password Modal --}}
 <div id="resetPasswordModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4">
         <div class="fixed inset-0 bg-black/50 modal-overlay" onclick="closeModal('resetPasswordModal')"></div>
@@ -448,7 +537,7 @@
     </div>
 </div>
 
-<!-- Delete Modal -->
+{{-- Delete Modal --}}
 <div id="deleteModal" class="hidden fixed inset-0 z-50 overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4">
         <div class="fixed inset-0 bg-black/50 modal-overlay" onclick="closeModal('deleteModal')"></div>
@@ -470,48 +559,50 @@
     </div>
 </div>
 
-<!-- Toast Container -->
+{{-- Toast Container --}}
 <div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2"></div>
 
-<!-- ============================================================ -->
-<!-- SCRIPTS -->
-<!-- ============================================================ -->
-
+{{-- ═══════════════════════════════════════════════════════════ --}}
+{{-- SCRIPTS --}}
+{{-- ═══════════════════════════════════════════════════════════ --}}
 <script>
-    // CSRF Token
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     let currentApprovingUserId = null;
     let currentResetUserId = null;
 
-    // Role descriptions
+    const roleNames = {
+        1:  'Main School',
+        2:  'Admin',
+        3:  'Scholarship',
+        4:  'Library',
+        5:  'Student',
+        6:  'Cafeteria',
+        7:  'Finance',
+        8:  'Trainers',
+        9:  'Website',
+        10: 'ILO',
+    };
+
     const roleDescriptions = {
-        1: 'Main School dashboard - Manage courses, students, certificates, and academic operations',
-        2: 'Administrator dashboard - Full system access, user management, and settings',
-        3: 'Scholarship dashboard - Manage scholarship applications and awards',
-        4: 'Library dashboard - Manage books, ebooks, members, and library operations',
-        5: 'Student dashboard - View courses, enrollments, fees, and academic progress',
-        6: 'Cafeteria dashboard - Manage products, sales, inventory, and orders',
-        7: 'Finance dashboard - Manage payments, transactions, and financial reports',
-        8: 'Trainers dashboard - Manage training programs and participant registrations',
-        9: 'Website dashboard - Manage content, pages, blogs, and website settings'
+        1:  'Main School dashboard — Manage courses, students, certificates, and academic operations',
+        2:  'Administrator dashboard — Full system access, user management, and settings',
+        3:  'Scholarship dashboard — Manage scholarship applications and awards',
+        4:  'Library dashboard — Manage books, ebooks, members, and library operations',
+        5:  'Student dashboard — View courses, enrollments, fees, and academic progress',
+        6:  'Cafeteria dashboard — Manage products, sales, inventory, and orders',
+        7:  'Finance dashboard — Manage payments, transactions, and financial reports',
+        8:  'Trainers dashboard — Manage training programs and participant registrations',
+        9:  'Website dashboard — Manage content, pages, blogs, and website settings',
+        10: 'Industrial Liaison Office — Manage host companies, attachment opportunities, applications, and student placements',
     };
 
     // ============================================
-    // MODAL FUNCTIONS
+    // MODAL HELPERS
     // ============================================
 
-    function openModal(modalId, size = 'md') {
+    function openModal(modalId) {
         const modal = document.getElementById(modalId);
         if (!modal) return;
-
-        const content = modal.querySelector('.relative');
-        if (content) {
-            content.className = `relative bg-white rounded-xl shadow-2xl p-6 w-full`;
-            if (size === 'lg') content.classList.add('max-w-2xl');
-            else if (size === 'xl') content.classList.add('max-w-4xl');
-            else content.classList.add('max-w-md');
-        }
-
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
     }
@@ -520,21 +611,342 @@
         const modal = document.getElementById(modalId);
         if (modal) {
             modal.classList.add('hidden');
-            document.body.style.overflow = 'auto';
+            document.body.style.overflow = '';
         }
     }
 
     function closeApproveRoleModal() {
-        const modal = document.getElementById('approveRoleModal');
-        if (modal) {
-            modal.classList.add('hidden');
-            document.body.style.overflow = 'auto';
-            currentApprovingUserId = null;
+        closeModal('approveRoleModal');
+        currentApprovingUserId = null;
+    }
+
+    // ============================================
+    // VIEW USER
+    // ============================================
+
+    function viewUser(userId) {
+        openModal('viewUserModal');
+        const content = document.getElementById('viewUserContent');
+        if (!content) return;
+
+        content.innerHTML = `
+            <div class="flex justify-between items-center p-6 border-b">
+                <h3 class="text-xl font-bold">User Details</h3>
+                <button onclick="closeModal('viewUserModal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex justify-center py-16">
+                <div class="loading-spinner"></div>
+            </div>
+        `;
+
+        fetch(`/admin/users/${userId}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        })
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(user => renderUserDetails(user))
+        .catch(() => {
+            content.innerHTML = `
+                <div class="flex justify-between items-center p-6 border-b">
+                    <h3 class="text-xl font-bold">User Details</h3>
+                    <button onclick="closeModal('viewUserModal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="p-8 text-center text-red-500">
+                    <i class="fas fa-exclamation-circle text-3xl mb-2"></i>
+                    <p>Failed to load user details.</p>
+                </div>
+            `;
+        });
+    }
+
+    function renderUserDetails(user) {
+        const content = document.getElementById('viewUserContent');
+        if (!content) return;
+
+        const roleColor = {
+            1:  'bg-purple-100 text-purple-800',
+            2:  'bg-red-100 text-red-800',
+            3:  'bg-green-100 text-green-800',
+            4:  'bg-blue-100 text-blue-800',
+            5:  'bg-indigo-100 text-indigo-800',
+            6:  'bg-pink-100 text-pink-800',
+            7:  'bg-yellow-100 text-yellow-800',
+            8:  'bg-gray-100 text-gray-800',
+            9:  'bg-teal-100 text-teal-800',
+            10: 'bg-emerald-100 text-emerald-800'
+        }[user.role] || 'bg-gray-100 text-gray-800';
+
+        const avatar = user.profile_picture
+            ? `/storage/${user.profile_picture}`
+            : `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'User')}&background=B91C1C&color=fff&size=120`;
+
+        let studentSection = '';
+        if (user.role == 5) {
+            const hasProfile = user.student_profile && user.student_profile.exists;
+
+            if (hasProfile) {
+                const p = user.student_profile;
+                const statusBadge =
+                    p.enrollment_status === 'enrolled'
+                        ? `<span class="inline-flex items-center px-2 py-0.5 rounded bg-green-100 text-green-700 font-semibold text-xs"><i class="fas fa-user-check mr-1"></i> Enrolled</span>`
+                    : p.enrollment_status === 'finished'
+                        ? `<span class="inline-flex items-center px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-semibold text-xs"><i class="fas fa-graduation-cap mr-1"></i> Finished</span>`
+                        : `<span class="inline-flex items-center px-2 py-0.5 rounded bg-gray-100 text-gray-500 text-xs"><i class="fas fa-user-slash mr-1"></i> Not enrolled</span>`;
+
+                studentSection = `
+                    <div class="border-t border-gray-200 pt-4 mt-4">
+                        <h4 class="text-sm font-bold text-gray-700 mb-3 flex items-center">
+                            <i class="fas fa-graduation-cap mr-2 text-primary"></i> Student Information
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                            <div>
+                                <p class="text-xs text-gray-500">Student Number</p>
+                                <p class="font-mono font-semibold text-gray-800">${escapeHtml(p.student_number) || '—'}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500">Course</p>
+                                <p class="font-semibold text-gray-800">
+                                    ${escapeHtml(p.course_name) || '—'}
+                                    ${p.course_code ? `<span class="text-gray-400 font-mono text-xs">(${escapeHtml(p.course_code)})</span>` : ''}
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500">Enrollment Status</p>
+                                <p class="mt-0.5">${statusBadge}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                studentSection = `
+                    <div class="border-t border-gray-200 pt-4 mt-4">
+                        <h4 class="text-sm font-bold text-gray-700 mb-2 flex items-center">
+                            <i class="fas fa-graduation-cap mr-2 text-primary"></i> Student Information
+                        </h4>
+                        <p class="text-sm text-gray-400 italic">No student profile linked to this account.</p>
+                    </div>
+                `;
+            }
+        }
+
+        content.innerHTML = `
+            <div class="flex justify-between items-center p-6 border-b">
+                <h3 class="text-xl font-bold">User Details</h3>
+                <button onclick="closeModal('viewUserModal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+            </div>
+
+            <div class="p-6 max-h-[75vh] overflow-y-auto">
+
+                <div class="flex flex-col md:flex-row items-center md:items-start gap-5">
+                    <img src="${avatar}" class="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md" alt="Avatar">
+                    <div class="flex-1 text-center md:text-left">
+                        <h4 class="text-2xl font-bold text-gray-800">${escapeHtml(user.name) || 'Unnamed'}</h4>
+                        <p class="text-gray-500 mt-1">
+                            <i class="fas fa-envelope mr-1"></i>${escapeHtml(user.email) || 'No email'}
+                            ${user.email_verified_at
+                                ? `<span class="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs"><i class="fas fa-check-circle mr-1"></i>Verified</span>`
+                                : `<span class="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-yellow-100 text-yellow-700 text-xs"><i class="fas fa-clock mr-1"></i>Unverified</span>`}
+                        </p>
+                        <div class="flex flex-wrap gap-2 mt-2 justify-center md:justify-start">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${roleColor}">
+                                <i class="fas fa-user-tag mr-1"></i>${roleNames[user.role] || 'Unknown'}
+                            </span>
+                            ${user.is_approved
+                                ? `<span class="inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-800 text-xs font-semibold"><i class="fas fa-check-circle mr-1"></i>Active</span>`
+                                : `<span class="inline-flex items-center px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold"><i class="fas fa-clock mr-1"></i>Pending Approval</span>`}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border-t border-gray-200 pt-4 mt-6">
+                    <h4 class="text-sm font-bold text-gray-700 mb-3 flex items-center">
+                        <i class="fas fa-user mr-2 text-primary"></i> Account Information
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                        <div>
+                            <p class="text-xs text-gray-500">User ID</p>
+                            <p class="font-mono font-semibold text-gray-800">#${String(user.id).padStart(5, '0')}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Phone Number</p>
+                            <p class="font-semibold text-gray-800">${escapeHtml(user.phone_number) || '—'}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Registered On</p>
+                            <p class="font-semibold text-gray-800">${user.created_at ? new Date(user.created_at).toLocaleString() : '—'}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Last Updated</p>
+                            <p class="font-semibold text-gray-800">${user.updated_at ? new Date(user.updated_at).toLocaleString() : '—'}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Last Login</p>
+                            <p class="font-semibold text-gray-800">
+                                ${user.last_login_at
+                                    ? `${new Date(user.last_login_at).toLocaleString()} <span class="text-xs text-gray-400">(${timeAgo(user.last_login_at)})</span>`
+                                    : '<span class="italic text-gray-400">Never logged in</span>'}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-gray-500">Last Login IP</p>
+                            <p class="font-mono text-gray-800">${escapeHtml(user.last_login_ip) || '—'}</p>
+                        </div>
+                    </div>
+                </div>
+
+                ${studentSection}
+
+                ${user.bio ? `
+                    <div class="border-t border-gray-200 pt-4 mt-4">
+                        <h4 class="text-sm font-bold text-gray-700 mb-2 flex items-center">
+                            <i class="fas fa-quote-left mr-2 text-primary"></i> Bio
+                        </h4>
+                        <p class="text-sm text-gray-700">${escapeHtml(user.bio)}</p>
+                    </div>
+                ` : ''}
+
+            </div>
+
+            <div class="px-6 py-4 border-t bg-gray-50 flex justify-end">
+                <button onclick="closeModal('viewUserModal')" class="px-4 py-2 border rounded-lg hover:bg-white transition">Close</button>
+            </div>
+        `;
+    }
+
+    // ============================================
+    // EDIT USER
+    // ============================================
+
+    function editUser(userId) {
+        openModal('editUserModal');
+        const content = document.getElementById('editUserContent');
+        if (!content) return;
+
+        content.innerHTML = `
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">Edit User</h3>
+                <button onclick="closeModal('editUserModal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex justify-center py-8">
+                <div class="loading-spinner"></div>
+            </div>
+        `;
+
+        fetch(`/admin/users/${userId}/edit`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        })
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(user => renderEditForm(user))
+        .catch(() => {
+            content.innerHTML = `
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold">Edit User</h3>
+                    <button onclick="closeModal('editUserModal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="py-8 text-center text-red-500">Failed to load edit form</div>
+            `;
+        });
+    }
+
+    function renderEditForm(user) {
+        const content = document.getElementById('editUserContent');
+        if (!content) return;
+
+        content.innerHTML = `
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">Edit User</h3>
+                <button onclick="closeModal('editUserModal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="editUserForm" method="POST" action="/admin/users/${user.id}">
+                <input type="hidden" name="_token" value="${csrfToken}">
+                <input type="hidden" name="_method" value="PUT">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block font-medium mb-1 text-sm">Full Name</label>
+                        <input type="text" name="name" value="${escapeHtml(user.name)}" class="w-full border rounded-lg px-3 py-2" required>
+                    </div>
+                    <div>
+                        <label class="block font-medium mb-1 text-sm">Email</label>
+                        <input type="email" name="email" value="${escapeHtml(user.email)}" class="w-full border rounded-lg px-3 py-2" required>
+                    </div>
+                    <div>
+                        <label class="block font-medium mb-1 text-sm">Phone Number</label>
+                        <input type="text" name="phone_number" value="${escapeHtml(user.phone_number) || ''}" class="w-full border rounded-lg px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block font-medium mb-1 text-sm">Role</label>
+                        <select name="role" class="w-full border rounded-lg px-3 py-2">
+                            ${Object.entries(roleNames).map(([val, label]) =>
+                                `<option value="${val}" ${user.role == val ? 'selected' : ''}>${label}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-medium mb-1 text-sm">Bio</label>
+                        <textarea name="bio" rows="3" class="w-full border rounded-lg px-3 py-2">${escapeHtml(user.bio) || ''}</textarea>
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" onclick="closeModal('editUserModal')" class="px-4 py-2 border rounded-lg">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark">Update User</button>
+                </div>
+            </form>
+        `;
+
+        document.getElementById('editUserForm')?.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            fetch(this.action, { method: 'POST', body: formData })
+                .then(response => {
+                    if (response.ok) {
+                        showToast('User updated successfully', 'success');
+                        closeModal('editUserModal');
+                        setTimeout(() => location.reload(), 800);
+                    } else {
+                        showToast('Error updating user', 'error');
+                    }
+                });
+        });
+    }
+
+    // ============================================
+    // APPROVE USER
+    // ============================================
+
+    function approveUser(userId) {
+        currentApprovingUserId = userId;
+        const roleSelect = document.getElementById('approveRoleSelect');
+        const roleDescription = document.getElementById('roleDescription');
+        if (roleSelect) roleSelect.value = '';
+        if (roleDescription) roleDescription.classList.add('hidden');
+        openModal('approveRoleModal');
+    }
+
+    function submitApprovalWithRole() {
+        const roleSelect = document.getElementById('approveRoleSelect');
+        const selectedRole = roleSelect ? roleSelect.value : null;
+
+        if (!selectedRole) {
+            showToast('Please select a role for this user', 'warning');
+            roleSelect?.focus();
+            return;
+        }
+
+        if (currentApprovingUserId) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `/admin/users/${currentApprovingUserId}/approve`;
+            form.innerHTML = `
+                <input type="hidden" name="_token" value="${csrfToken}">
+                <input type="hidden" name="_method" value="PUT">
+                <input type="hidden" name="role" value="${selectedRole}">
+            `;
+            document.body.appendChild(form);
+            form.submit();
         }
     }
 
     // ============================================
-    // PASSWORD RESET FUNCTIONS
+    // PASSWORD RESET
     // ============================================
 
     function generateRandomPassword() {
@@ -549,47 +961,32 @@
 
     function generateRandomPasswordField() {
         const passwordField = document.getElementById('resetNewPassword');
-        if (passwordField) {
-            passwordField.value = generateRandomPassword();
-        }
+        if (passwordField) passwordField.value = generateRandomPassword();
     }
 
     function openResetPasswordModal(userId, userName, userPhone) {
         currentResetUserId = userId;
+        document.getElementById('resetUserDisplay').textContent = userName;
+        document.getElementById('resetUserPhone').textContent = userPhone ? `Phone: ${userPhone}` : 'No phone number registered';
+        document.getElementById('resetNewPassword').value = generateRandomPassword();
 
-        const userDisplay = document.getElementById('resetUserDisplay');
-        const userPhoneDisplay = document.getElementById('resetUserPhone');
-        const passwordField = document.getElementById('resetNewPassword');
         const smsCheckbox = document.getElementById('sendSmsCheckbox');
-
-        if (userDisplay) userDisplay.textContent = userName;
-        if (userPhoneDisplay) userPhoneDisplay.textContent = userPhone ? `Phone: ${userPhone}` : 'No phone number registered';
-        if (passwordField) passwordField.value = generateRandomPassword();
-
         if (smsCheckbox) {
-            if (userPhone) {
-                smsCheckbox.disabled = false;
-                smsCheckbox.checked = true;
-            } else {
-                smsCheckbox.disabled = true;
-                smsCheckbox.checked = false;
-            }
+            smsCheckbox.disabled = !userPhone;
+            smsCheckbox.checked = !!userPhone;
         }
 
-        openModal('resetPasswordModal', 'md');
+        openModal('resetPasswordModal');
     }
 
     function submitResetPassword() {
-        const passwordField = document.getElementById('resetNewPassword');
-        const password = passwordField ? passwordField.value : '';
-
+        const password = document.getElementById('resetNewPassword')?.value || '';
         if (password.length < 8) {
             showToast('Password must be at least 8 characters long.', 'warning');
             return;
         }
 
-        const smsCheckbox = document.getElementById('sendSmsCheckbox');
-        const sendSms = smsCheckbox ? smsCheckbox.checked : false;
+        const sendSms = document.getElementById('sendSmsCheckbox')?.checked || false;
 
         if (confirm(`Reset password for this user?${sendSms ? ' SMS will be sent.' : ''}`)) {
             const form = document.createElement('form');
@@ -611,7 +1008,6 @@
     function resetPasswordWithSms(userId, userName, phoneNumber) {
         if (confirm(`Reset password for ${userName} and send SMS to ${phoneNumber}?`)) {
             const newPassword = generateRandomPassword();
-
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = `/admin/users/${userId}/reset-password`;
@@ -627,14 +1023,12 @@
         }
     }
 
-    // Bulk Reset Passwords
     function applyBulkResetPassword() {
         const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
         if (selectedIds.length === 0) {
             showToast('Please select at least one user', 'warning');
             return;
         }
-
         const sendSms = confirm(`Send SMS notifications to ${selectedIds.length} selected users?`);
         const newPassword = generateRandomPassword();
 
@@ -654,256 +1048,13 @@
     }
 
     // ============================================
-    // APPROVE USER FUNCTIONS
-    // ============================================
-
-    function approveUser(userId) {
-        currentApprovingUserId = userId;
-        const modal = document.getElementById('approveRoleModal');
-        if (modal) {
-            modal.classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
-            const roleSelect = document.getElementById('approveRoleSelect');
-            const roleDescription = document.getElementById('roleDescription');
-            if (roleSelect) roleSelect.value = '';
-            if (roleDescription) roleDescription.classList.add('hidden');
-        }
-    }
-
-    function submitApprovalWithRole() {
-        const roleSelect = document.getElementById('approveRoleSelect');
-        const selectedRole = roleSelect ? roleSelect.value : null;
-
-        if (!selectedRole) {
-            showToast('Please select a role for this user', 'warning');
-            if (roleSelect) roleSelect.focus();
-            return;
-        }
-
-        if (currentApprovingUserId) {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = `/admin/users/${currentApprovingUserId}/approve`;
-            form.innerHTML = `
-                <input type="hidden" name="_token" value="${csrfToken}">
-                <input type="hidden" name="_method" value="PUT">
-                <input type="hidden" name="role" value="${selectedRole}">
-            `;
-            document.body.appendChild(form);
-            form.submit();
-        }
-    }
-
-    // ============================================
-    // VIEW / EDIT USER FUNCTIONS
-    // ============================================
-
-    function viewUser(userId) {
-        openModal('viewUserModal', 'lg');
-        const content = document.getElementById('viewUserContent');
-        if (!content) return;
-
-        content.innerHTML = `
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold">User Details</h3>
-                <button onclick="closeModal('viewUserModal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
-            </div>
-            <div class="flex justify-center py-8">
-                <div class="loading-spinner"></div>
-            </div>
-        `;
-
-        fetch(`/admin/users/${userId}`, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-        })
-        .then(response => {
-            if (!response.ok) throw new Error('Failed to load user data');
-            return response.json();
-        })
-        .then(user => {
-            displayUserInModal(user);
-        })
-        .catch(error => {
-            if (content) {
-                content.innerHTML = `<div class="text-center py-8 text-red-500">Error loading user data</div>`;
-            }
-        });
-    }
-
-    function displayUserInModal(user) {
-        const roleNames = { 1: 'Main School', 2: 'Admin', 3: 'Scholarship', 4: 'Library', 5: 'Student', 6: 'Cafeteria', 7: 'Finance', 8: 'Trainers', 9: 'Website' };
-        const content = document.getElementById('viewUserContent');
-        if (!content) return;
-
-        const html = `
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold">User Details</h3>
-                <button onclick="closeModal('viewUserModal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
-            </div>
-            <div class="space-y-4">
-                <div class="flex items-center space-x-4">
-                    <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=B91C1C&color=fff&size=100" class="w-20 h-20 rounded-full">
-                    <div>
-                        <h4 class="text-xl font-bold">${escapeHtml(user.name)}</h4>
-                        <p class="text-gray-600">${escapeHtml(user.email)}</p>
-                        <p class="text-gray-600">${user.phone_number || 'No phone number'}</p>
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div><label class="font-semibold">Role:</label> ${roleNames[user.role] || 'Unknown'}</div>
-                    <div><label class="font-semibold">Status:</label> ${user.is_approved ? 'Active' : 'Pending'}</div>
-                    <div><label class="font-semibold">Email Verified:</label> ${user.email_verified_at ? 'Yes' : 'No'}</div>
-                    <div><label class="font-semibold">Member Since:</label> ${new Date(user.created_at).toLocaleDateString()}</div>
-                </div>
-                ${user.bio ? `<div><label class="font-semibold">Bio:</label><p>${escapeHtml(user.bio)}</p></div>` : ''}
-            </div>
-        `;
-        content.innerHTML = html;
-    }
-
-    function editUser(userId) {
-        openModal('editUserModal', 'md');
-        const content = document.getElementById('editUserContent');
-        if (!content) return;
-
-        content.innerHTML = `
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold">Edit User</h3>
-                <button onclick="closeModal('editUserModal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
-            </div>
-            <div class="flex justify-center py-8">
-                <div class="loading-spinner"></div>
-            </div>
-        `;
-
-        fetch(`/admin/users/${userId}/edit`, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
-        })
-        .then(response => {
-            if (!response.ok) throw new Error('Failed to load user data');
-            return response.json();
-        })
-        .then(user => {
-            displayEditForm(user);
-        })
-        .catch(error => {
-            if (content) {
-                content.innerHTML = `<div class="text-center py-8 text-red-500">Error loading edit form</div>`;
-            }
-        });
-    }
-
-    function displayEditForm(user) {
-        const roleNames = { 1: 'Main School', 2: 'Admin', 3: 'Scholarship', 4: 'Library', 5: 'Student', 6: 'Cafeteria', 7: 'Finance', 8: 'Trainers', 9: 'Website' };
-        const content = document.getElementById('editUserContent');
-        if (!content) return;
-
-        const html = `
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold">Edit User</h3>
-                <button onclick="closeModal('editUserModal')" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
-            </div>
-            <form id="editUserForm" method="POST" action="/admin/users/${user.id}">
-                <input type="hidden" name="_token" value="${csrfToken}">
-                <input type="hidden" name="_method" value="PUT">
-                <div class="space-y-4">
-                    <div><label class="block font-medium mb-1">Full Name</label><input type="text" name="name" value="${escapeHtml(user.name)}" class="w-full border rounded-lg px-3 py-2" required></div>
-                    <div><label class="block font-medium mb-1">Email</label><input type="email" name="email" value="${escapeHtml(user.email)}" class="w-full border rounded-lg px-3 py-2" required></div>
-                    <div><label class="block font-medium mb-1">Phone Number</label><input type="text" name="phone_number" value="${user.phone_number || ''}" class="w-full border rounded-lg px-3 py-2"></div>
-                    <div><label class="block font-medium mb-1">Role</label>
-                        <select name="role" class="w-full border rounded-lg px-3 py-2">
-                            ${Object.entries(roleNames).map(([val, label]) => `<option value="${val}" ${user.role == val ? 'selected' : ''}>${label}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div><label class="block font-medium mb-1">Bio</label><textarea name="bio" rows="3" class="w-full border rounded-lg px-3 py-2">${user.bio || ''}</textarea></div>
-                </div>
-                <div class="mt-6 flex justify-end space-x-3">
-                    <button type="button" onclick="closeModal('editUserModal')" class="px-4 py-2 border rounded-lg">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg">Update User</button>
-                </div>
-            </form>
-        `;
-        content.innerHTML = html;
-
-        document.getElementById('editUserForm')?.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const formData = new FormData(this);
-            fetch(this.action, { method: 'POST', body: formData })
-                .then(response => {
-                    if (response.ok) {
-                        showToast('User updated successfully', 'success');
-                        closeModal('editUserModal');
-                        setTimeout(() => location.reload(), 1000);
-                    } else {
-                        showToast('Error updating user', 'error');
-                    }
-                });
-        });
-    }
-
-    // ============================================
-    // UTILITY FUNCTIONS
-    // ============================================
-
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    function showToast(message, type = 'success') {
-        const toastContainer = document.getElementById('toastContainer');
-        if (!toastContainer) return;
-
-        const colors = {
-            success: 'bg-green-50 border-green-500 text-green-600',
-            error: 'bg-red-50 border-red-500 text-red-600',
-            warning: 'bg-yellow-50 border-yellow-500 text-yellow-600',
-            info: 'bg-blue-50 border-blue-500 text-blue-600'
-        };
-
-        const icons = {
-            success: 'fa-check-circle',
-            error: 'fa-exclamation-circle',
-            warning: 'fa-exclamation-triangle',
-            info: 'fa-info-circle'
-        };
-
-        const toast = document.createElement('div');
-        toast.className = `p-3 mb-2 rounded-lg border-l-4 shadow-lg transition-all duration-300 ${colors[type] || colors.info}`;
-        toast.innerHTML = `
-            <div class="flex items-center">
-                <i class="fas ${icons[type] || icons.info} mr-2"></i>
-                <span>${message}</span>
-                <button onclick="this.parentElement.parentElement.remove()" class="ml-auto text-gray-400 hover:text-gray-600">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `;
-
-        toastContainer.appendChild(toast);
-        setTimeout(() => {
-            if (toast.parentElement) toast.remove();
-        }, 5000);
-    }
-
-    function exportToExcel() {
-        showToast('Export functionality coming soon', 'info');
-    }
-
-    function refreshTable() {
-        location.reload();
-    }
-
-    // ============================================
-    // TABLE FUNCTIONS
+    // TABLE / BULK
     // ============================================
 
     function updateBulkActions() {
         const selected = document.querySelectorAll('.row-checkbox:checked').length;
         const bulkActions = document.getElementById('bulkActions');
         const selectedCount = document.getElementById('selectedCount');
-
         if (selected > 0) {
             if (selectedCount) selectedCount.textContent = `${selected} user${selected > 1 ? 's' : ''} selected`;
             if (bulkActions) bulkActions.classList.remove('hidden');
@@ -924,7 +1075,7 @@
         document.querySelectorAll('[id^="actionMenu-"]').forEach(m => {
             if (m.id !== `actionMenu-${userId}`) m.classList.add('hidden');
         });
-        if (menu) menu.classList.toggle('hidden');
+        menu?.classList.toggle('hidden');
     }
 
     function toggleStatus(userId, newStatus) {
@@ -943,46 +1094,29 @@
         }
     }
 
-    let currentDeleteUserId = null;
-
     function deleteUser(userId) {
-        currentDeleteUserId = userId;
         const deleteForm = document.getElementById('deleteForm');
-        const deleteMessage = document.getElementById('deleteMessage');
-
         if (deleteForm) deleteForm.action = `/admin/users/${userId}`;
-        if (deleteMessage) deleteMessage.textContent = 'Are you sure you want to delete this user? This action cannot be undone.';
-
-        openModal('deleteModal', 'md');
+        openModal('deleteModal');
     }
 
     function confirmDelete() {
-        const deleteForm = document.getElementById('deleteForm');
-        if (deleteForm) deleteForm.submit();
+        document.getElementById('deleteForm')?.submit();
     }
 
     function applyBulkAction() {
-        const actionSelect = document.getElementById('bulkAction');
-        const action = actionSelect ? actionSelect.value : '';
+        const action = document.getElementById('bulkAction')?.value;
         const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
 
         if (!action) { showToast('Please select an action', 'warning'); return; }
         if (selectedIds.length === 0) { showToast('Please select at least one user', 'warning'); return; }
 
-        if (action === 'reset_password') {
-            applyBulkResetPassword();
-            return;
-        }
+        if (action === 'reset_password') { applyBulkResetPassword(); return; }
 
-        if (action === 'delete') {
-            if (!confirm(`Are you sure you want to delete ${selectedIds.length} user(s)? This action cannot be undone.`)) {
-                return;
-            }
-        } else {
-            if (!confirm(`Are you sure you want to ${action} ${selectedIds.length} user(s)?`)) {
-                return;
-            }
-        }
+        const confirmMsg = action === 'delete'
+            ? `Are you sure you want to delete ${selectedIds.length} user(s)? This action cannot be undone.`
+            : `Are you sure you want to ${action} ${selectedIds.length} user(s)?`;
+        if (!confirm(confirmMsg)) return;
 
         const form = document.createElement('form');
         form.method = 'POST';
@@ -997,28 +1131,93 @@
     }
 
     // ============================================
+    // UTILITIES
+    // ============================================
+
+    function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        const div = document.createElement('div');
+        div.textContent = String(text);
+        return div.innerHTML;
+    }
+
+    function timeAgo(dateString) {
+        const date = new Date(dateString);
+        const seconds = Math.floor((new Date() - date) / 1000);
+        const intervals = [
+            { label: 'year', seconds: 31536000 },
+            { label: 'month', seconds: 2592000 },
+            { label: 'day', seconds: 86400 },
+            { label: 'hour', seconds: 3600 },
+            { label: 'minute', seconds: 60 },
+        ];
+        for (const i of intervals) {
+            const count = Math.floor(seconds / i.seconds);
+            if (count >= 1) return `${count} ${i.label}${count > 1 ? 's' : ''} ago`;
+        }
+        return 'just now';
+    }
+
+    function showToast(message, type = 'success') {
+        const toastContainer = document.getElementById('toastContainer');
+        if (!toastContainer) return;
+
+        const colors = {
+            success: 'bg-green-50 border-green-500 text-green-600',
+            error: 'bg-red-50 border-red-500 text-red-600',
+            warning: 'bg-yellow-50 border-yellow-500 text-yellow-600',
+            info: 'bg-blue-50 border-blue-500 text-blue-600'
+        };
+        const icons = {
+            success: 'fa-check-circle',
+            error: 'fa-exclamation-circle',
+            warning: 'fa-exclamation-triangle',
+            info: 'fa-info-circle'
+        };
+
+        const toast = document.createElement('div');
+        toast.className = `p-3 mb-2 rounded-lg border-l-4 shadow-lg transition-all duration-300 ${colors[type] || colors.info}`;
+        toast.innerHTML = `
+            <div class="flex items-center">
+                <i class="fas ${icons[type] || icons.info} mr-2"></i>
+                <span>${message}</span>
+                <button onclick="this.parentElement.parentElement.remove()" class="ml-auto text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        toastContainer.appendChild(toast);
+        setTimeout(() => toast.parentElement && toast.remove(), 5000);
+    }
+
+    function exportToExcel() {
+        showToast('Export functionality coming soon', 'info');
+    }
+
+    function refreshTable() {
+        location.reload();
+    }
+
+    // ============================================
     // EVENT LISTENERS
     // ============================================
 
     document.addEventListener('DOMContentLoaded', function() {
-        // Role description change handler
         const roleSelect = document.getElementById('approveRoleSelect');
         if (roleSelect) {
             roleSelect.addEventListener('change', function() {
                 const roleDescription = document.getElementById('roleDescription');
                 const roleDescriptionText = document.getElementById('roleDescriptionText');
                 const selectedValue = this.value;
-
                 if (selectedValue && roleDescriptions[selectedValue]) {
-                    if (roleDescriptionText) roleDescriptionText.textContent = roleDescriptions[selectedValue];
-                    if (roleDescription) roleDescription.classList.remove('hidden');
+                    roleDescriptionText.textContent = roleDescriptions[selectedValue];
+                    roleDescription.classList.remove('hidden');
                 } else {
-                    if (roleDescription) roleDescription.classList.add('hidden');
+                    roleDescription.classList.add('hidden');
                 }
             });
         }
 
-        // Select all checkbox
         const selectAll = document.getElementById('selectAll');
         if (selectAll) {
             selectAll.addEventListener('change', function() {
@@ -1027,24 +1226,17 @@
             });
         }
 
-        // Row checkboxes
-        document.querySelectorAll('.row-checkbox').forEach(cb => {
-            cb.addEventListener('change', updateBulkActions);
-        });
+        document.querySelectorAll('.row-checkbox').forEach(cb => cb.addEventListener('change', updateBulkActions));
 
-        // Close action menus on outside click
         document.addEventListener('click', function(e) {
             if (!e.target.closest('[id^="actionMenu-"]') && !e.target.closest('[onclick*="toggleActionMenu"]')) {
                 document.querySelectorAll('[id^="actionMenu-"]').forEach(menu => menu.classList.add('hidden'));
             }
         });
 
-        // Close modals on escape
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
-                document.querySelectorAll('.fixed.inset-0.z-50:not(.hidden)').forEach(modal => {
-                    closeModal(modal.id);
-                });
+                document.querySelectorAll('.fixed.inset-0.z-50:not(.hidden)').forEach(modal => closeModal(modal.id));
             }
         });
     });

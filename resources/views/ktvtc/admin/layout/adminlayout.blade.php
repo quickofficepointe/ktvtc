@@ -570,7 +570,13 @@
                     <span class="nav-text">Enrollments</span>
                 </a>
 
-              
+                <!-- Academic Terms  ← ADDED -->
+                <a href="{{ route('admin.academic-terms.index') }}"
+                   class="admin-nav-link flex items-center px-4 py-3 rounded-xl {{ request()->routeIs('admin.academic-terms.*') ? 'active' : '' }}">
+                    <i class="fas fa-calendar-alt mr-3 text-lg"></i>
+                    <span class="nav-text">Academic Terms</span>
+                </a>
+
                 <!-- Examinations Section -->
                 <div class="mt-6 mb-2">
                     <p class="px-4 py-2 text-xs font-bold text-white/60 uppercase tracking-wider group-title">
