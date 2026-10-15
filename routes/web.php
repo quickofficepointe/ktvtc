@@ -14,6 +14,7 @@ use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\QRScannerController;
 use App\Http\Controllers\ApplicationPaymentController;
 use App\Http\Controllers\AuthorController;
+use App\Http\Controllers\CardBulkPdfController;
 use App\Http\Controllers\BannerController;
 use App\Http\Controllers\IloController;
 use App\Http\Controllers\BlogCategoryController;
@@ -104,6 +105,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CafeteriaPreOrderController;
 use App\Http\Controllers\PreOrderAuthController;
 use App\Http\Controllers\PreOrderPortalController;
+
 // ============================================================================
 // PRE-ORDER AUTH (public)
 // ============================================================================
@@ -1378,7 +1380,7 @@ Route::prefix('cards')->name('cards.')->group(function () {
     Route::post('/bulk/generate-qr', [CardQrController::class, 'bulkGenerate'])->name('bulk.generate-qr');
     Route::get('/bulk/print-sheet', [CardQrController::class, 'printSheet'])->name('bulk.print-sheet');
     Route::get('/download-bulk', [CardAccountController::class, 'downloadBulk'])->name('download-bulk');
-
+Route::get('/bulk-pdf', [CardBulkPdfController::class, 'download'])->name('bulk-pdf');
     // RESOURCE ROUTES (NO PARAMETERS)
     Route::get('/', [CardAccountController::class, 'index'])->name('index');
     Route::get('/create', [CardAccountController::class, 'create'])->name('create');
@@ -1816,4 +1818,96 @@ Route::prefix('parent')->name('parent.')->group(function () {
 
     // Payment callback (already exists)
     // Route::post('/api/kcb/sales/callback', [SaleController::class, 'handleKcbCallback']);
+});
+use Illuminate\Support\Facades\DB;
+
+// ⚠️ ONE-OFF FIX — DELETE THIS ROUTE AFTER RUNNING
+Route::get('/_dev/fix-dup-credits', function () {
+    if (request('key') !== 'CHANGE_ME_SECRET_KEY') {
+        abort(403);
+    }
+
+    $pairs = DB::table('card_transactions as ipn')
+        ->join('card_transactions as cb', function ($j) {
+            $j->on('ipn.card_account_id', '=', 'cb.card_account_id')
+              ->on('ipn.amount', '=', 'cb.amount')
+              ->where('ipn.mpesa_receipt', 'LIKE', 'FT%')
+              ->where('cb.mpesa_receipt', 'NOT LIKE', 'FT%')
+              ->whereRaw('ABS(TIMESTAMPDIFF(SECOND, cb.created_at, ipn.created_at)) <= 90');
+        })
+        ->where('ipn.status', 'completed')
+        ->where('cb.status', 'completed')
+        ->where('ipn.transaction_type', 'funding')
+        ->where('cb.transaction_type', 'funding')
+        ->select('ipn.id as ipn_id', 'cb.id as cb_id', 'ipn.card_account_id', 'ipn.amount')
+        ->get();
+
+    $fixed = [];
+    $skipped = [];
+
+    foreach ($pairs as $p) {
+        $ipn = \App\Models\CardTransaction::find($p->ipn_id);
+        $cb  = \App\Models\CardTransaction::find($p->cb_id);
+
+        if (!$ipn || !$cb) {
+            $skipped[] = ['pair' => $p, 'reason' => 'row missing'];
+            continue;
+        }
+        if ($ipn->status !== 'completed' || $cb->status !== 'completed') {
+            $skipped[] = ['pair' => $p, 'reason' => 'already reversed or not completed'];
+            continue;
+        }
+
+        $card = \App\Models\CardAccount::lockForUpdate()->find($p->card_account_id);
+        if (!$card) {
+            $skipped[] = ['pair' => $p, 'reason' => 'card missing'];
+            continue;
+        }
+
+        DB::beginTransaction();
+        try {
+            $before = $card->balance;
+            $card->balance -= $p->amount;
+            $card->total_funded -= $p->amount;
+            $card->save();
+
+            $ipn->status = 'reversed';
+            $ipn->description = ($ipn->description ?? '') . ' [REVERSED — duplicate of STK tx #' . $cb->id . ']';
+            $ipn->save();
+
+            \App\Models\CardAuditLog::log(
+                $card->id,
+                'reversal',
+                'Duplicate STK/IPN credit reversed',
+                $before,
+                $card->balance,
+                [
+                    'ipn_tx' => $ipn->id,
+                    'stk_tx' => $cb->id,
+                    'amount' => $p->amount,
+                ]
+            );
+
+            DB::commit();
+
+            $fixed[] = [
+                'ipn_id' => $ipn->id,
+                'cb_id'  => $cb->id,
+                'card_id' => $card->id,
+                'amount' => $p->amount,
+                'balance_before' => $before,
+                'balance_after' => $card->balance,
+            ];
+        } catch (\Exception $e) {
+            DB::rollBack();
+            $skipped[] = ['pair' => $p, 'reason' => $e->getMessage()];
+        }
+    }
+
+    return response()->json([
+        'pairs_fixed' => count($fixed),
+        'pairs_skipped' => count($skipped),
+        'fixed' => $fixed,
+        'skipped' => $skipped,
+    ]);
 });

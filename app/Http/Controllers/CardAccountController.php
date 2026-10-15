@@ -687,35 +687,36 @@ class CardAccountController extends Controller
         ]);
     }
 
-    public function findByCardNumber($cardNumber)
-    {
-        $card = CardAccount::where('card_number', $cardNumber)
-            ->orWhere('account_number', $cardNumber)
-            ->with('student')
-            ->first();
+public function findByCardNumber($cardNumber)
+{
+    $card = CardAccount::where('card_number', $cardNumber)
+        ->orWhere('account_number', $cardNumber)
+        ->orWhere('qr_token', $cardNumber)
+        ->with('student')
+        ->first();
 
-        if (!$card) {
-            return response()->json(['success' => false, 'message' => 'Card not found'], 404);
-        }
-
-        return response()->json([
-            'success' => true,
-            'student' => [
-                'name' => $card->student_name,
-                'class' => $card->student_class,
-                'admission' => $card->student_admission_number,
-                'photo' => $card->student_photo ? asset('storage/' . $card->student_photo) : null,
-            ],
-            'card' => [
-                'id' => $card->id,
-                'balance' => $card->balance,
-                'daily_limit' => $card->daily_limit,
-                'today_spent' => $card->today_spent,
-                'is_active' => $card->is_active,
-                'is_locked' => $card->is_locked,
-            ]
-        ]);
+    if (!$card) {
+        return response()->json(['success' => false, 'message' => 'Card not found'], 404);
     }
+
+    return response()->json([
+        'success' => true,
+        'student' => [
+            'name' => $card->student_name,
+            'class' => $card->student_class,
+            'admission' => $card->student_admission_number,
+            'photo' => $card->student_photo ? asset('storage/' . $card->student_photo) : null,
+        ],
+        'card' => [
+            'id' => $card->id,
+            'balance' => $card->balance,
+            'daily_limit' => $card->daily_limit,
+            'today_spent' => $card->today_spent,
+            'is_active' => $card->is_active,
+            'is_locked' => $card->is_locked,
+        ]
+    ]);
+}
 
     public function scan(Request $request)
     {

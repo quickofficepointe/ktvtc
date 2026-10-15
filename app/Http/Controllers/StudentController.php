@@ -83,7 +83,6 @@ class StudentController extends Controller
                 return $q->where('campus_id', $user->campus_id);
             });
 
-        // GLOBAL SEARCH - Search across all fields
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -108,27 +107,22 @@ class StudentController extends Controller
             });
         }
 
-        // Status filter
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        // Campus filter
         if ($request->filled('campus_id') && $user->role == 2) {
             $query->where('campus_id', $request->campus_id);
         }
 
-        // Gender filter
         if ($request->filled('gender')) {
             $query->where('gender', $request->gender);
         }
 
-        // Category filter
         if ($request->filled('student_category')) {
             $query->where('student_category', $request->student_category);
         }
 
-        // Registration date range
         if ($request->filled('registration_date_from')) {
             $query->whereDate('registration_date', '>=', $request->registration_date_from);
         }
@@ -137,12 +131,10 @@ class StudentController extends Controller
             $query->whereDate('registration_date', '<=', $request->registration_date_to);
         }
 
-        // Cleanup status
         if ($request->filled('requires_cleanup')) {
             $query->where('requires_cleanup', $request->requires_cleanup === 'yes');
         }
 
-        // Sorting
         $sortField = $request->get('sort', 'created_at');
         $sortDirection = $request->get('direction', 'desc');
         $query->orderBy($sortField, $sortDirection);
@@ -150,7 +142,6 @@ class StudentController extends Controller
         $perPage = $request->input('per_page', 15);
         $students = $query->paginate($perPage)->withQueryString();
 
-        // Statistics
         $totalStudents = Student::count();
         $activeStudents = Student::where('status', 'active')->count();
         $graduatedStudents = Student::where('status', 'graduated')->count();
@@ -182,7 +173,6 @@ class StudentController extends Controller
             'scholarship' => Student::where('student_category', 'scholarship')->count(),
         ];
 
-        // Campuses for filter
         if ($user->role == 2) {
             $campuses = Campus::orderBy('name')->get();
         } else {
@@ -215,23 +205,18 @@ class StudentController extends Controller
             ->orderBy('application_number')
             ->get();
 
-        // Get the next available student number
         $nextStudentNumber = Student::getNextStudentNumber();
-        
+
         Log::info('Create view loaded with student number: ' . $nextStudentNumber);
 
         return view('ktvtc.admin.students.create', compact('campuses', 'courses', 'applications', 'nextStudentNumber'));
     }
 
-    /**
-     * Store a new student with duplicate handling
-     */
     public function store(Request $request)
     {
         Log::info('=== STUDENT STORE STARTED ===');
         Log::info('Request data:', $request->except(['_token']));
 
-        // Validate the request
         $validator = Validator::make($request->all(), [
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
@@ -254,10 +239,8 @@ class StudentController extends Controller
 
         Log::info('Validation passed');
 
-        // Get the student number from the form or generate a new one
         $studentNumber = $request->input('student_number');
-        
-        // If no student number was passed or it's taken, generate a new one
+
         if (empty($studentNumber)) {
             $studentNumber = Student::getNextStudentNumber();
             Log::info('Generated new student number (empty input): ' . $studentNumber);
@@ -269,7 +252,6 @@ class StudentController extends Controller
             Log::info('Using student number from form: ' . $studentNumber);
         }
 
-        // Try to create student with retry mechanism
         $maxRetries = 10;
         $attempt = 0;
         $student = null;
@@ -277,8 +259,7 @@ class StudentController extends Controller
         while ($attempt < $maxRetries) {
             try {
                 Log::info("Attempt " . ($attempt + 1) . " of {$maxRetries} with number: " . $studentNumber);
-                
-                // Create the student
+
                 $student = Student::create([
                     'first_name' => $request->first_name,
                     'middle_name' => $request->middle_name,
@@ -327,26 +308,24 @@ class StudentController extends Controller
                     'legacy_student_code' => $request->legacy_student_code,
                 ]);
 
-                // If we got here, creation was successful
                 Log::info('✅ Student created successfully with ID: ' . $student->id . ' and number: ' . $studentNumber);
                 break;
 
             } catch (\Illuminate\Database\QueryException $e) {
                 Log::error('❌ Database error on attempt ' . ($attempt + 1) . ': ' . $e->getMessage());
-                
-                // Check if it's a duplicate entry error
+
                 $isDuplicate = false;
-                
+
                 if (isset($e->errorInfo[1]) && $e->errorInfo[1] == 1062) {
                     $isDuplicate = true;
                     Log::warning('Duplicate entry detected (error code 1062)');
                 }
-                
+
                 if (isset($e->errorInfo[0]) && $e->errorInfo[0] == '23000') {
                     $isDuplicate = true;
                     Log::warning('Duplicate entry detected (SQL state 23000)');
                 }
-                
+
                 if (strpos($e->getMessage(), 'Duplicate entry') !== false) {
                     $isDuplicate = true;
                     Log::warning('Duplicate entry detected (message contains "Duplicate entry")');
@@ -355,31 +334,28 @@ class StudentController extends Controller
                 if ($isDuplicate) {
                     $attempt++;
                     Log::warning("Retry {$attempt}/{$maxRetries} due to duplicate");
-                    
-                    // Generate a new number for the next attempt
+
                     $studentNumber = Student::getNextStudentNumber();
                     Log::info('Generated new student number for retry: ' . $studentNumber);
-                    
+
                     if ($attempt >= $maxRetries) {
                         Log::error('❌ Failed after ' . $maxRetries . ' attempts');
                         return redirect()->back()
                             ->with('error', 'Unable to generate a unique student number after ' . $maxRetries . ' attempts. Please try again.')
                             ->withInput();
                     }
-                    
-                    // Small delay before retry
-                    usleep(100000); // 0.1 second
+
+                    usleep(100000);
                     continue;
                 }
-                
-                // If it's a different error, rethrow
+
                 Log::error('❌ Non-duplicate database error, throwing');
                 throw $e;
-                
+
             } catch (\Exception $e) {
                 Log::error('❌ General error on attempt ' . ($attempt + 1) . ': ' . $e->getMessage());
                 Log::error('Stack trace: ' . $e->getTraceAsString());
-                
+
                 return redirect()->back()
                     ->with('error', 'An error occurred while creating the student: ' . $e->getMessage())
                     ->withInput();
@@ -398,7 +374,7 @@ class StudentController extends Controller
         // Handle document uploads
         $this->handleDocumentUploads($request, $student);
 
-        // Create user account
+        // ✅ FIXED: Create user account with welcome SMS
         $this->createUserFromStudent($student);
 
         Log::info('=== STUDENT STORE COMPLETED ===');
@@ -406,33 +382,31 @@ class StudentController extends Controller
         return redirect()->route('admin.students.index')
             ->with('success', "Student created successfully. Student Number: {$studentNumber}");
     }
-public function show($id)
-{
-    $student = Student::with([
-        'campus',
-        'application',
-        'enrollments.course',
-        'enrollments.term',
-        'enrollments.payments',
-    ])->findOrFail($id);
 
-    // Pick the current enrollment:
-    // Prefer the newest active/in_progress, else the newest of any status
-    $currentEnrollment = $student->enrollments
-        ->sortByDesc('created_at')
-        ->first(fn ($e) => in_array($e->status, ['active', 'in_progress']))
-        ?? $student->enrollments->sortByDesc('created_at')->first();
+    public function show($id)
+    {
+        $student = Student::with([
+            'campus',
+            'application',
+            'enrollments.course',
+            'enrollments.term',
+            'enrollments.payments',
+        ])->findOrFail($id);
 
-    // Current term — from the enrollment, else the globally-current one
-    $currentTerm = $currentEnrollment?->term
-        ?? \App\Models\AcademicTerm::where('is_current', true)->first();
+        $currentEnrollment = $student->enrollments
+            ->sortByDesc('created_at')
+            ->first(fn ($e) => in_array($e->status, ['active', 'in_progress']))
+            ?? $student->enrollments->sortByDesc('created_at')->first();
 
-    return view('ktvtc.admin.students.show', compact(
-        'student',
-        'currentEnrollment',
-        'currentTerm'
-    ));
-}
+        $currentTerm = $currentEnrollment?->term
+            ?? \App\Models\AcademicTerm::where('is_current', true)->first();
+
+        return view('ktvtc.admin.students.show', compact(
+            'student',
+            'currentEnrollment',
+            'currentTerm'
+        ));
+    }
 
     public function edit($id)
     {
@@ -473,7 +447,6 @@ public function show($id)
         $oldStudentNumber = $student->student_number;
         $newStudentNumber = $request->student_number;
 
-        // If student number is being changed, check if it's already taken
         if ($newStudentNumber && $newStudentNumber !== $oldStudentNumber) {
             if (Student::isStudentNumberTaken($newStudentNumber)) {
                 return redirect()->back()
@@ -755,7 +728,7 @@ public function show($id)
     }
 
     // ============================================
-    // STUDENT NUMBER FIX & PASSWORD SYNC METHODS
+    // STUDENT NUMBER FIX & PASSWORD SYNC
     // ============================================
 
     public function fixStudentNumber(Request $request, $id)
@@ -863,7 +836,7 @@ public function show($id)
     }
 
     // ============================================
-    // PRIVATE HELPER METHODS
+    // PRIVATE HELPERS
     // ============================================
 
     private function syncStudentPassword(Student $student, $studentNumber)
@@ -888,6 +861,11 @@ public function show($id)
                 $user->email = $student->email ?? strtolower($studentNumber) . '@student.ktvtc.ac.ke';
             }
 
+            // Ensure phone is synced too
+            if (!$user->phone_number && $student->phone) {
+                $user->phone_number = $student->phone;
+            }
+
             $user->save();
             $this->sendPasswordUpdateSms($student, $newPassword);
 
@@ -908,6 +886,9 @@ public function show($id)
         }
     }
 
+    /**
+     * ✅ FIXED: Wrapped, safe, sends welcome SMS, collision-safe email
+     */
     private function createUserFromStudent(Student $student): ?User
     {
         $existingUser = User::where('student_id', $student->id)->first();
@@ -917,26 +898,57 @@ public function show($id)
 
         $studentNumber = $student->student_number ?? $student->legacy_student_code;
         if (!$studentNumber) {
+            Log::warning("Cannot create user — student {$student->id} has no student number");
             return null;
         }
 
         $defaultPassword = strtoupper($studentNumber);
-        $email = $student->email ?? strtolower($studentNumber) . '@student.ktvtc.ac.ke';
-        $name = $student->full_name ?? trim($student->first_name . ' ' . $student->last_name);
 
-        return User::create([
-            'student_id' => $student->id,
-            'name' => $name,
-            'username' => $studentNumber,
-            'email' => $email,
-            'phone_number' => $student->phone,
-            'bio' => $student->remarks ?? 'Student account automatically created',
-            'role' => 5,
-            'is_active' => true,
-            'is_approved' => true,
-            'password' => Hash::make($defaultPassword),
-            'email_verified_at' => now(),
-        ]);
+        // Collision-safe email
+        $email = $student->email;
+        if (!$email || User::where('email', $email)->exists()) {
+            $base  = strtolower(preg_replace('/[^a-z0-9]/i', '', $studentNumber));
+            $email = "{$base}@student.ktvtc.ac.ke";
+
+            if (User::where('email', $email)->exists()) {
+                $email = "{$base}+{$student->id}@student.ktvtc.ac.ke";
+            }
+        }
+
+        $name = $student->full_name
+              ?? trim($student->first_name . ' ' . $student->last_name);
+
+        try {
+            $user = User::create([
+                'student_id'        => $student->id,
+                'name'              => $name,
+                'username'          => $studentNumber,
+                'email'             => $email,
+                'phone_number'      => $student->phone,   // ✅ correct column
+                'bio'               => $student->remarks ?? 'Student account automatically created',
+                'role'              => User::ROLE_STUDENT,
+                'is_active'         => true,
+                'is_approved'       => true,
+                'is_verified'       => true,
+                'password'          => Hash::make($defaultPassword),
+                'email_verified_at' => now(),
+            ]);
+
+            Log::info('✅ User auto-created for student', [
+                'student_id' => $student->id,
+                'user_id'    => $user->id,
+                'username'   => $user->username,
+            ]);
+
+            // ✅ NEW: Send welcome SMS with initial credentials
+            $this->sendPasswordUpdateSms($student, $defaultPassword);
+
+            return $user;
+
+        } catch (\Exception $e) {
+            Log::error("❌ Failed to auto-create user for student {$student->id}: " . $e->getMessage());
+            return null;
+        }
     }
 
     private function sendPasswordUpdateSms(Student $student, $newPassword)
@@ -950,24 +962,24 @@ public function show($id)
                 return ['success' => false, 'message' => 'No phone number'];
             }
 
-            $message = "Dear {$fullName},\n\n";
-            $message .= "Your KTVTC student account password has been updated.\n";
-            $message .= "Your new password is: {$newPassword}\n\n";
-            $message .= "Please login using your student number and this password.\n";
-            $message .= "For security, you will be required to change your password after login.\n\n";
+            $message  = "Dear {$fullName},\n\n";
+            $message .= "Your KTVTC student account password has been set.\n";
+            $message .= "Your password is: {$newPassword}\n\n";
+            $message .= "Login using your student number and this password.\n";
+            $message .= "You will be required to change your password after first login.\n\n";
             $message .= "Student Number: {$student->student_number}\n";
             $message .= "Login URL: " . url('/login') . "\n\n";
             $message .= "Thank you,\nKTVTC Team";
 
             $result = $this->smsService->sendSingleSms($phone, $message);
 
-            if ($result['success']) {
-                Log::info("Password update SMS sent to {$phone}", [
+            if ($result['success'] ?? false) {
+                Log::info("Password SMS sent to {$phone}", [
                     'student_id' => $student->id,
                     'student_number' => $student->student_number
                 ]);
             } else {
-                Log::error("Failed to send password update SMS to {$phone}", [
+                Log::error("Failed to send password SMS to {$phone}", [
                     'student_id' => $student->id,
                     'error' => $result['message'] ?? 'Unknown error'
                 ]);
@@ -976,7 +988,7 @@ public function show($id)
             return $result;
 
         } catch (\Exception $e) {
-            Log::error("Password update SMS exception: " . $e->getMessage(), [
+            Log::error("Password SMS exception: " . $e->getMessage(), [
                 'student_id' => $student->id
             ]);
 

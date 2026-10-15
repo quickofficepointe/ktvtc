@@ -1,5 +1,4 @@
 <?php
-// app/Http/Controllers/AdminController.php
 
 namespace App\Http\Controllers;
 
@@ -33,7 +32,6 @@ class AdminController extends Controller
     {
         $user = auth()->user();
 
-        // Academic term stats (scoped by campus for non-super-admins)
         $termQuery = AcademicTerm::query()
             ->when($user->role != 2, function ($q) use ($user) {
                 return $q->where(function ($sub) use ($user) {
@@ -47,7 +45,6 @@ class AdminController extends Controller
         $currentTerms     = (clone $termQuery)->where('is_current', true)->count();
         $registrationOpen = (clone $termQuery)->where('is_registration_open', true)->count();
 
-        // Student stats
         $studentQuery = Student::query()
             ->when($user->role != 2, function ($q) use ($user) {
                 return $q->where('campus_id', $user->campus_id);
@@ -65,7 +62,6 @@ class AdminController extends Controller
         $graduatedPercentage = round(($graduatedStudents / $total) * 100);
         $inactivePercentage  = round(($inactiveStudents / $total) * 100);
 
-        // Enrollment stats
         $enrollmentQuery = Enrollment::query()
             ->when($user->role != 2, function ($q) use ($user) {
                 return $q->where('campus_id', $user->campus_id);
@@ -79,12 +75,10 @@ class AdminController extends Controller
         $studentsWithoutEnrollments = Student::whereDoesntHave('enrollments')->count();
         $pendingApplications        = Application::where('status', 'pending')->count();
 
-        // Campuses
         $campuses = $user->role == 2
             ? Campus::orderBy('name')->get()
             : Campus::where('id', $user->campus_id)->orderBy('name')->get();
 
-        // Recent data
         $recentEnrollments = (clone $enrollmentQuery)
             ->with(['student', 'course', 'term'])
             ->latest()
@@ -96,7 +90,6 @@ class AdminController extends Controller
             ->limit(5)
             ->get();
 
-        // Chart data (last 6 months)
         $chartLabels         = [];
         $enrollmentChartData = [];
         $studentGrowthData   = [];
@@ -119,7 +112,6 @@ class AdminController extends Controller
             'activeTerms',
             'currentTerms',
             'registrationOpen',
-
             'totalStudents',
             'activeStudents',
             'graduatedStudents',
@@ -127,16 +119,13 @@ class AdminController extends Controller
             'activePercentage',
             'graduatedPercentage',
             'inactivePercentage',
-
             'totalEnrollments',
             'activeEnrollments',
             'inProgressEnrollments',
             'completedEnrollments',
             'studentsWithoutEnrollments',
-
             'pendingApplications',
             'recentApplications',
-
             'campuses',
             'recentEnrollments',
             'chartLabels',
@@ -153,7 +142,6 @@ class AdminController extends Controller
     {
         $query = User::query();
 
-        // Global search
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -165,12 +153,10 @@ class AdminController extends Controller
             });
         }
 
-        // Role filter
         if ($request->filled('role')) {
             $query->where('role', $request->role);
         }
 
-        // Status filter
         if ($request->filled('status')) {
             if ($request->status === 'active') {
                 $query->where('is_approved', true);
@@ -179,7 +165,6 @@ class AdminController extends Controller
             }
         }
 
-        // Sort
         $sortField     = $request->get('sort', 'name');
         $sortDirection = $request->get('direction', 'asc');
         $query->orderBy($sortField, $sortDirection);
@@ -187,9 +172,6 @@ class AdminController extends Controller
         $perPage = $request->input('per_page', 20);
         $users   = $query->paginate($perPage)->withQueryString();
 
-        // --------------------------------------------------------
-        // Enrich student users with profile + enrollment status
-        // --------------------------------------------------------
         $studentUserIds = $users->getCollection()
             ->where('role', 5)
             ->pluck('id')
@@ -236,13 +218,11 @@ class AdminController extends Controller
             }
         }
 
-        // Stats
         $totalUsers   = User::count();
         $activeUsers  = User::where('is_approved', true)->count();
         $pendingUsers = User::where('is_approved', false)->count();
         $adminUsers   = User::where('role', 2)->count();
 
-        // Role names for filter dropdown — now includes ILO (10)
         $roleNames = [
             1  => 'Main School',
             2  => 'Admin',
@@ -267,9 +247,6 @@ class AdminController extends Controller
         ));
     }
 
-    /**
-     * Build a normalized student profile array used by the users list.
-     */
     protected function buildStudentProfile(?Student $student): array
     {
         if (!$student) {
@@ -323,12 +300,6 @@ class AdminController extends Controller
     // USERS — SHOW / EDIT / UPDATE
     // ============================================================
 
-    /**
-     * Show a user.
-     * For AJAX/JSON, returns the user with a `student_profile`
-     * attached when the role is Student — so the View modal can
-     * display number / course / enrollment status.
-     */
     public function showUser($id)
     {
         $user = User::findOrFail($id);
@@ -484,6 +455,12 @@ class AdminController extends Controller
     // PASSWORDS
     // ============================================================
 
+    /**
+     * ✅ FIXED:
+     *   - Uses filter_var(... FILTER_VALIDATE_BOOLEAN) for send_sms
+     *     so "0" is properly treated as false
+     *   - SMS only fires when user has phone AND admin ticked the box
+     */
     public function resetPassword(Request $request, $id)
     {
         $user = User::findOrFail($id);
@@ -496,8 +473,11 @@ class AdminController extends Controller
         $user->password = Hash::make($newPassword);
         $user->save();
 
+        // ✅ FIXED: proper boolean cast — "0" is now false
+        $sendSms = filter_var($request->input('send_sms', false), FILTER_VALIDATE_BOOLEAN);
+
         $smsSent = false;
-        if ($user->phone_number && ($request->send_sms || $request->has('send_sms'))) {
+        if ($user->phone_number && $sendSms) {
             $result  = $this->sendPasswordResetSms($user, $newPassword);
             $smsSent = $result['success'] ?? false;
         }
@@ -514,11 +494,16 @@ class AdminController extends Controller
             ->with('success', 'Password updated successfully.' . ($smsSent ? ' SMS sent.' : ''));
     }
 
+    /**
+     * ✅ FIXED: same boolean cast for bulk resets
+     */
     public function bulkResetPasswords(Request $request)
     {
         $userIds     = $request->user_ids;
         $newPassword = $request->password ?? $this->generateRandomPassword();
-        $sendSms     = $request->send_sms ?? true;
+
+        // ✅ FIXED: "0" now means false
+        $sendSms = filter_var($request->input('send_sms', true), FILTER_VALIDATE_BOOLEAN);
 
         $users   = User::whereIn('id', $userIds)->get();
         $results = [

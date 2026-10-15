@@ -27,7 +27,7 @@ class CafeteriaPreOrderController extends Controller
         $query = PreOrder::with(['account', 'items', 'shop'])
             ->orderBy('created_at', 'desc');
 
-        // Status filter — defaults to "actionable" (paid, accepted, ready)
+        // Status filter — defaults to "active" (paid, accepted, ready)
         $status = $request->get('status', 'active');
 
         if ($status === 'active') {
@@ -42,12 +42,11 @@ class CafeteriaPreOrderController extends Controller
             $query->where('status', $status);
         }
 
-        // Date filter
+        // ✅ Date filter — OPT-IN only. Default = no date restriction.
         if ($request->filled('date')) {
             $query->whereDate('created_at', $request->date);
-        } elseif ($request->get('date_filter', 'today') === 'today') {
-            $query->whereDate('created_at', today());
         }
+        // (Removed the default "today" filter that was hiding older orders.)
 
         // Search
         if ($request->filled('search')) {
@@ -63,15 +62,33 @@ class CafeteriaPreOrderController extends Controller
 
         $orders = $query->paginate(20)->withQueryString();
 
-        // Counts for the tabs
+        // ✅ Counts — respect the same date filter if set, else count ALL (not just today)
+        $dateFilter = $request->filled('date') ? $request->date : null;
+
+        $countsQuery = function ($statuses) use ($dateFilter) {
+            $q = PreOrder::query();
+            if (is_array($statuses)) {
+                $q->whereIn('status', $statuses);
+            } else {
+                $q->where('status', $statuses);
+            }
+            if ($dateFilter) {
+                $q->whereDate('created_at', $dateFilter);
+            }
+            return $q->count();
+        };
+
         $counts = [
-            'pending'   => PreOrder::where('status', 'pending')->whereDate('created_at', today())->count(),
-            'active'    => PreOrder::whereIn('status', ['paid', 'accepted', 'ready'])->whereDate('created_at', today())->count(),
-            'completed' => PreOrder::where('status', 'completed')->whereDate('created_at', today())->count(),
-            'cancelled' => PreOrder::whereIn('status', ['cancelled', 'rejected', 'failed'])->whereDate('created_at', today())->count(),
+            'pending'   => $countsQuery('pending'),
+            'active'    => $countsQuery(['paid', 'accepted', 'ready']),
+            'completed' => $countsQuery('completed'),
+            'cancelled' => $countsQuery(['cancelled', 'rejected', 'failed']),
+            'all'       => PreOrder::query()
+                                ->when($dateFilter, fn($q) => $q->whereDate('created_at', $dateFilter))
+                                ->count(),
         ];
 
-        return view('cafeteria.pre-orders.index', compact('orders', 'counts', 'status'));
+        return view('ktvtc.cafeteria.pre-orders.index', compact('orders', 'counts', 'status'));
     }
 
     /**
@@ -82,7 +99,7 @@ class CafeteriaPreOrderController extends Controller
         $order = PreOrder::with(['account', 'items.product', 'shop', 'acceptedBy'])
             ->findOrFail($id);
 
-        return view('cafeteria.pre-orders.show', compact('order'));
+        return view('ktvtc.cafeteria.pre-orders.show', compact('order'));
     }
 
     /**
@@ -128,7 +145,6 @@ class CafeteriaPreOrderController extends Controller
             'staff_notes' => $request->input('staff_notes') ?: $order->staff_notes,
         ]);
 
-        // Notify customer
         try {
             $this->sms->sendOrderReadyNotification($order);
         } catch (\Exception $e) {
@@ -211,7 +227,6 @@ class CafeteriaPreOrderController extends Controller
 
             DB::commit();
 
-            // Notify customer
             try {
                 $this->sms->sendOrderCancelledNotification($order, $request->reason);
             } catch (\Exception $e) {

@@ -18,13 +18,13 @@
 
 @section('header-actions')
 <div class="flex flex-wrap gap-2">
-    <a href="{{ route('cards.print-qr', ['cardAccount' => $card, 'full' => 'true']) }}" 
-       target="_blank" 
+    <a href="{{ route('cards.print-qr', ['cardAccount' => $card, 'full' => 'true']) }}"
+       target="_blank"
        class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg font-semibold flex items-center text-sm transition">
         <i class="fas fa-id-card mr-2"></i> Print ID Card
     </a>
-    <a href="{{ route('cards.print-qr', $card) }}" 
-       target="_blank" 
+    <a href="{{ route('cards.print-qr', $card) }}"
+       target="_blank"
        class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg font-semibold flex items-center text-sm transition">
         <i class="fas fa-qrcode mr-2"></i> Print QR
     </a>
@@ -100,8 +100,8 @@
         <div class="finance-card p-5">
             <div class="flex justify-between items-center mb-4">
                 <h4 class="font-bold text-gray-800">Student ID Card</h4>
-                <a href="{{ route('cards.print-qr', ['cardAccount' => $card, 'full' => 'true']) }}" 
-                   target="_blank" 
+                <a href="{{ route('cards.print-qr', ['cardAccount' => $card, 'full' => 'true']) }}"
+                   target="_blank"
                    class="text-primary hover:underline text-sm">
                     <i class="fas fa-external-link-alt mr-1"></i> Open Full View
                 </a>
@@ -115,8 +115,8 @@
             </div>
 
             <div class="text-center mt-3">
-                <a href="{{ route('cards.print-qr', ['cardAccount' => $card, 'full' => 'true']) }}" 
-                   target="_blank" 
+                <a href="{{ route('cards.print-qr', ['cardAccount' => $card, 'full' => 'true']) }}"
+                   target="_blank"
                    class="inline-block bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition">
                     <i class="fas fa-print mr-2"></i> Print Full ID Card
                 </a>
@@ -188,6 +188,12 @@
                 <div>
                     <p class="text-xs text-gray-500">Current Balance</p>
                     <p class="text-2xl font-bold text-green-600">KES {{ number_format($card->balance, 2) }}</p>
+
+                    {{-- ✅ Adjust Balance trigger --}}
+                    <button type="button" onclick="openAdjustModal()"
+                            class="mt-2 text-xs text-blue-600 hover:text-blue-800 hover:underline">
+                        <i class="fas fa-sliders-h mr-1"></i> Adjust Balance
+                    </button>
                 </div>
                 <div>
                     <p class="text-xs text-gray-500">Daily Limit</p>
@@ -250,8 +256,119 @@
     </div>
 </div>
 
+{{-- ═══════════════════════════════════════════════════════════
+     ADJUST BALANCE MODAL
+═══════════════════════════════════════════════════════════ --}}
+<div id="adjustBalanceModal" class="hidden fixed inset-0 z-[1300] overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4 py-6">
+        <div class="fixed inset-0 bg-black/50" onclick="closeAdjustModal()"></div>
+
+        <div class="relative bg-white rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-gray-800">
+                    <i class="fas fa-sliders-h text-blue-600 mr-2"></i>
+                    Adjust Card Balance
+                </h3>
+                <button type="button" onclick="closeAdjustModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="bg-gray-50 rounded-lg p-3 mb-4 text-sm">
+                <p class="text-gray-600">
+                    <strong>Student:</strong> {{ $card->student_name }}
+                </p>
+                <p class="text-gray-600">
+                    <strong>Card:</strong> <span class="font-mono">{{ $card->card_number }}</span>
+                </p>
+                <p class="text-gray-600">
+                    <strong>Current Balance:</strong>
+                    <span class="font-bold text-green-600">
+                        KES {{ number_format($card->balance, 2) }}
+                    </span>
+                </p>
+            </div>
+
+            <form method="POST" action="{{ route('cards.adjust-balance', $card) }}"
+                  onsubmit="return confirmAdjust()">
+                @csrf
+
+                {{-- Type --}}
+                <div class="mb-4">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">
+                        Adjustment Type
+                    </label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="type" value="add" class="peer sr-only" checked>
+                            <div class="border-2 border-gray-200 peer-checked:border-green-500 peer-checked:bg-green-50 rounded-lg p-3 text-center transition">
+                                <i class="fas fa-plus-circle text-green-600 block mb-1"></i>
+                                <span class="text-sm font-semibold text-gray-700">Add</span>
+                                <span class="block text-xs text-gray-500">Credit the card</span>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="type" value="subtract" class="peer sr-only">
+                            <div class="border-2 border-gray-200 peer-checked:border-red-500 peer-checked:bg-red-50 rounded-lg p-3 text-center transition">
+                                <i class="fas fa-minus-circle text-red-600 block mb-1"></i>
+                                <span class="text-sm font-semibold text-gray-700">Subtract</span>
+                                <span class="block text-xs text-gray-500">Debit the card</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                {{-- Amount --}}
+                <div class="mb-4">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">
+                        Amount (KES)
+                    </label>
+                    <input type="number" name="amount" step="0.01" min="0.01"
+                           required placeholder="0.00"
+                           class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-lg font-bold">
+                </div>
+
+                {{-- Reason --}}
+                <div class="mb-4">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">
+                        Reason (required for audit log)
+                    </label>
+                    <textarea name="reason" rows="3" required
+                              maxlength="255"
+                              placeholder="e.g., Reversing duplicate funding from 16 Oct — receipt UI94U61GVH"
+                              class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">
+                        This reason is stored permanently in the card audit log.
+                    </p>
+                </div>
+
+                {{-- Warning --}}
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-xs text-yellow-800">
+                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                    <strong>Warning:</strong> This directly changes the card balance and cannot be undone from the UI. Verify the amount and reason carefully.
+                </div>
+
+                {{-- Actions --}}
+                <div class="flex justify-end gap-3 pt-3 border-t">
+                    <button type="button" onclick="closeAdjustModal()"
+                            class="px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold">
+                        <i class="fas fa-check mr-2"></i> Apply Adjustment
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @push('scripts')
 <script>
+    // ============================================
+    // EXISTING QR FUNCTIONS
+    // ============================================
     function generateQr() {
         showLoading('Generating QR code...');
         fetch('{{ route("cards.generate-qr", $card) }}', {
@@ -281,6 +398,68 @@
             generateQr();
         }
     }
+
+    // ============================================
+    // ADJUST BALANCE MODAL
+    // ============================================
+    function openAdjustModal() {
+        const modal = document.getElementById('adjustBalanceModal');
+        if (!modal) return;
+
+        // Reset form to a clean state every time it opens
+        const form = modal.querySelector('form');
+        if (form) {
+            form.reset();
+            // Re-check the "add" radio by default
+            const addRadio = form.querySelector('input[name="type"][value="add"]');
+            if (addRadio) addRadio.checked = true;
+        }
+
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeAdjustModal() {
+        const modal = document.getElementById('adjustBalanceModal');
+        if (!modal) return;
+        modal.classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
+
+    function confirmAdjust() {
+        const form = document.getElementById('adjustBalanceModal').querySelector('form');
+        const type = form.querySelector('input[name="type"]:checked')?.value;
+        const amount = form.querySelector('input[name="amount"]')?.value;
+        const reason = form.querySelector('textarea[name="reason"]')?.value;
+
+        if (!amount || parseFloat(amount) <= 0) {
+            alert('Please enter a valid amount greater than 0.');
+            return false;
+        }
+
+        if (!reason || reason.trim().length === 0) {
+            alert('Please provide a reason for this adjustment.');
+            return false;
+        }
+
+        const verb = type === 'add' ? 'ADD' : 'SUBTRACT';
+        const preposition = type === 'add' ? 'to' : 'from';
+
+        return confirm(
+            verb + ' KES ' + amount + ' ' + preposition + ' card {{ $card->card_number }}?\n\n' +
+            'Reason: ' + reason + '\n\n' +
+            'This will be logged in the audit trail.'
+        );
+    }
+
+    // ============================================
+    // ESCAPE KEY HANDLER
+    // ============================================
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            closeAdjustModal();
+        }
+    });
 </script>
 @endpush
 @endsection

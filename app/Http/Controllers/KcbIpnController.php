@@ -29,10 +29,6 @@ class KcbIpnController extends Controller
     /**
      * Handle KCB IPN payment notification.
      *
-     * This endpoint handles BOTH:
-     * 1. College student fee payments
-     * 2. High school card funding
-     *
      * Route: POST /api/kcb/ipn/payment-notification
      */
     public function handlePaymentNotification(Request $request)
@@ -45,7 +41,6 @@ class KcbIpnController extends Controller
         ]);
 
         try {
-            // Extract KCB payload
             $header = $request->input('header', []);
             $requestPayload = $request->input('requestPayload', []);
             $primaryData = $requestPayload['primaryData'] ?? [];
@@ -66,7 +61,6 @@ class KcbIpnController extends Controller
             // CHECK FOR DUPLICATE IPN (Prevent duplicate processing)
             // ============================================================
             if ($transactionId) {
-                // Check if this transaction already exists in college table
                 $existingCollege = KcbTransaction::where('transaction_reference', $transactionId)->first();
                 if ($existingCollege) {
                     Log::info('KCB IPN: Duplicate college transaction - skipping', [
@@ -82,7 +76,6 @@ class KcbIpnController extends Controller
                     ], 200);
                 }
 
-                // Check if this transaction already exists in high school table
                 $existingHighSchool = HighSchoolKcbTransaction::where('transaction_reference', $transactionId)->first();
                 if ($existingHighSchool) {
                     Log::info('KCB IPN: Duplicate high school transaction - skipping', [
@@ -107,35 +100,29 @@ class KcbIpnController extends Controller
             $fundingType = null;
 
             if ($businessKey) {
-                // Check for high school format: 8118445#T101 or 8118445#C101 or 8118445#101
                 if (strpos($businessKey, '#') !== false) {
                     $parts = explode('#', $businessKey);
                     if (count($parts) == 2) {
                         $suffix = $parts[1];
-                        
-                        // Check if suffix has T or C prefix (T101, C101)
+
                         if (preg_match('/^([A-Za-z])(\d+)$/', $suffix, $matches)) {
-                            $fundingType = strtoupper($matches[1]); // T or C
-                            $studentNumber = $suffix; // T101 or C101 (keep full for search)
+                            $fundingType = strtoupper($matches[1]);
+                            $studentNumber = $suffix;
                             $isHighSchool = true;
                             Log::info('KCB IPN: HIGH SCHOOL FORMAT DETECTED', [
                                 'business_key' => $businessKey,
                                 'student_number' => $studentNumber,
                                 'funding_type' => $fundingType,
                             ]);
-                        } 
-                        // Check if suffix is just numbers (101)
-                        elseif (is_numeric($suffix)) {
+                        } elseif (is_numeric($suffix)) {
                             $studentNumber = $suffix;
-                            $fundingType = 'T'; // Default to Transport if no prefix
+                            $fundingType = 'T';
                             $isHighSchool = true;
                             Log::info('KCB IPN: HIGH SCHOOL FORMAT DETECTED (numeric only)', [
                                 'business_key' => $businessKey,
                                 'student_number' => $studentNumber,
                             ]);
-                        }
-                        // Check if suffix is T101 or C101 with prefix
-                        elseif (strlen($suffix) > 1 && in_array(strtoupper($suffix[0]), ['T', 'C'])) {
+                        } elseif (strlen($suffix) > 1 && in_array(strtoupper($suffix[0]), ['T', 'C'])) {
                             $fundingType = strtoupper($suffix[0]);
                             $studentNumber = $suffix;
                             $isHighSchool = true;
@@ -147,8 +134,7 @@ class KcbIpnController extends Controller
                         }
                     }
                 } else {
-                    // No # - could be college student number or just the till number
-                    if (strlen($businessKey) > 7) { // 8118445 is 7 digits
+                    if (strlen($businessKey) > 7) {
                         $studentNumber = $businessKey;
                         Log::info('KCB IPN: POSSIBLE COLLEGE FORMAT', [
                             'business_key' => $businessKey,
@@ -170,7 +156,7 @@ class KcbIpnController extends Controller
             }
 
             // ============================================================
-            // HIGH SCHOOL: Process card funding
+            // HIGH SCHOOL
             // ============================================================
             if ($isHighSchool && $studentNumber) {
                 Log::info('KCB IPN: PROCESSING HIGH SCHOOL CARD FUNDING', [
@@ -189,7 +175,7 @@ class KcbIpnController extends Controller
             }
 
             // ============================================================
-            // COLLEGE: Process fee payment
+            // COLLEGE
             // ============================================================
             if ($studentNumber) {
                 Log::info('KCB IPN: PROCESSING COLLEGE PAYMENT', [
@@ -207,7 +193,7 @@ class KcbIpnController extends Controller
             }
 
             // ============================================================
-            // FALLBACK: Try to find by phone number for high school
+            // FALLBACK: by phone
             // ============================================================
             if ($debitMSISDN) {
                 Log::info('KCB IPN: FALLBACK - Searching high school student by phone', [
@@ -215,14 +201,14 @@ class KcbIpnController extends Controller
                 ]);
 
                 $student = HighSchoolStudent::where('parent_phone', $debitMSISDN)->first();
-                
+
                 if ($student) {
                     $studentNumber = $student->admission_number;
                     Log::info('KCB IPN: FALLBACK - Found student by phone', [
                         'student_id' => $student->id,
                         'admission_number' => $studentNumber,
                     ]);
-                    
+
                     return $this->handleHighSchoolFunding(
                         $studentNumber,
                         'T',
@@ -232,9 +218,6 @@ class KcbIpnController extends Controller
                 }
             }
 
-            // ============================================================
-            // NO MATCH FOUND
-            // ============================================================
             Log::warning('KCB IPN: No matching student found', [
                 'business_key' => $businessKey,
                 'student_number' => $studentNumber,
@@ -286,7 +269,7 @@ class KcbIpnController extends Controller
             $transactionDate = $notificationData['transactionDate'] ?? null;
 
             // ------------------------------------------------------------
-            // 1. Check for duplicate high school transaction
+            // 1. Duplicate IPN check
             // ------------------------------------------------------------
             if ($transactionId) {
                 $existing = HighSchoolKcbTransaction::where('transaction_reference', $transactionId)->first();
@@ -307,17 +290,13 @@ class KcbIpnController extends Controller
             }
 
             // ------------------------------------------------------------
-            // 2. Find the student
+            // 2. Find student
             // ------------------------------------------------------------
-            $student = null;
-            
-            // Try exact match on admission_number
             $student = HighSchoolStudent::where('admission_number', $studentNumber)
                 ->orWhere('admission_number', (string)$studentNumber)
                 ->orWhere('admission_number', (int)$studentNumber)
                 ->first();
 
-            // If not found, try stripping prefix (T101 -> 101)
             if (!$student && preg_match('/^[A-Za-z](\d+)$/', $studentNumber, $matches)) {
                 $numericOnly = $matches[1];
                 $student = HighSchoolStudent::where('admission_number', $numericOnly)
@@ -330,7 +309,6 @@ class KcbIpnController extends Controller
                 ]);
             }
 
-            // If still not found, try by phone
             if (!$student && $debitMSISDN) {
                 $student = HighSchoolStudent::where('parent_phone', $debitMSISDN)->first();
                 Log::info('KCB IPN: Searching by phone', [
@@ -345,7 +323,6 @@ class KcbIpnController extends Controller
                     'phone' => $debitMSISDN,
                 ]);
 
-                // Create failed transaction record
                 HighSchoolKcbTransaction::create([
                     'transaction_reference' => $transactionId,
                     'invoice_number' => $businessKey,
@@ -384,9 +361,11 @@ class KcbIpnController extends Controller
             ]);
 
             // ------------------------------------------------------------
-            // 3. Find the card
+            // 3. Find card WITH row lock (prevents race with STK callback)
             // ------------------------------------------------------------
-            $card = CardAccount::where('high_school_student_id', $student->id)->first();
+            $card = CardAccount::where('high_school_student_id', $student->id)
+                ->lockForUpdate()
+                ->first();
 
             if (!$card) {
                 Log::error('KCB IPN: Card not found for student', [
@@ -417,12 +396,15 @@ class KcbIpnController extends Controller
             }
 
             // ------------------------------------------------------------
-            // 4. Check for duplicate card transaction
+            // 4. DUPLICATE GUARDS — 4a: same IPN receipt, 4b: STK callback already credited
             // ------------------------------------------------------------
+
+            // 4a. Same IPN transaction received twice
             $existingCardTx = CardTransaction::where('mpesa_receipt', $transactionId)->first();
             if ($existingCardTx) {
-                Log::warning('KCB IPN: Duplicate card transaction', [
+                Log::warning('KCB IPN: Duplicate IPN card transaction', [
                     'mpesa_receipt' => $transactionId,
+                    'existing_id'   => $existingCardTx->id,
                 ]);
                 DB::commit();
                 return response()->json([
@@ -432,6 +414,66 @@ class KcbIpnController extends Controller
                         'statusMessage' => 'Duplicate transaction - already processed'
                     ]
                 ], 200);
+            }
+
+            // 4b. STK callback already credited this same payment
+            if ($businessKey) {
+                $recentFromCallback = CardTransaction::where('card_account_id', $card->id)
+                    ->where('transaction_type', 'funding')
+                    ->where('status', 'completed')
+                    ->where('amount', $amount)
+                    ->where('created_at', '>=', now()->subMinutes(5))
+                    ->where('mpesa_receipt', 'NOT LIKE', 'FT%')
+                    ->where('mpesa_receipt', '!=', $transactionId)
+                    ->where(function ($q) use ($businessKey) {
+                        $q->where('reference', 'LIKE', '8118445#%')
+                          ->orWhere('description', 'LIKE', '%' . $businessKey . '%');
+                    })
+                    ->first();
+
+                if ($recentFromCallback) {
+                    Log::warning('KCB IPN: SKIPPED — already credited via STK callback', [
+                        'card_id'       => $card->id,
+                        'amount'        => $amount,
+                        'business_key'  => $businessKey,
+                        'callback_tx'   => $recentFromCallback->id,
+                        'ipn_txn'       => $transactionId,
+                    ]);
+
+                    // Record IPN as completed (satisfy KCB) without re-crediting
+                    HighSchoolKcbTransaction::create([
+                        'transaction_reference' => $transactionId,
+                        'invoice_number' => $businessKey,
+                        'amount' => $amount,
+                        'phone_number' => $debitMSISDN,
+                        'customer_name' => $firstName,
+                        'customer_reference' => $businessKey,
+                        'transaction_type' => 'card_funding',
+                        'status' => 'completed',
+                        'result_code' => '0',
+                        'result_description' => 'Skipped — already credited via STK callback (tx #' . $recentFromCallback->id . ')',
+                        'mpesa_receipt_number' => $transactionId,
+                        'completed_at' => now(),
+                        'card_account_id' => $card->id,
+                        'high_school_student_id' => $student->id,
+                        'request_data' => json_encode([
+                            'admission_number' => $student->admission_number,
+                            'funding_type' => $fundingType,
+                            'skipped_due_to' => 'stk_callback_credit',
+                        ]),
+                        'callback_data' => json_encode($payload),
+                    ]);
+
+                    DB::commit();
+
+                    return response()->json([
+                        'header' => [
+                            'messageID' => $notificationData['transactionID'] ?? null,
+                            'statusCode' => '0',
+                            'statusMessage' => 'Already credited via STK callback'
+                        ]
+                    ], 200);
+                }
             }
 
             // ------------------------------------------------------------
@@ -479,7 +521,7 @@ class KcbIpnController extends Controller
             ]);
 
             // ------------------------------------------------------------
-            // 7. Create HighSchoolKcbTransaction record
+            // 7. Create HighSchoolKcbTransaction
             // ------------------------------------------------------------
             $hsTransaction = HighSchoolKcbTransaction::create([
                 'transaction_reference' => $transactionId,
@@ -538,7 +580,7 @@ class KcbIpnController extends Controller
             ]);
 
             // ------------------------------------------------------------
-            // 9. Send SMS notification
+            // 9. SMS
             // ------------------------------------------------------------
             if ($student->parent_phone) {
                 try {
@@ -609,9 +651,6 @@ class KcbIpnController extends Controller
             $businessKey = $notificationData['businessKey'] ?? null;
             $transactionDate = $notificationData['transactionDate'] ?? null;
 
-            // ------------------------------------------------------------
-            // 1. Check for duplicate college transaction
-            // ------------------------------------------------------------
             if ($transactionId) {
                 $existing = KcbTransaction::where('transaction_reference', $transactionId)->first();
                 if ($existing) {
@@ -630,9 +669,6 @@ class KcbIpnController extends Controller
                 }
             }
 
-            // ------------------------------------------------------------
-            // 2. Find college student
-            // ------------------------------------------------------------
             $student = Student::where('student_number', $studentNumber)->first();
 
             if (!$student) {
@@ -640,7 +676,6 @@ class KcbIpnController extends Controller
                     'student_number' => $studentNumber,
                 ]);
 
-                // Create failed transaction
                 KcbTransaction::create([
                     'transaction_reference' => $transactionId,
                     'student_number' => $studentNumber,
@@ -664,10 +699,6 @@ class KcbIpnController extends Controller
                 ], 404);
             }
 
-            // ------------------------------------------------------------
-            // 3. Process college payment
-            // ------------------------------------------------------------
-            // Find enrollment
             $enrollment = Enrollment::where('student_id', $student->id)
                 ->where('status', 'active')
                 ->latest()
@@ -687,7 +718,6 @@ class KcbIpnController extends Controller
                 ], 404);
             }
 
-            // Create fee payment
             $feePayment = FeePayment::create([
                 'enrollment_id' => $enrollment->id,
                 'amount' => $amount,
@@ -698,7 +728,6 @@ class KcbIpnController extends Controller
                 'notes' => "KCB IPN payment - {$firstName}",
             ]);
 
-            // Create KcbTransaction record
             KcbTransaction::create([
                 'transaction_reference' => $transactionId,
                 'student_number' => $studentNumber,

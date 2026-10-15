@@ -164,6 +164,19 @@
             font-size: 1rem;
         }
 
+        /* Pre-order badge styling */
+        .preorder-link {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px dashed rgba(255, 255, 255, 0.3);
+        }
+        .preorder-link:hover {
+            background: rgba(255, 255, 255, 0.18);
+            border-style: solid;
+        }
+        .preorder-link.active {
+            border: none;
+        }
+
         .btn-primary {
             background: #E63946;
             transition: all 0.15s ease;
@@ -338,7 +351,7 @@
                     <span>POS Terminal</span>
                 </a>
             </li>
-            {{-- ✅ NEW: Card Scanner Link --}}
+            {{-- ✅ Card Scanner --}}
             <li>
                 <a href="{{ route('cafeteria.scanner.index') }}"
                    class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('cafeteria.scanner.*') ? 'active' : '' }}">
@@ -353,6 +366,31 @@
                     <span>Sales List</span>
                 </a>
             </li>
+
+            {{-- ✅ NEW: Pre-Orders (Staff / Student Self-Service) --}}
+            <li>
+                <a href="{{ route('cafeteria.pre-orders.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target preorder-link {{ request()->routeIs('cafeteria.pre-orders.*') ? 'active' : '' }}">
+                    <i class="fas fa-clipboard-check w-5 mr-3 text-center"></i>
+                    <span>Pre-Orders</span>
+                    @php
+                        $pendingPreOrders = 0;
+                        try {
+                            if (\Illuminate\Support\Facades\Schema::hasTable('pre_orders')) {
+                                $pendingPreOrders = \DB::table('pre_orders')
+                                    ->whereIn('status', ['pending', 'confirmed'])
+                                    ->count();
+                            }
+                        } catch (\Exception $e) {}
+                    @endphp
+                    @if($pendingPreOrders > 0)
+                        <span class="ml-auto bg-yellow-400 text-red-900 text-xs font-bold px-2 py-0.5 rounded-full">
+                            {{ $pendingPreOrders }}
+                        </span>
+                    @endif
+                </a>
+            </li>
+
             <li>
                 <a href="{{ route('cafeteria.daily-productions.index') }}"
                    class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('cafeteria.daily-productions.*') ? 'active' : '' }}">
@@ -430,9 +468,6 @@
                 </a>
             </li>
 
-            <!-- Payments -->
-            
-
             <!-- Settings -->
             <li class="mt-4">
                 <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider">System</p>
@@ -487,6 +522,11 @@
                 <i class="fas fa-exclamation-triangle mr-2"></i> {{ session('warning') }}
             </div>
         @endif
+        @if(session('info'))
+            <div class="mb-3 p-3 bg-blue-100 border-l-4 border-blue-500 text-blue-700 rounded shadow-sm text-sm">
+                <i class="fas fa-info-circle mr-2"></i> {{ session('info') }}
+            </div>
+        @endif
         @if($errors->any())
             <div class="mb-3 p-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded shadow-sm text-sm">
                 <i class="fas fa-exclamation-triangle mr-2"></i>
@@ -518,7 +558,6 @@
 
 <script>
     (function() {
-        // Toastr configuration
         toastr.options = {
             closeButton: true,
             progressBar: true,
@@ -528,7 +567,6 @@
             preventDuplicates: true
         };
 
-        // Loading overlay functions
         window.showLoading = function(message = 'Processing...') {
             const overlay = document.getElementById('loadingOverlay');
             const messageEl = document.getElementById('loadingMessage');
@@ -547,7 +585,6 @@
             }
         };
 
-        // Auto show loading on form submit
         document.addEventListener('submit', function(e) {
             const form = e.target;
             if (form.tagName === 'FORM' && !form.hasAttribute('data-no-loading')) {
@@ -558,7 +595,6 @@
             }
         });
 
-        // Mobile sidebar toggle
         const mobileBtn = document.getElementById('mobileMenuBtn');
         const sidebar = document.getElementById('sidebar');
         const mobileOverlay = document.getElementById('mobileOverlay');
@@ -588,9 +624,6 @@
 
         if (mobileOverlay) {
             mobileOverlay.addEventListener('click', closeSidebar);
-            mobileOverlay.addEventListener('touchstart', function(e) {
-                // Allow touch to close
-            });
         }
 
         let resizeTimer;
@@ -609,7 +642,6 @@
             }
         });
 
-        // User dropdown
         const userBtn = document.getElementById('userBtn');
         const userMenu = document.getElementById('userMenu');
 
@@ -628,7 +660,6 @@
             });
         }
 
-        // Initialize DataTables with responsive handling
         $(document).ready(function() {
             $('.datatable').each(function() {
                 if (!$.fn.DataTable.isDataTable(this)) {
@@ -650,7 +681,6 @@
                 }
             });
 
-            // Initialize Select2 with responsive width
             $('select:not(.no-select2)').each(function() {
                 $(this).select2({
                     theme: 'classic',
@@ -660,7 +690,6 @@
             });
         });
 
-        // Helper function for AJAX requests with loading
         window.ajaxWithLoading = function(url, options = {}) {
             showLoading(options.loadingMessage || 'Loading...');
 

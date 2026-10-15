@@ -10,6 +10,7 @@ use App\Models\CardTransaction;
 use App\Models\CardAuditLog;
 use App\Services\CardService;
 use App\Services\KcbCardFundingService;
+use App\Services\SmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -45,7 +46,6 @@ class CardFundingRequestController extends Controller
 
         $requests = $query->orderBy('created_at', 'desc')->paginate(20);
 
-        // Stats
         $pending = CardFundingRequest::whereIn('status', ['pending', 'processing'])->count();
         $completed = CardFundingRequest::where('status', 'completed')->count();
         $failed = CardFundingRequest::where('status', 'failed')->count();
@@ -75,7 +75,6 @@ class CardFundingRequestController extends Controller
             return redirect()->back()->with('error', 'Funding already completed');
         }
 
-        // Process completion
         $result = $this->cardService->completeFunding(
             $cardFundingRequest->checkout_request_id,
             [
@@ -128,7 +127,6 @@ class CardFundingRequestController extends Controller
         $cardFundingRequest->status = 'pending';
         $cardFundingRequest->save();
 
-        // Re-initiate STK Push
         $kcbService = app(KcbCardFundingService::class);
         $result = $kcbService->initiateSTKPush(
             $cardFundingRequest->parent_phone,
@@ -198,12 +196,11 @@ class CardFundingRequestController extends Controller
      */
     public function export(Request $request)
     {
-        // TODO: Implement export
         return redirect()->back()->with('info', 'Export functionality coming soon');
     }
 
     // ============================================================
-    // ✅ FIXED: KCB CALLBACK METHODS WITH DUPLICATE PREVENTION
+    // KCB CALLBACK
     // ============================================================
 
     /**
@@ -238,7 +235,6 @@ class CardFundingRequestController extends Controller
                 'result_desc' => $resultDesc
             ]);
 
-            // 1. Check HighSchoolKcbTransaction first (new system)
             $transaction = HighSchoolKcbTransaction::where('checkout_request_id', $checkoutRequestId)
                 ->where('transaction_type', 'card_funding')
                 ->first();
@@ -247,7 +243,6 @@ class CardFundingRequestController extends Controller
                 return $this->handleHighSchoolFundingCallback($transaction, $callback, $data);
             }
 
-            // 2. Check CardFundingRequest as fallback (legacy system)
             $fundingRequest = CardFundingRequest::where('checkout_request_id', $checkoutRequestId)->first();
 
             if ($fundingRequest) {
@@ -272,7 +267,7 @@ class CardFundingRequestController extends Controller
     }
 
     /**
-     * Handle high school funding callback (new system)
+     * Handle high school funding callback
      */
     protected function handleHighSchoolFundingCallback($transaction, $callback, $data)
     {
@@ -286,14 +281,14 @@ class CardFundingRequestController extends Controller
     }
 
     /**
-     * ✅ FIXED: Complete high school funding with duplicate prevention
+     * Complete high school funding with duplicate prevention + IPN cross-check
      */
     protected function completeHighSchoolFunding($transaction, $callback, $data)
     {
         try {
             DB::beginTransaction();
 
-            // ✅ CHECK 1: If already completed, skip immediately
+            // CHECK 1: already completed?
             if ($transaction->status === 'completed') {
                 Log::info('High school funding already completed - skipping', [
                     'transaction_id' => $transaction->id
@@ -322,7 +317,6 @@ class CardFundingRequestController extends Controller
                 }
             }
 
-            // ✅ CHECK 2: Validate receipt exists
             if (empty($mpesaReceipt)) {
                 Log::error('No M-Pesa receipt in callback', [
                     'transaction_id' => $transaction->id,
@@ -332,7 +326,7 @@ class CardFundingRequestController extends Controller
                 return response()->json(['error' => 'No M-Pesa receipt found'], 400);
             }
 
-            // ✅ CHECK 3: CRITICAL - Check for duplicate transaction by receipt
+            // CHECK 2: same receipt already processed?
             $existingTransaction = CardTransaction::where('mpesa_receipt', $mpesaReceipt)->first();
             if ($existingTransaction) {
                 Log::warning('⚠️ DUPLICATE TRANSACTION DETECTED - Skipping', [
@@ -342,7 +336,6 @@ class CardFundingRequestController extends Controller
                     'new_transaction_id' => $transaction->id
                 ]);
 
-                // Update the KCB transaction record to reflect it's a duplicate
                 $transaction->status = 'completed';
                 $transaction->mpesa_receipt_number = $mpesaReceipt;
                 $transaction->result_code = 0;
@@ -352,14 +345,10 @@ class CardFundingRequestController extends Controller
                 $transaction->save();
 
                 DB::commit();
-                Log::info('Duplicate handled - transaction marked as completed without balance update', [
-                    'transaction_id' => $transaction->id,
-                    'existing_transaction_id' => $existingTransaction->id
-                ]);
                 return response()->json(['success' => true, 'message' => 'Duplicate already processed']);
             }
 
-            // ✅ CHECK 4: Check for duplicate by reference (invoice number)
+            // CHECK 3: same reference already processed?
             $reference = $transaction->invoice_number;
             if (!empty($reference)) {
                 $existingByReference = CardTransaction::where('reference', $reference)->first();
@@ -383,8 +372,8 @@ class CardFundingRequestController extends Controller
                 }
             }
 
-            // Get card
-            $card = CardAccount::find($transaction->card_account_id);
+            // Get card WITH row lock
+            $card = CardAccount::lockForUpdate()->find($transaction->card_account_id);
             if (!$card) {
                 Log::error('Card not found for high school funding', [
                     'card_id' => $transaction->card_account_id
@@ -393,23 +382,59 @@ class CardFundingRequestController extends Controller
                 return response()->json(['error' => 'Card not found'], 404);
             }
 
+            // CHECK 4 (NEW): IPN already credited this same payment?
+            $recentFromIpn = CardTransaction::where('card_account_id', $card->id)
+                ->where('transaction_type', 'funding')
+                ->where('status', 'completed')
+                ->where('amount', $amount)
+                ->where('created_at', '>=', now()->subMinutes(5))
+                ->where('mpesa_receipt', 'LIKE', 'FT%')
+                ->where(function ($q) use ($reference) {
+                    $q->where('reference', 'LIKE', '8118445#%')
+                      ->orWhere('description', 'LIKE', '%' . $reference . '%');
+                })
+                ->first();
+
+            if ($recentFromIpn) {
+                Log::warning('STK callback: SKIPPED — already credited via IPN', [
+                    'card_id'      => $card->id,
+                    'amount'       => $amount,
+                    'reference'    => $reference,
+                    'ipn_tx'       => $recentFromIpn->id,
+                    'stk_txn'      => $transaction->id,
+                ]);
+
+                $transaction->status = 'completed';
+                $transaction->mpesa_receipt_number = $mpesaReceipt;
+                $transaction->result_code = 0;
+                $transaction->result_description = 'Skipped — already credited via IPN (tx #' . $recentFromIpn->id . ')';
+                $transaction->callback_data = json_encode($data);
+                $transaction->completed_at = now();
+                $transaction->save();
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Already credited via IPN',
+                ]);
+            }
+
+            // Log duplicate check summary
+            Log::info('Duplicate check passed - proceeding with funding', [
+                'transaction_id' => $transaction->id,
+                'receipt' => $mpesaReceipt,
+                'reference' => $reference,
+                'amount' => $amount
+            ]);
+
             // Get request data
             $requestData = $transaction->request_data ?? [];
             $typeLabel = $requestData['type_label'] ?? 'Funding';
             $fundingType = $requestData['funding_type'] ?? 'T';
 
-            // Get student
             $student = $transaction->highSchoolStudent;
-            $studentName = $student ? $student->name : 'Unknown Student';
-
-            // ✅ LOG THE DUPLICATE CHECK SUMMARY
-            Log::info('Duplicate check passed - proceeding with funding', [
-                'transaction_id' => $transaction->id,
-                'receipt' => $mpesaReceipt,
-                'reference' => $reference,
-                'student' => $studentName,
-                'amount' => $amount
-            ]);
+            $studentName = $student ? $student->full_name : 'Unknown Student';
 
             // Fund the card
             $balanceBefore = $card->balance;
@@ -418,7 +443,7 @@ class CardFundingRequestController extends Controller
             $card->last_funded_at = now();
             $card->save();
 
-            // ✅ Create card transaction
+            // Create card transaction
             $cardTransaction = CardTransaction::create([
                 'card_account_id' => $card->id,
                 'high_school_student_id' => $transaction->high_school_student_id,
@@ -450,13 +475,13 @@ class CardFundingRequestController extends Controller
             $transaction->completed_at = now();
             $transaction->save();
 
-            // Log audit
+            // Audit
             CardAuditLog::log(
                 $card->id,
                 'funding_completed',
                 "Card funded: KES {$amount} ({$typeLabel}) Receipt: {$mpesaReceipt} - Student: {$studentName}",
-                null,
-                $card->card_number,
+                $balanceBefore,
+                $card->balance,
                 [
                     'amount' => $amount,
                     'mpesa_receipt' => $mpesaReceipt,
@@ -477,7 +502,6 @@ class CardFundingRequestController extends Controller
                 'card_transaction_id' => $cardTransaction->id
             ]);
 
-            // ✅ Send SMS notification with fallback (doesn't break transaction)
             $this->sendFundingSMS($student, $amount, $fundingType, $mpesaReceipt, $card->balance);
 
             return response()->json([
@@ -499,7 +523,7 @@ class CardFundingRequestController extends Controller
     }
 
     /**
-     * ✅ NEW: Send SMS with proper error handling (doesn't break transaction)
+     * Send SMS with proper error handling (doesn't break transaction)
      */
     protected function sendFundingSMS($student, $amount, $fundingType, $mpesaReceipt, $newBalance)
     {
@@ -511,9 +535,8 @@ class CardFundingRequestController extends Controller
         }
 
         try {
-            $smsService = app(\App\Services\SmsService::class);
-            
-            // Check if SMS service is initialized properly
+            $smsService = app(SmsService::class);
+
             if (!$smsService) {
                 Log::warning('SMS service not available');
                 return;
@@ -535,15 +558,11 @@ class CardFundingRequestController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            // ✅ CRITICAL: SMS failure should NOT cause the transaction to rollback
             Log::error('SMS sending failed but transaction completed successfully', [
                 'student_id' => $student->id ?? null,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
-            // Optionally log to a separate SMS failure table for retry
-            // $this->logSmsFailure($student, $amount, $fundingType, $e->getMessage());
         }
     }
 
@@ -562,7 +581,6 @@ class CardFundingRequestController extends Controller
             $transaction->callback_data = json_encode($data);
             $transaction->save();
 
-            // Log audit
             $card = CardAccount::find($transaction->card_account_id);
             if ($card) {
                 CardAuditLog::log(
@@ -649,7 +667,6 @@ class CardFundingRequestController extends Controller
             'checkout_request_id' => 'required|string'
         ]);
 
-        // Check HighSchoolKcbTransaction first (new system)
         $transaction = HighSchoolKcbTransaction::where('checkout_request_id', $request->checkout_request_id)
             ->where('transaction_type', 'card_funding')
             ->first();
@@ -665,7 +682,6 @@ class CardFundingRequestController extends Controller
             ]);
         }
 
-        // Check CardFundingRequest as fallback (legacy system)
         $fundingRequest = CardFundingRequest::where('checkout_request_id', $request->checkout_request_id)->first();
 
         if ($fundingRequest) {

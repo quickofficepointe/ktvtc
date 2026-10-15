@@ -31,17 +31,14 @@ class SaleController extends Controller
         Log::info('User Shop ID: ' . (auth()->user()->shop_id ?? 'null'));
         Log::info('User Business Section ID: ' . (auth()->user()->business_section_id ?? 'null'));
 
-        // Get categories for filter
         $categories = ProductCategory::where('is_active', true)
             ->orderBy('category_name')
             ->get();
 
         Log::info('Categories count: ' . $categories->count());
 
-        // Get today's stats
         $todayStats = $this->getTodayStats();
 
-        // Get user's default shop and business section
         $user = auth()->user();
         $defaultShop = $user->shop_id ? Shop::find($user->shop_id) : Shop::where('is_active', true)->first();
         $defaultBusinessSection = $user->business_section_id ? BusinessSection::find($user->business_section_id) : BusinessSection::where('is_active', true)->first();
@@ -56,6 +53,11 @@ class SaleController extends Controller
 
     /**
      * Get products for POS (AJAX)
+     *
+     * ✅ FIXED:
+     *  - Removed `barcode` reference (column doesn't exist → 500 on search)
+     *  - No forced default `shop_id = 1`; falls back gracefully
+     *  - Uses business_section_id as secondary filter when shop unknown
      */
     public function posProducts(Request $request)
     {
@@ -66,136 +68,97 @@ class SaleController extends Controller
         Log::info('User Business Section ID: ' . (auth()->user()->business_section_id ?? 'null'));
 
         try {
-            // First, let's debug the basic product data
-            $totalProducts = Product::count();
-            $activeProducts = Product::where('is_active', true)->count();
+            // Resolve shop/section — do NOT force a default of 1
+            $shopId    = $request->shop_id ?? auth()->user()->shop_id ?? null;
+            $sectionId = $request->business_section_id ?? auth()->user()->business_section_id ?? null;
 
-            Log::info("Database Stats - Total Products: {$totalProducts}, Active Products: {$activeProducts}");
+            Log::info("Resolved shop_id: " . ($shopId ?? 'null') . ", section_id: " . ($sectionId ?? 'null'));
 
-            // Get first 5 active products for debugging
-            $sampleProducts = Product::where('is_active', true)
-                ->take(5)
-                ->get(['id', 'product_name', 'product_code', 'shop_id', 'category_id', 'is_active', 'track_inventory', 'current_stock']);
+            // Base query: active products only
+            $query = Product::with(['category'])->where('is_active', true);
 
-            Log::info("Sample Products (first 5 active):");
-            foreach ($sampleProducts as $product) {
-                Log::info("  - ID: {$product->id}, Name: {$product->product_name}, Shop ID: {$product->shop_id}, Category ID: {$product->category_id}, Active: {$product->is_active}");
+            // Filter by shop when known; else by business section; else show all
+            if ($shopId) {
+                $query->where('shop_id', $shopId);
+            } elseif ($sectionId) {
+                $query->where('business_section_id', $sectionId);
             }
 
-            // Get the shop ID we'll use
-            $shopId = $request->shop_id ?? auth()->user()->shop_id ?? 1;
-            Log::info("Using Shop ID: {$shopId}");
-
-            // Check if shop exists
-            $shop = Shop::find($shopId);
-            Log::info("Shop found: " . ($shop ? $shop->shop_name : 'No shop found with ID ' . $shopId));
-
-            // Count products for this shop
-            $shopProductCount = Product::where('is_active', true)
-                ->where('shop_id', $shopId)
-                ->count();
-            Log::info("Active products in shop {$shopId}: {$shopProductCount}");
-
-            // Build the query
-            Log::info("Building query...");
-            $query = Product::with(['category'])
-                ->where('is_active', true);
-
-            // Filter by shop
-            $query->where('shop_id', $shopId);
-
-            // Search
-            if ($request->has('search') && $request->search) {
+            // Search — barcode column no longer referenced
+            if ($request->filled('search')) {
                 $search = $request->search;
                 Log::info("Adding search filter: {$search}");
-                $query->where(function($q) use ($search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('product_name', 'like', "%{$search}%")
-                      ->orWhere('product_code', 'like', "%{$search}%")
-                      ->orWhere('barcode', 'like', "%{$search}%");
+                      ->orWhere('product_code', 'like', "%{$search}%");
                 });
             }
 
+            // Explicit business section filter from UI
+            if ($request->filled('business_section_id')) {
+                $query->where('business_section_id', $request->business_section_id);
+            }
+
             // Category filter
-            if ($request->has('category_id') && $request->category_id) {
+            if ($request->filled('category_id')) {
                 Log::info("Adding category filter: category_id = {$request->category_id}");
                 $query->where('category_id', $request->category_id);
             }
 
-            // In stock only
+            // In-stock filter
             if ($request->boolean('in_stock_only')) {
-                Log::info("Adding in-stock filter (checking products.current_stock)");
-                $query->where(function($q) {
+                Log::info("Adding in-stock filter");
+                $query->where(function ($q) {
                     $q->where('track_inventory', false)
                       ->orWhere('current_stock', '>', 0);
                 });
             }
 
             // Product type filter
-            if ($request->has('type') && $request->type) {
+            if ($request->filled('type')) {
                 Log::info("Adding product type filter: type = {$request->type}");
                 $query->where('product_type', $request->type);
             }
 
-            // Debug the final query
-            $sql = $query->toSql();
-            $bindings = $query->getBindings();
-            Log::info("Final SQL Query: {$sql}");
-            Log::info("Query Bindings: " . json_encode($bindings));
-
-            // Get count before pagination
             $totalResults = $query->count();
-            Log::info("Total results found: {$totalResults}");
+            Log::info("Total matching products: {$totalResults}");
 
-            if ($totalResults > 0) {
-                // Get sample of what we found
-                $sampleResults = $query->take(3)->get(['id', 'product_name', 'product_code', 'selling_price', 'current_stock']);
-                Log::info("Sample results (first 3):");
-                foreach ($sampleResults as $product) {
-                    Log::info("  - {$product->product_name} (KES {$product->selling_price}), Stock: {$product->current_stock}");
-                }
-            } else {
-                Log::warning("No products found with current filters!");
-            }
+            $perPage  = $request->get('per_page', 20);
+            $products = $query->orderBy('product_name')->paginate($perPage);
 
-            // Pagination
-            $perPage = $request->get('per_page', 20);
-            Log::info("Paginating with {$perPage} items per page");
+            // Shape the response for the POS JS
+            $products->getCollection()->transform(function ($product) {
+                return [
+                    'id'               => $product->id,
+                    'product_code'     => $product->product_code,
+                    'product_name'     => $product->product_name,
+                    'selling_price'    => (float) $product->selling_price,
+                    'cost_price'       => (float) $product->cost_price,
+                    'current_stock'    => (int) $product->current_stock,
+                    'track_inventory'  => (bool) $product->track_inventory,
+                    'unit'             => $product->unit,
+                    'image'            => $product->image ? \Storage::url($product->image) : null,
+                    'product_type'     => $product->product_type,
+                    'category_id'      => $product->category_id,
+                    'category_name'    => $product->category ? $product->category->category_name : null,
+                ];
+            });
 
-            $products = $query->paginate($perPage);
-
-            Log::info("Pagination results:");
-            Log::info("  - Total items: {$products->total()}");
-            Log::info("  - Items on this page: {$products->count()}");
-            Log::info("  - Last page: {$products->lastPage()}");
-
-            if ($products->count() > 0) {
-                Log::info("First product in results:");
-                $firstProduct = $products->first();
-                Log::info("  - ID: {$firstProduct->id}");
-                Log::info("  - Name: {$firstProduct->product_name}");
-                Log::info("  - Code: {$firstProduct->product_code}");
-                Log::info("  - Price: {$firstProduct->selling_price}");
-                Log::info("  - Stock: {$firstProduct->current_stock}");
-                Log::info("  - Shop ID: {$firstProduct->shop_id}");
-                Log::info("  - Category: " . ($firstProduct->category ? $firstProduct->category->category_name : 'None'));
-            }
-
-            Log::info('=== END POS PRODUCTS API ===');
+            Log::info('=== END POS PRODUCTS API ===', [
+                'returned' => $products->count(),
+                'total'    => $products->total(),
+            ]);
 
             return response()->json($products);
 
         } catch (\Exception $e) {
-            Log::error('ERROR in posProducts: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
+            Log::error('ERROR in posProducts: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
 
             return response()->json([
-                'error' => 'Server error',
+                'error'   => 'Server error',
                 'message' => $e->getMessage(),
-                'debug_info' => [
-                    'user_id' => auth()->id(),
-                    'shop_id' => $request->shop_id ?? auth()->user()->shop_id ?? 'null',
-                    'timestamp' => now()->toDateTimeString()
-                ]
             ], 500);
         }
     }
@@ -219,45 +182,44 @@ class SaleController extends Controller
         ];
 
         try {
-            // Check products table
             $results['products'] = [
                 'total' => Product::count(),
                 'active' => Product::where('is_active', true)->count(),
                 'with_shop_null' => Product::whereNull('shop_id')->where('is_active', true)->count(),
                 'with_shop_1' => Product::where('shop_id', 1)->where('is_active', true)->count(),
-                'with_user_shop' => Product::where('shop_id', auth()->user()->shop_id)->where('is_active', true)->count()
+                'with_user_shop' => auth()->user()->shop_id
+                    ? Product::where('shop_id', auth()->user()->shop_id)->where('is_active', true)->count()
+                    : 0,
             ];
 
-            // Get sample products
             $results['sample_products'] = Product::where('is_active', true)
                 ->take(10)
-                ->get(['id', 'product_name', 'product_code', 'shop_id', 'category_id', 'selling_price', 'current_stock', 'is_active'])
-                ->map(function($product) {
+                ->get(['id', 'product_name', 'product_code', 'shop_id', 'business_section_id', 'category_id', 'selling_price', 'current_stock', 'is_active'])
+                ->map(function ($product) {
                     return [
                         'id' => $product->id,
                         'name' => $product->product_name,
                         'code' => $product->product_code,
                         'shop_id' => $product->shop_id,
+                        'business_section_id' => $product->business_section_id,
                         'category_id' => $product->category_id,
                         'price' => $product->selling_price,
                         'stock' => $product->current_stock,
-                        'active' => $product->is_active
+                        'active' => $product->is_active,
                     ];
                 });
 
-            // Check shops
             $results['shops'] = Shop::where('is_active', true)
                 ->get(['id', 'shop_name', 'business_section_id', 'is_active'])
-                ->map(function($shop) {
+                ->map(function ($shop) {
                     return [
                         'id' => $shop->id,
                         'name' => $shop->shop_name,
                         'business_section_id' => $shop->business_section_id,
-                        'active' => $shop->is_active
+                        'active' => $shop->is_active,
                     ];
                 });
 
-            // Check categories
             $results['categories'] = [
                 'total' => ProductCategory::count(),
                 'active' => ProductCategory::where('is_active', true)->count(),
@@ -266,18 +228,24 @@ class SaleController extends Controller
                     ->get(['id', 'category_name', 'business_section_id'])
             ];
 
-            // Test the actual POS query
-            $shopId = auth()->user()->shop_id ?? 1;
-            $testQuery = Product::with(['category'])
-                ->where('is_active', true)
-                ->where('shop_id', $shopId);
+            // Test the actual POS query (no forced shop 1)
+            $shopId    = auth()->user()->shop_id ?? null;
+            $sectionId = auth()->user()->business_section_id ?? null;
+
+            $testQuery = Product::with(['category'])->where('is_active', true);
+            if ($shopId) {
+                $testQuery->where('shop_id', $shopId);
+            } elseif ($sectionId) {
+                $testQuery->where('business_section_id', $sectionId);
+            }
 
             $results['test_query'] = [
-                'shop_id_used' => $shopId,
-                'sql' => $testQuery->toSql(),
-                'bindings' => $testQuery->getBindings(),
-                'count' => $testQuery->count(),
-                'sample' => $testQuery->take(3)->get(['id', 'product_name', 'shop_id'])->toArray()
+                'shop_id_used'   => $shopId ?? 'null',
+                'section_id_used'=> $sectionId ?? 'null',
+                'sql'            => $testQuery->toSql(),
+                'bindings'       => $testQuery->getBindings(),
+                'count'          => $testQuery->count(),
+                'sample'         => $testQuery->take(3)->get(['id', 'product_name', 'shop_id', 'business_section_id'])->toArray(),
             ];
 
             Log::info('Debug results:', $results);
@@ -300,16 +268,15 @@ class SaleController extends Controller
     {
         Log::info('=== TEST PRODUCTS ENDPOINT ===');
 
-        // Simple query without complex filters
         $products = Product::where('is_active', true)
-            ->select('id', 'product_name', 'product_code', 'selling_price', 'image', 'current_stock', 'shop_id')
+            ->select('id', 'product_name', 'product_code', 'selling_price', 'image', 'current_stock', 'shop_id', 'business_section_id')
             ->orderBy('product_name')
             ->take(50)
             ->get();
 
         Log::info("Found {$products->count()} active products");
 
-        $result = [
+        return response()->json([
             'success' => true,
             'message' => 'Test endpoint working',
             'total' => $products->count(),
@@ -317,13 +284,9 @@ class SaleController extends Controller
             'debug' => [
                 'shop_id_used' => 'none (all shops)',
                 'user_shop_id' => auth()->user()->shop_id ?? 'null',
-                'timestamp' => now()->toDateTimeString()
-            ]
-        ];
-
-        Log::info('=== END TEST PRODUCTS ===');
-
-        return response()->json($result);
+                'timestamp' => now()->toDateTimeString(),
+            ],
+        ]);
     }
 
     /**
@@ -335,7 +298,6 @@ class SaleController extends Controller
             $phone = $request->input('phone');
             $type = $request->input('type');
 
-            // Clean the phone parameter
             $cleanPhone = $phone;
             if (is_string($phone)) {
                 if (strpos($phone, 'HTTP/1.1') !== false) {
@@ -354,30 +316,28 @@ class SaleController extends Controller
 
             $customers = [];
 
-            // Search by phone in users table
             if ($cleanPhone && strlen($cleanPhone) >= 10) {
                 $users = User::where('phone_number', 'like', '%' . $cleanPhone . '%')
                     ->limit(10)
                     ->get()
-                    ->map(function($user) {
+                    ->map(function ($user) {
                         return [
                             'name' => $user->name,
                             'phone' => $user->phone_number,
                             'email' => $user->email,
-                            'type' => $this->getCustomerTypeFromRole($user->role)
+                            'type' => $this->getCustomerTypeFromRole($user->role),
                         ];
                     });
 
                 $customers = array_merge($customers, $users->toArray());
             }
 
-            // If no users found, return walk-in customer
             if (empty($customers) && $cleanPhone && strlen($cleanPhone) >= 10) {
                 $customers[] = [
                     'name' => 'Walk-in Customer',
                     'phone' => $cleanPhone,
                     'email' => null,
-                    'type' => 'walk_in'
+                    'type' => 'walk_in',
                 ];
             }
 
@@ -385,7 +345,7 @@ class SaleController extends Controller
 
             return response()->json([
                 'customers' => $customers,
-                'count' => count($customers)
+                'count' => count($customers),
             ]);
 
         } catch (\Exception $e) {
@@ -395,14 +355,11 @@ class SaleController extends Controller
             return response()->json([
                 'customers' => [],
                 'count' => 0,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
     }
 
-    /**
-     * Helper method to get customer type from role
-     */
     private function getCustomerTypeFromRole($role)
     {
         $map = [
@@ -420,9 +377,6 @@ class SaleController extends Controller
         return $map[$role] ?? 'unknown';
     }
 
-    /**
-     * Get today's sales statistics (AJAX)
-     */
     public function todayStats()
     {
         Log::info('Today stats called');
@@ -453,7 +407,7 @@ class SaleController extends Controller
             'total_sales' => $totalSales,
             'transaction_count' => $transactionCount,
             'average_sale' => $averageSale,
-            'pending_orders' => $pendingOrders
+            'pending_orders' => $pendingOrders,
         ];
 
         Log::info("Today's stats:", $stats);
@@ -461,9 +415,6 @@ class SaleController extends Controller
         return response()->json($stats);
     }
 
-    /**
-     * Get recent sales for POS (AJAX)
-     */
     public function recentSales()
     {
         Log::info('Recent sales called');
@@ -474,7 +425,7 @@ class SaleController extends Controller
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get()
-            ->map(function($sale) {
+            ->map(function ($sale) {
                 return [
                     'id' => $sale->id,
                     'invoice_number' => $sale->invoice_number,
@@ -482,7 +433,7 @@ class SaleController extends Controller
                     'payment_status' => $sale->payment_status,
                     'created_at' => $sale->created_at,
                     'customer_name' => $sale->customer_name,
-                    'customer_phone' => $sale->customer_phone
+                    'customer_phone' => $sale->customer_phone,
                 ];
             });
 
@@ -491,9 +442,6 @@ class SaleController extends Controller
         return response()->json($sales);
     }
 
-    /**
-     * Save sale as draft (AJAX)
-     */
     public function saveDraft(Request $request)
     {
         Log::info('Save draft called', $request->all());
@@ -502,7 +450,7 @@ class SaleController extends Controller
             'items' => 'required|array|min:1',
             'customer_type' => 'nullable|string',
             'customer_id' => 'nullable|exists:users,id',
-            'notes' => 'nullable|string'
+            'notes' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -510,7 +458,6 @@ class SaleController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        // Generate draft ID
         $draftId = 'DRAFT-' . date('Ymd-His') . '-' . strtoupper(uniqid());
 
         Log::info("Draft saved: {$draftId} with " . count($request->items) . " items");
@@ -518,13 +465,10 @@ class SaleController extends Controller
         return response()->json([
             'message' => 'Draft saved successfully',
             'draft_id' => $draftId,
-            'items_count' => count($request->items)
+            'items_count' => count($request->items),
         ]);
     }
 
-    /**
-     * Process quick sale (for predefined products) (AJAX)
-     */
     public function quickSale(Request $request)
     {
         Log::info('Quick sale called', $request->all());
@@ -532,7 +476,7 @@ class SaleController extends Controller
         $validator = Validator::make($request->all(), [
             'product_id' => 'required|exists:products,id',
             'quantity' => 'required|numeric|min:1',
-            'payment_method' => 'required|in:mpesa,cash'
+            'payment_method' => 'required|in:mpesa,cash',
         ]);
 
         if ($validator->fails()) {
@@ -546,20 +490,15 @@ class SaleController extends Controller
             $product = Product::find($request->product_id);
             Log::info("Quick sale for product: {$product->product_name} (ID: {$product->id})");
 
-            // Check stock
-            if ($product->track_inventory) {
-                if ($product->current_stock < $request->quantity) {
-                    $message = "Insufficient stock for product: {$product->product_name}. Available: {$product->current_stock}";
-                    Log::error($message);
-                    throw new \Exception($message);
-                }
+            if ($product->track_inventory && $product->current_stock < $request->quantity) {
+                $message = "Insufficient stock for product: {$product->product_name}. Available: {$product->current_stock}";
+                Log::error($message);
+                throw new \Exception($message);
             }
 
-            // ✅ Generate invoice number with SALE format
             $invoiceNumber = $this->generateInvoiceNumberWithShop(auth()->user()->shop_id ?? 1);
             Log::info("Generated invoice: {$invoiceNumber}");
 
-            // Create sale WITH ALL REQUIRED FIELDS
             $sale = Sale::create([
                 'invoice_number' => $invoiceNumber,
                 'business_section_id' => auth()->user()->business_section_id ?? 1,
@@ -580,12 +519,11 @@ class SaleController extends Controller
                 'delivery_fee' => 0,
                 'service_charge' => 0,
                 'customer_name' => 'Walk-in Customer',
-                'customer_type' => 'walk_in'
+                'customer_type' => 'walk_in',
             ]);
 
             Log::info("Sale created with ID: {$sale->id}");
 
-            // Create sale item
             $sale->items()->create([
                 'product_id' => $product->id,
                 'product_name' => $product->product_name,
@@ -596,12 +534,11 @@ class SaleController extends Controller
                 'quantity' => $request->quantity,
                 'total_price' => $product->selling_price * $request->quantity,
                 'final_price' => $product->selling_price * $request->quantity,
-                'is_production_item' => false
+                'is_production_item' => false,
             ]);
 
             Log::info("Sale item created");
 
-            // Create payment transaction
             if ($request->payment_method === 'mpesa') {
                 $transactionNumber = 'TRX-' . date('Ymd') . '-' . strtoupper(uniqid());
                 Log::info("Creating M-Pesa transaction: {$transactionNumber}");
@@ -615,11 +552,10 @@ class SaleController extends Controller
                     'phone_number' => $request->phone_number,
                     'status' => 'completed',
                     'completed_at' => now(),
-                    'recorded_by' => auth()->id()
+                    'recorded_by' => auth()->id(),
                 ]);
             }
 
-            // Update inventory
             if ($product->track_inventory) {
                 Log::info("Updating inventory for product {$product->id}");
 
@@ -648,8 +584,8 @@ class SaleController extends Controller
                 'receipt' => [
                     'invoice_number' => $sale->invoice_number,
                     'total' => $sale->total_amount,
-                    'payment_method' => $sale->payment_method
-                ]
+                    'payment_method' => $sale->payment_method,
+                ],
             ]);
 
         } catch (\Exception $e) {
@@ -659,9 +595,6 @@ class SaleController extends Controller
         }
     }
 
-    /**
-     * Handle KCB payment callback (for sales)
-     */
     public function handleKcbCallback(Request $request)
     {
         try {
@@ -674,7 +607,6 @@ class SaleController extends Controller
                 return response()->json(['ResultCode' => '1', 'ResultDesc' => 'Invalid callback data']);
             }
 
-            // Use the KCB sales service to process the callback
             $kcbSalesService = app(KcbSalesService::class);
             $result = $kcbSalesService->handleSalePaymentCallback($callbackData);
 
@@ -689,15 +621,12 @@ class SaleController extends Controller
         } catch (\Exception $e) {
             Log::error('KCB callback error: ' . $e->getMessage(), [
                 'exception' => $e,
-                'callback_data' => $request->all()
+                'callback_data' => $request->all(),
             ]);
             return response()->json(['ResultCode' => '1', 'ResultDesc' => 'Internal server error']);
         }
     }
 
-    /**
-     * Test KCB callback endpoint
-     */
     public function testKcbCallback()
     {
         Log::info('=== TEST KCB CALLBACK ===');
@@ -711,29 +640,15 @@ class SaleController extends Controller
                     'ResultDesc' => 'The service request is processed successfully.',
                     'CallbackMetadata' => [
                         'Item' => [
-                            [
-                                'Name' => 'Amount',
-                                'Value' => 1000.00
-                            ],
-                            [
-                                'Name' => 'MpesaReceiptNumber',
-                                'Value' => 'RBX123456789'
-                            ],
-                            [
-                                'Name' => 'Balance'
-                            ],
-                            [
-                                'Name' => 'TransactionDate',
-                                'Value' => '20260121100957'
-                            ],
-                            [
-                                'Name' => 'PhoneNumber',
-                                'Value' => '254741266845'
-                            ]
-                        ]
-                    ]
-                ]
-            ]
+                            ['Name' => 'Amount', 'Value' => 1000.00],
+                            ['Name' => 'MpesaReceiptNumber', 'Value' => 'RBX123456789'],
+                            ['Name' => 'Balance'],
+                            ['Name' => 'TransactionDate', 'Value' => '20260121100957'],
+                            ['Name' => 'PhoneNumber', 'Value' => '254741266845'],
+                        ],
+                    ],
+                ],
+            ],
         ];
 
         Log::info('Test callback data:', $testData);
@@ -744,24 +659,20 @@ class SaleController extends Controller
         return response()->json([
             'success' => $result,
             'message' => $result ? 'Test callback processed' : 'Test callback failed',
-            'test_data' => $testData
+            'test_data' => $testData,
         ]);
     }
 
-    /**
-     * Initiate M-Pesa payment (AJAX)
-     */
     public function initiateMpesa(Request $request)
     {
         try {
             Log::info('=== INITIATE M-PESA PAYMENT ===', $request->all());
 
-            // Validate request
             $validator = Validator::make($request->all(), [
                 'amount' => 'required|numeric|min:1',
                 'phone' => 'required|string|min:10|max:12',
                 'items' => 'required|array|min:1',
-                'customer_name' => 'nullable|string|max:255'
+                'customer_name' => 'nullable|string|max:255',
             ]);
 
             if ($validator->fails()) {
@@ -769,13 +680,12 @@ class SaleController extends Controller
                 return response()->json([
                     'status' => 'error',
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
             DB::beginTransaction();
 
-            // Get user and shop info
             $user = auth()->user();
             $shopId = $user->shop_id ?? 1;
             $businessSectionId = $user->business_section_id ?? 1;
@@ -785,22 +695,18 @@ class SaleController extends Controller
                 'user_id' => $user->id,
                 'shop_id' => $shopId,
                 'business_section_id' => $businessSectionId,
-                'shop_name' => $shop ? $shop->shop_name : 'Not found'
+                'shop_name' => $shop ? $shop->shop_name : 'Not found',
             ]);
 
-            // Clean phone number
             $cleanPhone = preg_replace('/\D/', '', $request->phone);
 
-            // ✅ Generate invoice number with SALE format
             $invoiceNumber = $this->generateInvoiceNumberWithShop($shopId);
             Log::info('Generated invoice number', ['invoice_number' => $invoiceNumber]);
 
-            // Calculate totals
             $totalItems = 0;
             $subtotal = 0;
             $itemsData = [];
 
-            // Initialize StockService
             $stockService = app(StockService::class);
 
             foreach ($request->items as $item) {
@@ -809,14 +715,8 @@ class SaleController extends Controller
                     throw new \Exception("Product not found: " . $item['product_id']);
                 }
 
-                // Check stock
                 if ($product->track_inventory) {
-                    $stockCheck = $stockService->checkStock(
-                        $product->id,
-                        $shopId,
-                        $item['quantity']
-                    );
-
+                    $stockCheck = $stockService->checkStock($product->id, $shopId, $item['quantity']);
                     if (!$stockCheck['available']) {
                         throw new \Exception("Insufficient stock for product: {$product->product_name}. Available: {$stockCheck['stock']}");
                     }
@@ -847,19 +747,18 @@ class SaleController extends Controller
                 'subtotal' => $subtotal,
                 'tax_amount' => $taxAmount,
                 'total_amount' => $totalAmount,
-                'total_items' => $totalItems
+                'total_items' => $totalItems,
             ]);
 
             if (abs($request->amount - $totalAmount) > 1) {
                 Log::warning('Amount mismatch', [
                     'calculated' => $totalAmount,
                     'sent' => $request->amount,
-                    'difference' => abs($request->amount - $totalAmount)
+                    'difference' => abs($request->amount - $totalAmount),
                 ]);
                 $totalAmount = $request->amount;
             }
 
-            // Create sale record WITH ALL REQUIRED FIELDS
             $sale = Sale::create([
                 'invoice_number' => $invoiceNumber,
                 'business_section_id' => $businessSectionId,
@@ -887,14 +786,12 @@ class SaleController extends Controller
 
             Log::info('Sale created', [
                 'sale_id' => $sale->id,
-                'invoice_number' => $sale->invoice_number
+                'invoice_number' => $sale->invoice_number,
             ]);
 
-            // Create sale items and update inventory
             foreach ($itemsData as $itemData) {
                 $sale->items()->create($itemData);
 
-                // Update inventory immediately for gift shop items
                 if (!$itemData['is_production_item']) {
                     $product = Product::find($itemData['product_id']);
                     if ($product && $product->track_inventory) {
@@ -917,10 +814,7 @@ class SaleController extends Controller
 
             Log::info('Sale items created and inventory updated', ['items_count' => count($itemsData)]);
 
-            // Initialize KCB Sales Service
             $kcbSalesService = app(KcbSalesService::class);
-
-            // Initiate KCB payment
             $paymentResult = $kcbSalesService->initiateSalePayment($sale, $cleanPhone, $totalAmount);
 
             if (isset($paymentResult['error'])) {
@@ -933,7 +827,7 @@ class SaleController extends Controller
                 'sale_id' => $sale->id,
                 'checkout_request_id' => $paymentResult['checkout_request_id'] ?? null,
                 'merchant_request_id' => $paymentResult['merchant_request_id'] ?? null,
-                'kcb_invoice' => $paymentResult['kcb_invoice_number'] ?? null
+                'kcb_invoice' => $paymentResult['kcb_invoice_number'] ?? null,
             ]);
 
             return response()->json([
@@ -945,8 +839,8 @@ class SaleController extends Controller
                     'checkout_request_id' => $paymentResult['checkout_request_id'] ?? null,
                     'merchant_request_id' => $paymentResult['merchant_request_id'] ?? null,
                     'kcb_invoice_number' => $paymentResult['kcb_invoice_number'] ?? null,
-                    'message' => 'Please check your phone to complete payment'
-                ]
+                    'message' => 'Please check your phone to complete payment',
+                ],
             ]);
 
         } catch (\Exception $e) {
@@ -956,14 +850,11 @@ class SaleController extends Controller
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Failed to initiate M-Pesa payment: ' . $e->getMessage()
+                'message' => 'Failed to initiate M-Pesa payment: ' . $e->getMessage(),
             ], 500);
         }
     }
 
-    /**
-     * Display pending payments
-     */
     public function pendingPayment(Request $request)
     {
         Log::info('=== PENDING PAYMENTS PAGE ===');
@@ -989,7 +880,7 @@ class SaleController extends Controller
 
             if ($request->has('search')) {
                 $search = $request->search;
-                $query->where(function($q) use ($search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('invoice_number', 'like', "%{$search}%")
                       ->orWhere('customer_name', 'like', "%{$search}%")
                       ->orWhere('customer_phone', 'like', "%{$search}%");
@@ -1000,20 +891,20 @@ class SaleController extends Controller
             $sales = $query->paginate($perPage);
 
             $totalPendingAmount = Sale::where('payment_status', 'pending')
-                ->when($shopId, function($q) use ($shopId) {
+                ->when($shopId, function ($q) use ($shopId) {
                     return $q->where('shop_id', $shopId);
                 })
                 ->sum('total_amount');
 
             $pendingCount = Sale::where('payment_status', 'pending')
-                ->when($shopId, function($q) use ($shopId) {
+                ->when($shopId, function ($q) use ($shopId) {
                     return $q->where('shop_id', $shopId);
                 })
                 ->count();
 
             $todayPending = Sale::where('payment_status', 'pending')
                 ->whereDate('created_at', today())
-                ->when($shopId, function($q) use ($shopId) {
+                ->when($shopId, function ($q) use ($shopId) {
                     return $q->where('shop_id', $shopId);
                 })
                 ->count();
@@ -1023,7 +914,7 @@ class SaleController extends Controller
             Log::info('Pending payments loaded', [
                 'count' => $sales->total(),
                 'total_amount' => $totalPendingAmount,
-                'shop_id' => $shopId
+                'shop_id' => $shopId,
             ]);
 
             return view('ktvtc.cafeteria.shop.pending-payments', compact(
@@ -1040,9 +931,6 @@ class SaleController extends Controller
         }
     }
 
-    /**
-     * Retry payment for pending sale
-     */
     public function retryPendingPayment(Request $request, $saleId)
     {
         Log::info('Retry pending payment', ['sale_id' => $saleId]);
@@ -1051,52 +939,40 @@ class SaleController extends Controller
             $sale = Sale::findOrFail($saleId);
 
             if ($sale->payment_status !== 'pending') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Sale is not in pending status'
-                ], 400);
+                return response()->json(['success' => false, 'message' => 'Sale is not in pending status'], 400);
             }
 
             if (!$sale->customer_phone) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Customer phone number is required'
-                ], 400);
+                return response()->json(['success' => false, 'message' => 'Customer phone number is required'], 400);
             }
 
             $kcbSalesService = app(KcbSalesService::class);
             $result = $kcbSalesService->retrySalePayment($saleId, $sale->customer_phone);
 
             if (isset($result['error'])) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $result['error']
-                ], 500);
+                return response()->json(['success' => false, 'message' => $result['error']], 500);
             }
 
             Log::info('Payment retry initiated', [
                 'sale_id' => $saleId,
-                'checkout_request_id' => $result['checkout_request_id']
+                'checkout_request_id' => $result['checkout_request_id'],
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Payment retry initiated successfully',
-                'data' => $result
+                'data' => $result,
             ]);
 
         } catch (\Exception $e) {
             Log::error('Retry payment error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to retry payment: ' . $e->getMessage()
+                'message' => 'Failed to retry payment: ' . $e->getMessage(),
             ], 500);
         }
     }
 
-    /**
-     * Mark pending payment as paid manually
-     */
     public function markAsPaid(Request $request, $saleId)
     {
         Log::info('Mark sale as paid manually', ['sale_id' => $saleId]);
@@ -1104,14 +980,11 @@ class SaleController extends Controller
         $validator = Validator::make($request->all(), [
             'receipt_number' => 'required|string|max:100',
             'payment_method' => 'required|in:mpesa,cash,card,bank_transfer',
-            'notes' => 'nullable|string'
+            'notes' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
         }
 
         DB::beginTransaction();
@@ -1128,7 +1001,7 @@ class SaleController extends Controller
                 'payment_method' => $request->payment_method,
                 'mpesa_receipt' => $request->receipt_number,
                 'payment_confirmed_at' => now(),
-                'internal_notes' => $request->notes
+                'internal_notes' => $request->notes,
             ]);
 
             $sale->paymentTransactions()->create([
@@ -1141,20 +1014,20 @@ class SaleController extends Controller
                 'status' => 'completed',
                 'completed_at' => now(),
                 'recorded_by' => auth()->id(),
-                'notes' => 'Manually marked as paid'
+                'notes' => 'Manually marked as paid',
             ]);
 
             DB::commit();
 
             Log::info('Sale marked as paid', [
                 'sale_id' => $saleId,
-                'receipt' => $request->receipt_number
+                'receipt' => $request->receipt_number,
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Sale marked as paid successfully',
-                'sale' => $sale->fresh(['paymentTransactions'])
+                'sale' => $sale->fresh(['paymentTransactions']),
             ]);
 
         } catch (\Exception $e) {
@@ -1162,14 +1035,11 @@ class SaleController extends Controller
             Log::error('Mark as paid error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to mark as paid: ' . $e->getMessage()
+                'message' => 'Failed to mark as paid: ' . $e->getMessage(),
             ], 500);
         }
     }
 
-    /**
-     * Cancel pending payment
-     */
     public function cancelPendingPayment($saleId)
     {
         Log::info('Cancel pending payment', ['sale_id' => $saleId]);
@@ -1187,7 +1057,7 @@ class SaleController extends Controller
                 'payment_status' => 'cancelled',
                 'order_status' => 'cancelled',
                 'cancelled_at' => now(),
-                'cancelled_by' => auth()->id()
+                'cancelled_by' => auth()->id(),
             ]);
 
             foreach ($sale->items as $item) {
@@ -1210,13 +1080,13 @@ class SaleController extends Controller
 
             Log::info('Pending payment cancelled', [
                 'sale_id' => $saleId,
-                'invoice' => $sale->invoice_number
+                'invoice' => $sale->invoice_number,
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Sale cancelled successfully',
-                'sale' => $sale->fresh(['items'])
+                'sale' => $sale->fresh(['items']),
             ]);
 
         } catch (\Exception $e) {
@@ -1224,21 +1094,18 @@ class SaleController extends Controller
             Log::error('Cancel pending payment error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to cancel sale: ' . $e->getMessage()
+                'message' => 'Failed to cancel sale: ' . $e->getMessage(),
             ], 500);
         }
     }
 
-    /**
-     * Check M-Pesa payment status (AJAX)
-     */
     public function checkMpesaStatus(Request $request)
     {
         Log::info('Check M-Pesa status called', $request->all());
 
         $validator = Validator::make($request->all(), [
             'checkout_request_id' => 'required|string',
-            'sale_id' => 'nullable|exists:sales,id'
+            'sale_id' => 'nullable|exists:sales,id',
         ]);
 
         if ($validator->fails()) {
@@ -1259,7 +1126,7 @@ class SaleController extends Controller
                             'invoice_number' => $sale->invoice_number,
                             'total_amount' => $sale->total_amount,
                             'payment_status' => $sale->payment_status,
-                            'mpesa_receipt' => $sale->mpesa_receipt
+                            'mpesa_receipt' => $sale->mpesa_receipt,
                         ];
                     }
                 }
@@ -1273,12 +1140,12 @@ class SaleController extends Controller
                     'sale_data' => $saleData,
                     'message' => $statusResult['status'] === 'completed'
                         ? 'Payment confirmed successfully!'
-                        : 'Waiting for payment confirmation...'
+                        : 'Waiting for payment confirmation...',
                 ]);
             } else {
                 return response()->json([
                     'status' => 'pending',
-                    'message' => 'Checking payment status...'
+                    'message' => 'Checking payment status...',
                 ]);
             }
 
@@ -1286,14 +1153,11 @@ class SaleController extends Controller
             Log::error('Check M-Pesa status error: ' . $e->getMessage());
             return response()->json([
                 'status' => 'pending',
-                'message' => 'Unable to check status. Please wait...'
+                'message' => 'Unable to check status. Please wait...',
             ]);
         }
     }
 
-    /**
-     * Main sale creation endpoint (AJAX)
-     */
     public function store(Request $request)
     {
         Log::info('=== CREATE SALE ===');
@@ -1318,7 +1182,7 @@ class SaleController extends Controller
             'items.*.is_production_item' => ['nullable', function ($attribute, $value, $fail) {
                 $acceptable = [true, false, 0, 1, '0', '1', 'true', 'false', 'yes', 'no'];
                 if (!in_array($value, $acceptable, true)) {
-                    $fail('The '.$attribute.' field must be true or false.');
+                    $fail('The ' . $attribute . ' field must be true or false.');
                 }
             }],
             'items.*.customizations' => 'nullable|array',
@@ -1335,7 +1199,7 @@ class SaleController extends Controller
             'delivery_instructions' => 'nullable|string',
             'delivery_time' => 'nullable|date',
             'customer_notes' => 'nullable|string',
-            'internal_notes' => 'nullable|string'
+            'internal_notes' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -1343,7 +1207,6 @@ class SaleController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        // Pre-process boolean fields
         $processedData = $request->all();
 
         if (isset($processedData['items']) && is_array($processedData['items'])) {
@@ -1362,11 +1225,9 @@ class SaleController extends Controller
         DB::beginTransaction();
 
         try {
-            // ✅ Generate invoice number with SALE format
             $invoiceNumber = $this->generateInvoiceNumberWithShop($processedData['shop_id']);
             Log::info("Generated invoice number: {$invoiceNumber}");
 
-            // Calculate totals
             $totalItems = 0;
             $subtotal = 0;
             $discountAmount = $request->discount_amount ?? 0;
@@ -1403,7 +1264,6 @@ class SaleController extends Controller
                 }
             }
 
-            // Handle online orders
             $isOnlineOrder = $processedData['sale_type'] === 'online' ||
                              $processedData['channel'] === 'website' ||
                              (isset($processedData['is_online_order']) && $processedData['is_online_order']);
@@ -1432,7 +1292,6 @@ class SaleController extends Controller
                 }
             }
 
-            // Create initial sale data
             $data = [
                 'invoice_number' => $invoiceNumber,
                 'business_section_id' => $processedData['business_section_id'],
@@ -1467,11 +1326,9 @@ class SaleController extends Controller
 
             Log::info("Creating sale with initial data:", $data);
 
-            // Create sale
             $sale = Sale::create($data);
             Log::info("Sale created with ID: {$sale->id}");
 
-            // Process items
             foreach ($processedData['items'] as $itemData) {
                 $product = Product::find($itemData['product_id']);
                 $isProductionItem = $itemData['is_production_item'] ?? false;
@@ -1494,7 +1351,7 @@ class SaleController extends Controller
                     'final_price' => $itemFinalPrice,
                     'is_production_item' => $isProductionItem,
                     'customizations' => $itemData['customizations'] ?? null,
-                    'notes' => $itemData['notes'] ?? null
+                    'notes' => $itemData['notes'] ?? null,
                 ]);
 
                 $totalItems++;
@@ -1509,19 +1366,16 @@ class SaleController extends Controller
                 }
             }
 
-            // Calculate final total
             $totalAmount = $subtotal + $taxAmount + $deliveryFee + $serviceCharge - $discountAmount;
 
             Log::info("Final totals - Subtotal: {$subtotal}, Tax: {$taxAmount}, Delivery: {$deliveryFee}, Service: {$serviceCharge}, Discount: {$discountAmount}, Total: {$totalAmount}");
 
-            // Update sale with final totals
             $sale->update([
                 'total_items' => $totalItems,
                 'subtotal' => $subtotal,
-                'total_amount' => $totalAmount
+                'total_amount' => $totalAmount,
             ]);
 
-            // Create payment transaction if paid
             if ($request->payment_method && $request->payment_method != 'credit') {
                 $transactionNumber = 'TRX-' . date('Ymd') . '-' . strtoupper(uniqid());
                 Log::info("Creating payment transaction: {$transactionNumber}");
@@ -1533,7 +1387,7 @@ class SaleController extends Controller
                     'currency' => 'KES',
                     'status' => 'completed',
                     'completed_at' => now(),
-                    'recorded_by' => $processedData['recorded_by'] ?? 1
+                    'recorded_by' => $processedData['recorded_by'] ?? 1,
                 ];
 
                 if ($request->payment_method === 'mpesa' || $request->payment_method === 'mpesa_manual') {
@@ -1545,10 +1399,9 @@ class SaleController extends Controller
                 $sale->paymentTransactions()->create($paymentData);
             }
 
-            // Create initial status history
             $sale->statusHistory()->create([
                 'status' => $sale->order_status,
-                'changed_by' => auth()->id()
+                'changed_by' => auth()->id(),
             ]);
 
             DB::commit();
@@ -1562,15 +1415,15 @@ class SaleController extends Controller
                     'shop',
                     'items',
                     'items.product',
-                    'paymentTransactions'
+                    'paymentTransactions',
                 ]),
                 'receipt' => [
                     'invoice_number' => $sale->invoice_number,
                     'total' => $sale->total_amount,
                     'payment_method' => $sale->payment_method,
                     'customer_name' => $sale->customer_name,
-                    'customer_phone' => $sale->customer_phone
-                ]
+                    'customer_phone' => $sale->customer_phone,
+                ],
             ], 201);
 
         } catch (\Exception $e) {
@@ -1581,9 +1434,6 @@ class SaleController extends Controller
         }
     }
 
-    /**
-     * Print receipt (AJAX)
-     */
     public function printReceipt($id)
     {
         Log::info("Print receipt called for sale ID: {$id}");
@@ -1600,26 +1450,23 @@ class SaleController extends Controller
                 'date' => $sale->sale_date,
                 'customer' => $sale->customer_name,
                 'phone' => $sale->customer_phone,
-                'items' => $sale->items->map(function($item) {
+                'items' => $sale->items->map(function ($item) {
                     return [
                         'name' => $item->product_name,
                         'quantity' => $item->quantity,
                         'price' => $item->unit_price,
-                        'total' => $item->final_price
+                        'total' => $item->final_price,
                     ];
                 }),
                 'subtotal' => $sale->subtotal,
                 'tax' => $sale->tax_amount,
                 'total' => $sale->total_amount,
                 'payment_method' => $sale->payment_method,
-                'cashier' => $sale->cashier->name ?? auth()->user()->name
-            ]
+                'cashier' => $sale->cashier->name ?? auth()->user()->name,
+            ],
         ]);
     }
 
-    /**
-     * Email receipt to customer (AJAX)
-     */
     public function emailReceipt($id)
     {
         Log::info("Email receipt called for sale ID: {$id}");
@@ -1636,13 +1483,10 @@ class SaleController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Receipt sent to customer email',
-            'email' => $sale->customer_email
+            'email' => $sale->customer_email,
         ]);
     }
 
-    /**
-     * Get today's stats for the view
-     */
     private function getTodayStats()
     {
         $today = now()->format('Y-m-d');
@@ -1671,43 +1515,31 @@ class SaleController extends Controller
             'total_sales' => $totalSales,
             'transaction_count' => $transactionCount,
             'average_sale' => $averageSale,
-            'pending_orders' => $pendingOrders
+            'pending_orders' => $pendingOrders,
         ];
     }
 
-    /**
-     * ✅ Generate invoice number with shop prefix - SALE format for KCB
-     * Format: 7722609-SALE-{shopCode}-{date}-{sequence}
-     */
     private function generateInvoiceNumberWithShop($shopId)
     {
         $shop = Shop::find($shopId);
         $shopCode = $shop ? $shop->shop_code : 'SHOP';
         $date = date('Ymd');
 
-        // Get today's sequence for this shop
         $todayCount = Sale::whereDate('created_at', today())
             ->where('shop_id', $shopId)
             ->count();
 
         $sequence = str_pad($todayCount + 1, 4, '0', STR_PAD_LEFT);
 
-        // ✅ SALE format for KCB: 7722609-SALE-{shopCode}-{date}-{sequence}
         return '7722609-SALE-' . $shopCode . '-' . $date . '-' . $sequence;
     }
 
-    /**
-     * Generate invoice number (old method - keep for backward compatibility)
-     */
     private function generateInvoiceNumber()
     {
         $shopId = auth()->user()->shop_id ?? 1;
         return $this->generateInvoiceNumberWithShop($shopId);
     }
 
-    /**
-     * Update inventory after sale - DEPRECATED
-     */
     private function updateInventoryFromSale($product, $shopId, $quantity, $sale)
     {
         Log::info("DEPRECATED: updateInventoryFromSale called. Use StockService instead.");
@@ -1729,9 +1561,6 @@ class SaleController extends Controller
         }
     }
 
-    /**
-     * API endpoints for the POS JavaScript
-     */
     public function apiPosProducts(Request $request)
     {
         return $this->posProducts($request);

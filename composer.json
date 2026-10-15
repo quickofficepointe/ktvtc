@@ -7,7 +7,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "barryvdh/laravel-dompdf": "^3.1",
+        "barryvdh/laravel-dompdf": "*",
         "barryvdh/laravel-snappy": "^1.0",
         "endroid/qr-code": "^5.0",
         "intervention/image": "^3.11",
@@ -16,6 +16,7 @@
         "laravel/tinker": "^2.10.1",
         "laravel/ui": "^4.6",
         "maatwebsite/excel": "^3.1",
+        "psy/psysh": "*",
         "setasign/fpdi": "^2.6",
         "simplesoftwareio/simple-qrcode": "^4.2",
         "tecnickcom/tcpdf": "^6.10"

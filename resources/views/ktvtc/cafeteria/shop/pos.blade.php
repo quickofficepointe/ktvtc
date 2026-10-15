@@ -810,9 +810,10 @@
         updateTime();
         setInterval(updateTime, 60000);
 
-        // Event Listeners
-        $('#productSearch').on('input', debounce(loadProducts, 300));
-        $('#categoryFilter').change(loadProducts);
+        // ✅ FIXED: Event Listeners — call loadProducts(1) explicitly to avoid
+        // jQuery passing the event object into the `page` argument
+        $('#productSearch').on('input', debounce(() => loadProducts(1), 300));
+        $('#categoryFilter').on('change', () => loadProducts(1));
         $('#customerPhone').on('input', debounce(searchCustomer, 500));
         $('#customerType').change(resetCustomerSearch);
 
@@ -870,25 +871,36 @@
         });
     });
 
-    // Product Functions
-    function loadProducts(page = 1) {
-        const search = $('#productSearch').val();
-        const category = $('#categoryFilter').val();
+    // ============================================================
+    // ✅ FIXED: loadProducts — guards against non-number `page`
+    // and forces all params to primitives to prevent jQuery
+    // "Illegal invocation" errors when $.param() serializes.
+    // ============================================================
+    function loadProducts(page) {
+        // Guard: force page to be a positive number
+        if (typeof page !== 'number' || page < 1 || !isFinite(page)) {
+            page = 1;
+        }
+
+        // Force primitives — never let DOM/jQuery/Event objects leak to $.ajax
+        const payload = {
+            page:          page,
+            search:        String($('#productSearch').val() || ''),
+            category_id:   String($('#categoryFilter').val() || ''),
+            in_stock_only: showInStockOnly ? 1 : 0,
+        };
+
+        console.log('loadProducts payload:', payload);
 
         showLoading(true);
 
         $.ajax({
-    url: '{{ route("cafeteria.api.products.search") }}',  // ✅ CORRECT
-    method: 'GET',
+            url: '{{ route("cafeteria.api.products.search") }}',
+            method: 'GET',
             dataType: 'json',
             timeout: 10000,
-            data: {
-                page: page,
-                search: search,
-                category_id: category,
-                in_stock_only: showInStockOnly
-            },
-            success: function(response) {
+            data: payload,
+            success: function (response) {
                 if (response.data) {
                     products = response.data;
                     renderProducts();
@@ -897,7 +909,8 @@
                 }
                 showLoading(false);
             },
-            error: function(xhr, status, error) {
+            error: function (xhr, status, error) {
+                console.error('loadProducts error:', xhr.responseJSON || error);
                 showLoading(false);
                 toastr.error('Failed to load products');
             }
@@ -1678,7 +1691,7 @@
         });
     }
 
-    // Main Payment Processor - FIXED
+    // Main Payment Processor
     function processPayment(method, details) {
         const customerPhone = details.customer_phone || $('#customerPhone').val().trim() || null;
         const customerType = $('#customerType').val();
@@ -1702,7 +1715,7 @@
                 product_id: item.product_id,
                 quantity: item.quantity,
                 unit_price: item.unit_price,
-                is_production_item: false // FIX: Add this required field
+                is_production_item: false
             })),
             payment_method: backendPaymentMethod,
             mpesa_receipt: method === 'mpesa_stk' || method === 'mpesa_manual' ? details.mpesa_receipt : null,
@@ -1886,14 +1899,14 @@
             '<i class="fas fa-filter mr-2"></i>In Stock' :
             '<i class="fas fa-filter mr-2"></i>All Items'
         );
-        loadProducts();
+        loadProducts(1);
     }
 
     function filterByCategory(categoryId) {
         $('#categoryFilter').val(categoryId);
         $('.category-chip').removeClass('active');
         $(`.category-chip[onclick*="${categoryId}"]`).addClass('active');
-        loadProducts();
+        loadProducts(1);
     }
 
     function updateProductsCount(count) {

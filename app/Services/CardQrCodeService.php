@@ -13,41 +13,37 @@ use Endroid\QrCode\ErrorCorrectionLevel;
 
 class CardQrCodeService
 {
+    /**
+     * Generate a compact QR code (short token payload = low density).
+     */
     public function generateQrCode(CardAccount $card, HighSchoolStudent $student)
     {
         try {
-            // 🔥 SECURE BUT SHORT: Encrypt just the account number
-            // This is shorter than JSON + token + timestamp
-            $encryptedAccount = encrypt($card->account_number);
+            // 16-char token → QR Version ~2 (very light)
+            if (empty($card->qr_token)) {
+                $card->qr_token = Str::random(16);
+                $card->save();
+            }
 
-            // Add a short validation hash (6 chars)
-            $hash = substr(md5($card->id . $card->card_number), 0, 6);
+            $qrData = $card->qr_token;
 
-            // Combine: encrypted|hash - still secure but shorter
-            $qrData = $encryptedAccount . '|' . $hash;
-
-            $card->qr_token = Str::random(16) . '-' . time();
-            $card->save();
-
-            // ✅ LARGE QR CODE with LOW error correction = FEWER DOTS
             $qrCode = Builder::create()
                 ->writer(new PngWriter())
                 ->data($qrData)
                 ->encoding(new Encoding('UTF-8'))
-                ->errorCorrectionLevel(ErrorCorrectionLevel::Low)  // ✅ Fewer dots
-                ->size(500)  // ✅ Large
-                ->margin(20) // ✅ More space
+                ->errorCorrectionLevel(ErrorCorrectionLevel::Low)
+                ->size(300)
+                ->margin(5)
                 ->build();
 
             $qrImage = $qrCode->getString();
 
-            // Save QR code
             $directory = 'cards/qr/';
             if (!Storage::disk('public')->exists($directory)) {
                 Storage::disk('public')->makeDirectory($directory);
             }
 
-            $filename = 'qr_' . $card->card_number . '_' . time() . '.png';
+            $filename = 'qr_' . $card->card_number . '.png';
             $path = $directory . $filename;
 
             Storage::disk('public')->put($path, $qrImage);
@@ -59,13 +55,13 @@ class CardQrCodeService
             return [
                 'success' => true,
                 'path' => $path,
-                'url' => Storage::url($path)
+                'url' => Storage::url($path),
             ];
 
         } catch (\Exception $e) {
             \Log::error('QR Code generation failed', [
                 'card_id' => $card->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return ['success' => false, 'message' => $e->getMessage()];
@@ -73,40 +69,12 @@ class CardQrCodeService
     }
 
     /**
-     * Decrypt QR code data
+     * Resolve a scanned QR payload back to a CardAccount.
      */
-    public function decryptQrData($qrData)
+    public function resolveQrData(string $qrData): ?CardAccount
     {
-        try {
-            // Split encrypted data and hash
-            $parts = explode('|', $qrData);
-            if (count($parts) != 2) {
-                return null;
-            }
-
-            $encryptedAccount = $parts[0];
-            $hash = $parts[1];
-
-            // Decrypt account number
-            $accountNumber = decrypt($encryptedAccount);
-
-            // Find card by account number
-            $card = CardAccount::where('account_number', $accountNumber)->first();
-
-            if (!$card) {
-                return null;
-            }
-
-            // Verify hash
-            $expectedHash = substr(md5($card->id . $card->card_number), 0, 6);
-            if ($hash !== $expectedHash) {
-                return null;
-            }
-
-            return $card;
-
-        } catch (\Exception $e) {
-            return null;
-        }
+        return CardAccount::where('qr_token', $qrData)
+            ->with('student')
+            ->first();
     }
 }
