@@ -64,6 +64,7 @@ class Attachment extends Model
         'trainer_approved_at',
         'trainer_remarks',
         'trainer_course_id',
+        'supervising_trainer_id',
 
         // Trainer eligibility + visits
         'is_eligible_for_attachment',
@@ -140,6 +141,12 @@ class Attachment extends Model
     public function trainerApprovedCourse(): BelongsTo
     {
         return $this->belongsTo(Course::class, 'trainer_course_id');
+    }
+
+    /** Trainer the ILO assigned to visit and assess the student. */
+    public function supervisingTrainer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'supervising_trainer_id');
     }
 
     public function eligibilityCheckedBy(): BelongsTo
@@ -250,6 +257,17 @@ class Attachment extends Model
     public function canBeGraded(): bool
     {
         return in_array($this->status, ['completed', 'active'], true);
+    }
+
+    public function canBeSentBackByIlo(): bool
+    {
+        return in_array($this->status, ['submitted', 'trainer_approved'], true);
+    }
+
+    /** A new placement may be submitted only when the last one was rejected. */
+    public static function studentHasOpen(int $studentId): bool
+    {
+        return static::where('student_id', $studentId)->where('status', '!=', 'rejected')->exists();
     }
 
     // ============================================================
@@ -537,8 +555,15 @@ class Attachment extends Model
         }
 
         return $query->whereHas('student.enrollments', function ($q) use ($courseIds) {
-            $q->whereIn('course_id', $courseIds);
+            $q->whereIn('course_id', $courseIds)->whereIn('status', \App\Services\Students\EnrollmentCreator::OPEN_STATUSES);
         });
+    }
+
+    /** What a trainer sees: students on their courses, plus placements assigned to them. */
+    public function scopeVisibleToTrainer($query, User $trainer)
+    {
+        return $query->where(fn ($q) => $q->forCourses($trainer->trainerCourseIds())
+            ->orWhere('supervising_trainer_id', $trainer->id));
     }
 
     /**

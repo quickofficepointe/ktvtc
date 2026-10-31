@@ -380,6 +380,9 @@ class IloController extends Controller
 
             DB::commit();
 
+            app(\App\Services\Attachments\AttachmentNotifier::class)->student($application->student,
+                "your application for {$opportunity->title} at " . ($opportunity->company->name ?? 'the company') . ' has been approved. Log in to the student portal and fill in your attachment details.');
+
             Log::info('Application approved', [
                 'application_id' => $application->id,
                 'opportunity_id' => $opportunity->id,
@@ -407,6 +410,8 @@ class IloController extends Controller
 
         try {
             $application->markRejected($request->remarks);
+            app(\App\Services\Attachments\AttachmentNotifier::class)->student($application->student,
+                "your application for {$application->opportunity->title} was not successful: {$request->remarks}.");
 
             Log::info('Application rejected', [
                 'application_id' => $application->id,
@@ -428,6 +433,8 @@ class IloController extends Controller
 
         try {
             $application->markShortlisted($request->input('remarks'));
+            app(\App\Services\Attachments\AttachmentNotifier::class)->student($application->student,
+                "you have been shortlisted for {$application->opportunity->title}. The ILO office will contact you.");
             return back()->with('success', 'Application shortlisted.');
         } catch (\Throwable $e) {
             return back()->with('error', 'Failed to shortlist: ' . $e->getMessage());

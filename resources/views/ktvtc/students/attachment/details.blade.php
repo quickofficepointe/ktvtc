@@ -135,6 +135,15 @@
                     <p class="text-xs text-gray-500">Location</p>
                     <p class="font-medium text-gray-800">{{ $attachment->company_address ?? '—' }}</p>
                 </div>
+                @if($attachment->supervisingTrainer)
+                    <div>
+                        <p class="text-xs text-gray-500">College supervising trainer</p>
+                        <p class="font-medium text-gray-800">{{ $attachment->supervisingTrainer->name }}</p>
+                        @if($attachment->supervisingTrainer->phone_number)
+                            <p class="text-xs text-gray-500">{{ $attachment->supervisingTrainer->phone_number }}</p>
+                        @endif
+                    </div>
+                @endif
             </div>
 
             {{-- Progress (only when active) --}}
@@ -190,6 +199,21 @@
             @endif
         </div>
 
+    @endif
+
+    {{-- Rejected: the student may declare another placement --}}
+    @if($attachment && $attachment->isRejected())
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
+            <p class="text-sm text-gray-600">This placement was not approved. You can apply for an opportunity or declare a different placement.</p>
+            <div class="mt-4 flex flex-wrap justify-center gap-3">
+                <a href="{{ route('student.attachment.opportunities') }}" class="inline-flex items-center px-5 py-2.5 bg-primary hover:bg-primary-dark text-white rounded-lg font-semibold">
+                    <i class="fas fa-search mr-2"></i> Browse Opportunities
+                </a>
+                <a href="{{ route('student.attachment.details.create') }}" class="inline-flex items-center px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold">
+                    <i class="fas fa-edit mr-2"></i> Declare Another Placement
+                </a>
+            </div>
+        </div>
     @endif
 
     {{-- ═══════════ CASE 3: Nothing at all ═══════════ --}}

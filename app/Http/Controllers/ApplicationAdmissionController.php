@@ -120,6 +120,14 @@ class ApplicationAdmissionController extends Controller
             'mean_grade'        => $a->mean_grade,
             'passport_photo_path' => $a->passport_photo,
             'id_document_path'  => $a->id_document,
+            // The applicant's emergency contact is also the next of kin that fee reminders go to
+            'emergency_contact_name'         => $a->emergency_contact_name,
+            'emergency_contact_phone'        => $a->emergency_contact_phone,
+            'emergency_contact_relationship' => $a->emergency_contact_relationship,
+            'next_of_kin_name'               => $a->emergency_contact_name,
+            'next_of_kin_phone'              => $a->emergency_contact_phone,
+            'next_of_kin_relationship'       => $a->emergency_contact_relationship,
+            'special_needs'                  => $a->special_needs,
         ]);
     }
 

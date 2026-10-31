@@ -7,8 +7,10 @@ use App\Models\AcademicTerm;
 use App\Models\Attachment;
 use App\Models\AttachmentApplication;
 use App\Models\Company;
+use App\Models\Course;
 use App\Models\Student;
 use App\Models\User;
+use App\Services\Attachments\AttachmentNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -24,7 +26,7 @@ class AttachmentController extends Controller
     {
         $student = $this->currentStudent();
 
-        $attachment = Attachment::with(['company', 'term', 'opportunity'])
+        $attachment = Attachment::with(['company', 'term', 'opportunity', 'supervisingTrainer'])
             ->where('student_id', $student->id)
             ->latest()
             ->first();
@@ -53,7 +55,7 @@ class AttachmentController extends Controller
     {
         $student = $this->currentStudent();
 
-        if (Attachment::where('student_id', $student->id)->exists()) {
+        if (Attachment::studentHasOpen($student->id)) {
             return redirect()->route('student.attachment.details')
                 ->with('info', 'You already have an attachment record.');
         }
@@ -96,7 +98,7 @@ class AttachmentController extends Controller
     {
         $student = $this->currentStudent();
 
-        if (Attachment::where('student_id', $student->id)->exists()) {
+        if (Attachment::studentHasOpen($student->id)) {
             return redirect()->route('student.attachment.details')
                 ->with('error', 'You already have an attachment record.');
         }
@@ -147,6 +149,8 @@ class AttachmentController extends Controller
                 'self_found'      => is_null($attachment->company_id),
                 'has_application' => !is_null($application),
             ]);
+
+            $this->notifyCourseTrainers($attachment);
 
             return redirect()->route('student.attachment.details')
                 ->with('success', 'Attachment details submitted. Your trainer will review them shortly.');
@@ -216,11 +220,15 @@ class AttachmentController extends Controller
 
             $this->handleUploads($request, $attachment);
 
-            if ($attachment->status === 'needs_revision') {
+            $resubmitted = $attachment->status === 'needs_revision';
+            if ($resubmitted) {
                 $attachment->status = 'submitted';
             }
 
             $attachment->save();
+            if ($resubmitted) {
+                $this->notifyCourseTrainers($attachment);
+            }
 
             return redirect()->route('student.attachment.details')
                 ->with('success', 'Attachment details updated.');
@@ -256,8 +264,12 @@ class AttachmentController extends Controller
         $trainer   = Auth::user();
         $courseIds = $trainer->trainerCourseIds();
 
-        $query = Attachment::with(['student', 'company', 'term'])
-            ->forCourses($courseIds);
+        $query = Attachment::with(['student', 'company', 'term', 'supervisingTrainer'])
+            ->visibleToTrainer($trainer);
+
+        if ($request->query('mine')) {
+            $query->where('supervising_trainer_id', $trainer->id);
+        }
 
         // Status filter
         if ($request->filled('status')) {
@@ -305,7 +317,7 @@ class AttachmentController extends Controller
 
         $attachments = $query->latest()->paginate(20)->withQueryString();
 
-        $base = Attachment::forCourses($courseIds);
+        $base = Attachment::visibleToTrainer($trainer);
 
         $stats = [
             'submitted'        => (clone $base)->where('status', 'submitted')->count(),
@@ -315,9 +327,10 @@ class AttachmentController extends Controller
             'completed'        => (clone $base)->whereIn('status', ['completed', 'graded'])->count(),
             'self_found'       => (clone $base)->whereNull('company_id')->count(),
             'registered'       => (clone $base)->whereNotNull('company_id')->count(),
+            'supervising'      => (clone $base)->where('supervising_trainer_id', $trainer->id)->whereIn('status', ['active', 'completed'])->count(),
         ];
 
-        $courses = $trainer->activeCoursesAsTrainer()->orderBy('name')->get();
+        $courses = Course::whereIn('id', $courseIds)->orderBy('name')->get();
 
         return view('ktvtc.trainers.attachments.index', compact(
             'attachments', 'stats', 'courses'
@@ -335,10 +348,10 @@ class AttachmentController extends Controller
             'student', 'company', 'term', 'opportunity',
             'application', 'reviewer', 'grader',
             'trainerApprovedBy', 'trainerApprovedCourse',
-            'eligibilityCheckedBy',
+            'eligibilityCheckedBy', 'supervisingTrainer',
         ]);
 
-        $courses = Auth::user()->activeCoursesAsTrainer()->orderBy('name')->get();
+        $courses = Course::whereIn('id', Auth::user()->trainerCourseIds())->orderBy('name')->get();
 
         return view('ktvtc.trainers.attachments.show', compact('attachment', 'courses'));
     }
@@ -410,6 +423,7 @@ class AttachmentController extends Controller
 
         try {
             $attachment->requestRevisionByTrainer(Auth::user(), $request->remarks);
+            $this->notifier()->student($attachment->student, "your attachment details need changes: {$request->remarks}. Update them in the student portal.");
 
             return back()->with('warning',
                 'Revision requested. Student has been notified.');
@@ -517,10 +531,29 @@ class AttachmentController extends Controller
         $attachment->load([
             'student', 'company', 'term', 'opportunity',
             'application', 'reviewer', 'grader',
-            'trainerApprovedBy', 'trainerApprovedCourse',
+            'trainerApprovedBy', 'trainerApprovedCourse', 'supervisingTrainer', 'eligibilityCheckedBy',
         ]);
 
-        return view('ktvtc.ilo.attachments.show', compact('attachment'));
+        return view('ktvtc.ilo.attachments.show', [
+            'attachment' => $attachment,
+            'trainers'   => $this->trainersFor($attachment),
+        ]);
+    }
+
+    /**
+     * Trainers who can supervise this student: those teaching a unit on the student's
+     * current course first, then every other active trainer.
+     */
+    protected function trainersFor(Attachment $attachment)
+    {
+        $courseIds = $attachment->student?->enrollments()->whereIn('status', \App\Services\Students\EnrollmentCreator::OPEN_STATUSES)->pluck('course_id')->all() ?? [];
+        $onCourse = \App\Models\CourseUnit::whereIn('course_id', $courseIds)->whereNotNull('trainer_id')->pluck('trainer_id')->map(fn ($id) => (int) $id)->unique()->all();
+
+        return User::where('role', User::ROLE_TRAINERS)->where('is_active', true)->orderBy('name')->get()
+            ->each(function ($t) use ($onCourse) {
+                $t->teaches_student = in_array((int) $t->id, $onCourse, true);
+            })
+            ->sortByDesc('teaches_student')->values();
     }
 
     public function iloApprove(Request $request, Attachment $attachment)
@@ -529,9 +562,20 @@ class AttachmentController extends Controller
             return back()->with('error', 'This attachment cannot be activated from status: ' . $attachment->status);
         }
 
-        $request->validate(['remarks' => 'nullable|string|max:500']);
+        $data = $request->validate([
+            'remarks'                => 'nullable|string|max:500',
+            'supervising_trainer_id' => ['nullable', \Illuminate\Validation\Rule::exists('users', 'id')->where('role', User::ROLE_TRAINERS)],
+        ]);
 
-        $attachment->approveAndActivate($request->remarks);
+        $attachment->supervising_trainer_id = $data['supervising_trainer_id'] ?? $attachment->supervising_trainer_id;
+        $attachment->approveAndActivate($data['remarks'] ?? null);
+        $attachment->load('supervisingTrainer');
+
+        $this->notifier()->student($attachment->student, "your attachment at {$attachment->company_name} from {$attachment->start_date?->format('d M Y')} has been approved."
+            . ($attachment->supervisingTrainer ? " Your supervising trainer is {$attachment->supervisingTrainer->name}." : ''));
+        if ($attachment->supervisingTrainer) {
+            $this->notifier()->trainer($attachment->supervisingTrainer, "you are the supervising trainer for {$attachment->student->full_name} on attachment at {$attachment->company_name} ({$attachment->start_date?->format('d M')} to {$attachment->end_date?->format('d M Y')}). Please visit and assess them.");
+        }
 
         Log::info('Attachment activated by ILO', [
             'attachment_id'  => $attachment->id,
@@ -542,20 +586,48 @@ class AttachmentController extends Controller
         return back()->with('success', 'Attachment approved and activated.');
     }
 
+    /**
+     * Assign or change the trainer who visits and assesses the student.
+     */
+    public function iloAssignTrainer(Request $request, Attachment $attachment)
+    {
+        if (!in_array($attachment->status, ['submitted', 'trainer_approved', 'active', 'completed'], true)) {
+            return back()->with('error', 'A supervising trainer can only be set on a placement that is under review or running.');
+        }
+        $data = $request->validate([
+            'supervising_trainer_id' => ['required', \Illuminate\Validation\Rule::exists('users', 'id')->where('role', User::ROLE_TRAINERS)],
+        ]);
+
+        $attachment->update(['supervising_trainer_id' => $data['supervising_trainer_id']]);
+        $trainer = $attachment->supervisingTrainer()->first();
+        $this->notifier()->trainer($trainer, "you are the supervising trainer for {$attachment->student->full_name} on attachment at {$attachment->company_name}. Please visit and assess them.");
+        $this->notifier()->student($attachment->student, "your college supervising trainer for attachment is {$trainer->name}" . ($trainer->phone_number ? " ({$trainer->phone_number})" : '') . '.');
+
+        return back()->with('success', "{$trainer->name} is now the supervising trainer.");
+    }
+
     public function iloRequestRevision(Request $request, Attachment $attachment)
     {
+        if (!$attachment->canBeSentBackByIlo()) {
+            return back()->with('error', 'Only attachments still under review can be sent back.');
+        }
         $request->validate(['remarks' => 'required|string|min:5|max:500']);
 
         $attachment->requestRevision($request->remarks);
+        $this->notifier()->student($attachment->student, "your attachment details need changes: {$request->remarks}. Update them in the student portal.");
 
         return back()->with('warning', 'Revision requested. Student has been notified.');
     }
 
     public function iloReject(Request $request, Attachment $attachment)
     {
+        if (!$attachment->canBeSentBackByIlo()) {
+            return back()->with('error', 'Only attachments still under review can be rejected.');
+        }
         $request->validate(['remarks' => 'required|string|min:5|max:500']);
 
         $attachment->reject($request->remarks);
+        $this->notifier()->student($attachment->student, "your attachment at {$attachment->company_name} was not approved: {$request->remarks}. You may submit another placement.");
 
         return back()->with('warning', 'Attachment rejected.');
     }
@@ -567,24 +639,32 @@ class AttachmentController extends Controller
         }
 
         $attachment->markCompleted($request->input('remarks'));
+        $this->notifier()->student($attachment->student, 'your attachment has been marked complete. Your grade will follow.');
 
         return back()->with('success', 'Attachment marked as completed.');
     }
 
     public function iloGrade(Request $request, Attachment $attachment)
     {
+        if (!$attachment->canBeGraded()) {
+            return back()->with('error', 'Only an active or completed attachment can be graded.');
+        }
         $request->validate([
             'grade'   => 'required|string|max:10',
             'remarks' => 'nullable|string|max:1000',
         ]);
 
         $attachment->grade($request->grade, $request->remarks);
+        $this->notifier()->student($attachment->student, "your attachment at {$attachment->company_name} has been graded: {$request->grade}.");
 
         return back()->with('success', 'Attachment graded.');
     }
 
     public function iloVisit(Request $request, Attachment $attachment)
     {
+        if ($attachment->status !== 'active') {
+            return back()->with('error', 'Visits can only be logged while the student is on attachment.');
+        }
         $request->validate([
             'visit_date' => 'nullable|date',
             'notes'      => 'required|string|min:5|max:2000',
@@ -628,6 +708,22 @@ class AttachmentController extends Controller
     // ============================================================
     // HELPERS
     // ============================================================
+
+    protected function notifier(): AttachmentNotifier
+    {
+        return app(AttachmentNotifier::class);
+    }
+
+    /** Tell the trainers of the student's course that a placement is waiting for their review. */
+    protected function notifyCourseTrainers(Attachment $attachment): void
+    {
+        $courseIds = $attachment->student->enrollments()->whereIn('status', \App\Services\Students\EnrollmentCreator::OPEN_STATUSES)->pluck('course_id');
+        $trainerIds = \App\Models\CourseUnit::whereIn('course_id', $courseIds)->whereNotNull('trainer_id')->distinct()->pluck('trainer_id');
+
+        foreach (User::whereIn('id', $trainerIds)->where('is_active', true)->get() as $trainer) {
+            $this->notifier()->trainer($trainer, "{$attachment->student->full_name} has submitted attachment details ({$attachment->company_name}) for your review in the trainer portal.");
+        }
+    }
 
     protected function currentStudent(): Student
     {

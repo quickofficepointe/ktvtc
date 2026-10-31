@@ -307,6 +307,53 @@
             </div>
         @endif
 
+        {{-- COLLEGE SIDE: trainer review, eligibility, supervising trainer --}}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-sm">
+            <h3 class="font-semibold text-gray-800 mb-3 flex items-center"><i class="fas fa-chalkboard-teacher text-primary mr-2"></i> Trainers</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <p class="text-xs text-gray-500">Course trainer review</p>
+                    @if($attachment->trainer_approved_at)
+                        <p class="font-medium">{{ $attachment->status === 'needs_revision' ? 'Sent back' : 'Approved' }} by {{ $attachment->trainerApprovedBy->name ?? '—' }}</p>
+                        <p class="text-xs text-gray-500">{{ $attachment->trainer_approved_at->format('d M Y') }}</p>
+                    @else
+                        <p class="text-gray-500">Not reviewed yet</p>
+                    @endif
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500">Eligible for attachment</p>
+                    @if($attachment->eligibility_checked_at)
+                        <p class="font-medium {{ $attachment->is_eligible_for_attachment ? 'text-green-700' : 'text-red-600' }}">
+                            {{ $attachment->is_eligible_for_attachment ? 'Yes' : 'No' }}</p>
+                        <p class="text-xs text-gray-500">{{ $attachment->eligibilityCheckedBy->name ?? '' }} · {{ $attachment->eligibility_checked_at->format('d M Y') }}</p>
+                        @if($attachment->eligibility_notes)<p class="text-xs text-gray-600">{{ $attachment->eligibility_notes }}</p>@endif
+                    @else
+                        <p class="text-gray-500">Not checked</p>
+                    @endif
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500">Supervising trainer</p>
+                    <p class="font-medium">{{ $attachment->supervisingTrainer->name ?? 'Not assigned' }}</p>
+                    <p class="text-xs text-gray-500">{{ (int) $attachment->trainer_visit_count }} trainer visit(s){{ $attachment->last_trainer_visit_at ? ', last ' . $attachment->last_trainer_visit_at->format('d M Y') : '' }}</p>
+                </div>
+            </div>
+            @if($attachment->trainer_remarks)
+                <div class="mt-3 bg-gray-50 rounded-lg p-3 text-xs whitespace-pre-line">{{ $attachment->trainer_remarks }}</div>
+            @endif
+            @if(in_array($attachment->status, ['active', 'completed'], true))
+                <form method="POST" action="{{ route('ilo.attachments.supervisor', $attachment) }}" class="mt-3 flex flex-wrap gap-2">
+                    @csrf
+                    <select name="supervising_trainer_id" class="no-select2 border border-gray-300 rounded-lg px-3 py-2" required>
+                        <option value="">Choose a trainer</option>
+                        @foreach($trainers as $t)
+                            <option value="{{ $t->id }}" @selected($attachment->supervising_trainer_id == $t->id)>{{ $t->name }}{{ $t->teaches_student ? ' (teaches this student)' : '' }}</option>
+                        @endforeach
+                    </select>
+                    <button class="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg">{{ $attachment->supervising_trainer_id ? 'Change' : 'Assign' }} supervising trainer</button>
+                </form>
+            @endif
+        </div>
+
         {{-- SITE VISITS --}}
         @if($attachment->last_visit_date || $attachment->last_visit_notes)
             <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -347,6 +394,18 @@
                       onsubmit="return confirm('Approve this attachment? It will become active.')"
                       class="mb-4">
                     @csrf
+                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                        Supervising trainer (visits and assesses the student)
+                    </label>
+                    <select name="supervising_trainer_id" class="no-select2 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-1">
+                        <option value="">Choose later</option>
+                        @foreach($trainers as $t)
+                            <option value="{{ $t->id }}" @selected($attachment->supervising_trainer_id == $t->id)>
+                                {{ $t->name }}{{ $t->teaches_student ? ' (teaches this student)' : '' }}
+                            </option>
+                        @endforeach
+                    </select>
+                    <p class="text-xs text-gray-500 mb-3">Both the student and the trainer are texted.</p>
                     <label class="block text-xs font-medium text-gray-600 mb-1">
                         Approval remarks (optional)
                     </label>

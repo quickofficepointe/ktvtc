@@ -20,10 +20,7 @@ class StudentAttachmentController extends Controller
     {
         $student = $this->currentStudent();
 
-        $currentEnrollment = $student->enrollments()
-            ->with(['course', 'term'])
-            ->orderByDesc('created_at')
-            ->first();
+        $currentEnrollment = $this->openEnrollments($student)->first();
 
         $applications = AttachmentApplication::with(['opportunity.company', 'opportunity.course'])
             ->where('student_id', $student->id)
@@ -40,7 +37,7 @@ class StudentAttachmentController extends Controller
         // Matching opportunities for this student's course
         $openCount = 0;
         if ($currentEnrollment) {
-            $openCount = Opportunity::where('course_id', $currentEnrollment->course_id)
+            $openCount = Opportunity::whereIn('course_id', $this->openCourseIds($student))
                 ->where('status', 'open')
                 ->where('is_active', true)
                 ->whereColumn('slots_taken', '<', 'slots')
@@ -64,15 +61,12 @@ class StudentAttachmentController extends Controller
     {
         $student = $this->currentStudent();
 
-        $currentEnrollment = $student->enrollments()
-            ->with(['course', 'term'])
-            ->orderByDesc('created_at')
-            ->first();
+        $currentEnrollment = $this->openEnrollments($student)->first();
 
         abort_unless($currentEnrollment, 404, 'You have no active enrollment.');
 
         $query = Opportunity::with(['company', 'course', 'term'])
-            ->where('course_id', $currentEnrollment->course_id)
+            ->whereIn('course_id', $this->openCourseIds($student))
             ->where('status', 'open')
             ->where('is_active', true)
             ->whereColumn('slots_taken', '<', 'slots');
@@ -105,13 +99,8 @@ class StudentAttachmentController extends Controller
     {
         $student = $this->currentStudent();
 
-        // Must be for this student's course
-        $currentEnrollment = $student->enrollments()->latest()->first();
-        abort_unless(
-            $currentEnrollment && $opportunity->course_id === $currentEnrollment->course_id,
-            403,
-            'This opportunity is not for your course.'
-        );
+        // Must be for a course the student is on
+        abort_unless(in_array((int) $opportunity->course_id, $this->openCourseIds($student), true), 403, 'This opportunity is not for your course.');
 
         $opportunity->load(['company', 'course', 'term']);
 
@@ -134,12 +123,7 @@ class StudentAttachmentController extends Controller
     {
         $student = $this->currentStudent();
 
-        $currentEnrollment = $student->enrollments()->latest()->first();
-        abort_unless(
-            $currentEnrollment && $opportunity->course_id === $currentEnrollment->course_id,
-            403,
-            'This opportunity is not for your course.'
-        );
+        abort_unless(in_array((int) $opportunity->course_id, $this->openCourseIds($student), true), 403, 'This opportunity is not for your course.');
 
         if (!$opportunity->isOpen()) {
             return back()->with('error', 'This opportunity is no longer accepting applications.');
@@ -234,6 +218,19 @@ class StudentAttachmentController extends Controller
     // ============================================================
     // HELPERS
     // ============================================================
+
+    /** Courses the student is on now (not ones they left or finished). */
+    protected function openEnrollments(Student $student)
+    {
+        return $student->enrollments()->with(['course', 'term'])
+            ->whereIn('status', \App\Services\Students\EnrollmentCreator::OPEN_STATUSES)
+            ->orderByDesc('created_at')->get();
+    }
+
+    protected function openCourseIds(Student $student): array
+    {
+        return $this->openEnrollments($student)->pluck('course_id')->map(fn ($id) => (int) $id)->all();
+    }
 
     protected function currentStudent(): Student
     {

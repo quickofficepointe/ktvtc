@@ -880,6 +880,7 @@ Route::prefix('attachments')->name('attachments.')->group(function () {
     Route::post('/{attachment}/complete',       [AttachmentController::class, 'iloComplete'])->name('complete');
     Route::post('/{attachment}/grade',          [AttachmentController::class, 'iloGrade'])->name('grade');
     Route::post('/{attachment}/visit',          [AttachmentController::class, 'iloVisit'])->name('visit');
+    Route::post('/{attachment}/supervisor',     [AttachmentController::class, 'iloAssignTrainer'])->name('supervisor');
     Route::post('/{attachment}/promote-company',[AttachmentController::class, 'iloPromoteCompany'])->name('promote-company');
 });
    
@@ -1541,6 +1542,7 @@ Route::middleware(['auth', 'verified', 'role.website'])
 
     // Messages
     Route::get('messages', [MessageController::class, 'index'])->name('messages.index');
+    Route::put('messages/{id}', [MessageController::class, 'update'])->name('messages.update');
     Route::delete('messages/{id}', [MessageController::class, 'destroy'])->name('messages.destroy');
 
     // Departments

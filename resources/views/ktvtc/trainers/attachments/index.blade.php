@@ -13,6 +13,14 @@
     </div>
 </div>
 
+{{-- Students the ILO assigned this trainer to visit and assess --}}
+@if($stats['supervising'] > 0)
+    <a href="{{ route('trainers.attachments.index', ['mine' => 1, 'status' => 'active']) }}"
+       class="block mb-4 bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-900 hover:bg-green-100">
+        <i class="fas fa-user-check mr-2"></i>You are the supervising trainer for {{ $stats['supervising'] }} student(s) on attachment. Visit and assess them.
+    </a>
+@endif
+
 {{-- Stats --}}
 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
     <div class="bg-white rounded-lg shadow p-3 border-l-4 border-blue-500">

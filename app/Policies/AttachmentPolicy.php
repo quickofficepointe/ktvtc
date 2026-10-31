@@ -103,6 +103,9 @@ class AttachmentPolicy
         if (!$user->isTrainer()) {
             return false;
         }
+        if ((int) $attachment->supervising_trainer_id === (int) $user->id) {
+            return true;
+        }
 
         $courseIds = $user->trainerCourseIds();
 
@@ -113,6 +116,7 @@ class AttachmentPolicy
         return $attachment->student
             ->enrollments()
             ->whereIn('course_id', $courseIds)
+            ->whereIn('status', \App\Services\Students\EnrollmentCreator::OPEN_STATUSES)
             ->exists();
     }
 

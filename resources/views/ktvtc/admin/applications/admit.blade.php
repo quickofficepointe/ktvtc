@@ -17,6 +17,17 @@
         </div>
     @endif
 
+    @php $feePaid = $application->payments()->where('status', 'completed')->first(); @endphp
+    @if($feePaid)
+        <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-sm text-green-900">
+            <i class="fas fa-check-circle mr-1"></i> Application fee paid: KES {{ number_format($feePaid->amount, 2) }}{{ $feePaid->mpesa_receipt_number ? ', M-Pesa ' . $feePaid->mpesa_receipt_number : '' }}.
+        </div>
+    @else
+        <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm text-yellow-900">
+            <i class="fas fa-exclamation-triangle mr-1"></i> No application fee payment is recorded for this applicant. Check it was paid (e.g. in cash) before admitting.
+        </div>
+    @endif
+
     <div class="bg-white rounded-xl border p-5 space-y-3">
         <h3 class="font-semibold text-gray-800">1. Who is this?</h3>
         <p class="text-sm text-gray-500">

@@ -267,27 +267,24 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function teachesCourse(int $courseId): bool
     {
-        return $this->activeCoursesAsTrainer()
-                    ->where('courses.id', $courseId)
-                    ->exists();
+        return in_array($courseId, $this->trainerCourseIds(), true);
     }
 
+    /**
+     * Courses this trainer teaches: any course with a unit the academics office
+     * assigned to them, plus the older course_trainer list.
+     */
     public function trainerCourseIds(): array
     {
-        return $this->activeCoursesAsTrainer()
-                    ->pluck('courses.id')
-                    ->all();
+        $fromUnits = CourseUnit::where('trainer_id', $this->id)->where('is_active', true)->distinct()->pluck('course_id');
+        $fromPivot = $this->activeCoursesAsTrainer()->pluck('courses.id');
+
+        return $fromUnits->merge($fromPivot)->map(fn ($id) => (int) $id)->unique()->values()->all();
     }
 
     public function teachesAnyOf(array $courseIds): bool
     {
-        if (empty($courseIds)) {
-            return false;
-        }
-
-        return $this->activeCoursesAsTrainer()
-                    ->whereIn('courses.id', $courseIds)
-                    ->exists();
+        return (bool) array_intersect(array_map('intval', $courseIds), $this->trainerCourseIds());
     }
 
     // ============================================================

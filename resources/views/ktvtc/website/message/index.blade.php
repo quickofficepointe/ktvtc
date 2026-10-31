@@ -39,30 +39,40 @@
             </thead>
             <tbody>
                 @forelse($messages as $index => $msg)
-                    <tr class="border-t {{ $msg->is_seen ? 'bg-gray-50' : 'bg-orange-50' }}">
+                    <tr class="border-t {{ $msg->status !== 'pending' ? 'bg-gray-50' : 'bg-orange-50' }}">
                         <td class="px-4 py-2">{{ $index + 1 }}</td>
                         <td class="px-4 py-2 font-medium text-dark">{{ $msg->name }}</td>
                         <td class="px-4 py-2 text-gray-700">{{ $msg->email }}</td>
                         <td class="px-4 py-2 text-gray-700">{{ $msg->phone ?? 'N/A' }}</td>
                         <td class="px-4 py-2 text-gray-800">{{ Str::limit($msg->message, 50) }}</td>
                         <td class="px-4 py-2">
-                            @if($msg->is_seen)
-                                <span class="px-2 py-1 text-xs rounded bg-green-200 text-green-800">Seen</span>
-                            @else
+                            @if($msg->status === 'pending')
                                 <span class="px-2 py-1 text-xs rounded bg-yellow-200 text-yellow-800">New</span>
+                            @else
+                                <span class="px-2 py-1 text-xs rounded bg-green-200 text-green-800">{{ $msg->status_label }}</span>
                             @endif
                         </td>
                         <td class="px-4 py-2 text-sm text-gray-500">{{ $msg->created_at->format('M d, Y h:i A') }}</td>
                         <td class="px-4 py-2 space-x-2">
                             {{-- Mark Seen --}}
-                            @if(!$msg->is_seen)
+                            @if($msg->status === 'pending')
                                 <form action="{{ route('website.messages.update', $msg->id) }}" method="POST" class="inline">
                                     @csrf
                                     @method('PUT')
-                                    <input type="hidden" name="is_seen" value="1">
+                                    <input type="hidden" name="status" value="viewed">
                                     <button type="submit"
                                             class="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-secondary">
                                         Mark Seen
+                                    </button>
+                                </form>
+                            @endif
+                            @if(in_array($msg->status, ['pending', 'viewed'], true))
+                                <form action="{{ route('website.messages.update', $msg->id) }}" method="POST" class="inline">
+                                    @csrf
+                                    @method('PUT')
+                                    <input type="hidden" name="status" value="replied">
+                                    <button type="submit" class="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700">
+                                        Mark Replied
                                     </button>
                                 </form>
                             @endif

@@ -151,12 +151,6 @@
                         </div>
                     </div>
 
-                    @php
-                        $now = now();
-                        $registrationOpen = $now->between($event->registration_start_date, $event->registration_end_date);
-                        $registrationNotStarted = $now < $event->registration_start_date;
-                        $registrationClosed = $now > $event->registration_end_date;
-                    @endphp
 
                     <div class="flex items-center justify-between">
                         <div>

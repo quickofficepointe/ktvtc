@@ -78,7 +78,15 @@ public function byType($type)
                             ->take(3)
                             ->get();
 
-        return view('ktvtc.website.events.show', compact('event', 'relatedEvents'));
+        // Registration runs between its dates; with no dates set it stays open until the event starts
+        $now = now();
+        $opens = $event->registration_start_date;
+        $closes = $event->registration_end_date ?? $event->event_start_date;
+        $registrationNotStarted = $opens && $now->lt($opens);
+        $registrationClosed = $closes && $now->gt($closes);
+        $registrationOpen = !$registrationNotStarted && !$registrationClosed;
+
+        return view('ktvtc.website.events.show', compact('event', 'relatedEvents', 'registrationOpen', 'registrationNotStarted', 'registrationClosed'));
     }
 
     public function index()
