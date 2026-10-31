@@ -99,22 +99,39 @@ class PreOrderAuthController extends Controller
             ]);
         }
 
-        // HIGH SCHOOL STUDENTS — SKIP SMS VERIFICATION
+        // HIGH SCHOOL STUDENTS — their orders are paid from the card, so the code goes to the
+        // parent's phone on the card record. Admission numbers are short and easy to guess,
+        // and a phone typed in here could be anyone's, so there is no other way in.
         if ($detected['user_type'] === 'high_school_student') {
+            if (!$detected['phone']) {
+                throw ValidationException::withMessages([
+                    'identifier' => "We don't have a parent phone number for this student. Ask the cafeteria or finance office to add it, then try again.",
+                ]);
+            }
+
+            $code = str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+            $smsResult = $this->sms->sendParentVerificationCode($detected['phone'], $code, $detected['display_name']);
+            if (!($smsResult['success'] ?? false)) {
+                throw ValidationException::withMessages([
+                    'identifier' => "Could not send the code to the parent's phone. Contact the cafeteria.",
+                ]);
+            }
+
             $request->session()->put('preorder_setup_pending', [
                 'identifier'        => $identifier,
                 'user_type'         => $detected['user_type'],
                 'user_id'           => $detected['user_id'],
                 'display_name'      => $detected['display_name'],
                 'phone'             => $detected['phone'],
-                'code'              => null,
+                'code'              => $code,
                 'sent_at'           => now()->timestamp,
-                'skip_verification' => true,
+                'skip_verification' => false,
+                'attempts'          => 0,
             ]);
 
             return redirect()
                 ->route('pre-order.setup.verify')
-                ->with('info', 'Welcome! Just set your 4-digit PIN below.');
+                ->with('success', 'A code has been sent to your parent/guardian on ' . $this->maskPhone($detected['phone']) . '. Ask them for it.');
         }
 
         // STAFF + COLLEGE — SMS VERIFICATION
@@ -190,6 +207,14 @@ class PreOrderAuthController extends Controller
                 ->with('error', 'Session expired. Please start over.');
         }
 
+        // Only for college students/staff with no phone on file. A high-school code always goes
+        // to the parent, and a phone on file can't be swapped for another one here.
+        if ($pending['user_type'] === 'high_school_student' || !empty($pending['phone'])) {
+            session()->forget('preorder_setup_pending');
+            return redirect()->route('pre-order.setup')
+                ->with('error', 'The code can only be sent to the phone number the college has on file.');
+        }
+
         $request->validate([
             'phone' => ['required', 'regex:/^(?:\+?254|0)[17]\d{8}$/'],
         ]);
@@ -243,26 +268,29 @@ class PreOrderAuthController extends Controller
                 ->with('error', 'Session expired. Please start over.');
         }
 
-        $skipVerification = $pending['skip_verification'] ?? false;
-
-        if (!$skipVerification && now()->timestamp - ($pending['sent_at'] ?? 0) > 600) {
+        // Every account is verified by a code sent to the phone on file (the parent's, for high school)
+        if (empty($pending['code']) || now()->timestamp - ($pending['sent_at'] ?? 0) > 600) {
             session()->forget('preorder_setup_pending');
             return redirect()->route('pre-order.setup')
                 ->with('error', 'Verification code expired. Please start over.');
         }
 
-        $rules = ['pin' => 'required|digits:4|confirmed'];
-        if (!$skipVerification) {
-            $rules['code'] = 'required|digits:6';
-        }
-        $request->validate($rules);
+        $request->validate([
+            'pin'  => 'required|digits:4|confirmed',
+            'code' => 'required|digits:6',
+        ]);
 
-        if (!$skipVerification) {
-            if ($request->input('code') !== ($pending['code'] ?? '')) {
-                throw ValidationException::withMessages([
-                    'code' => 'Incorrect verification code.',
-                ]);
+        if (!hash_equals((string) $pending['code'], (string) $request->input('code'))) {
+            $pending['attempts'] = ($pending['attempts'] ?? 0) + 1;
+            if ($pending['attempts'] >= 5) {
+                session()->forget('preorder_setup_pending');
+                return redirect()->route('pre-order.setup')
+                    ->with('error', 'Too many wrong codes. Please start over.');
             }
+            session()->put('preorder_setup_pending', $pending);
+            throw ValidationException::withMessages([
+                'code' => 'Incorrect verification code.',
+            ]);
         }
 
         // Prevent duplicate account creation

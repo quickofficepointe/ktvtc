@@ -30,6 +30,19 @@ class PreOrderSmsService
         return $this->sms->sendSingleSms($phone, $message);
     }
 
+    /**
+     * High-school pre-orders spend the card's canteen money, so the parent approves the setup.
+     */
+    public function sendParentVerificationCode(string $phone, string $code, string $childName): array
+    {
+        $message = "Hello, {$childName} is setting up KTVTC cafeteria pre-orders, which are paid from their card's canteen balance.\n\n"
+                 . "Code: {$code}\n\n"
+                 . "Give this code to {$childName} only if you agree. It expires in 10 minutes. If you did not expect this, ignore this message.\n\n"
+                 . "KTVTC";
+
+        return $this->sms->sendSingleSms($phone, $message);
+    }
+
     // ─── PIN reset ───
     public function sendPinResetCode(string $phone, string $code, string $firstName = ''): array
     {
