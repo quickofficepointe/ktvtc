@@ -28,13 +28,14 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
-                        Your Email / Student Number / Admission Number
+                        Your Email / Student Number / Admission Number / Phone
                     </label>
                     <input type="text" name="identifier" value="{{ old('identifier', $identifier ?? '') }}" required
-                           placeholder="john@ktvtc.ac.ke, FBOM/01653 or 101"
+                           placeholder="john@ktvtc.ac.ke, FBOM/01653, 101 or 0712345678"
                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none">
                     <p class="text-xs text-gray-500 mt-1">
-                        We'll text a verification code to the phone on file.
+                        We'll text a verification code to the phone on file (for high school, to your parent).
+                        Not a student or staff? Enter your phone number and pay by M-Pesa.
                     </p>
                 </div>
 

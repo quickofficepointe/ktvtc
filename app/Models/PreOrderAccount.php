@@ -99,13 +99,19 @@ class PreOrderAccount extends Model
         return $this->user_type === 'high_school_student';
     }
 
+    /** Member of the public, signed up with their phone number. */
+    public function isPublic(): bool
+    {
+        return $this->user_type === 'public';
+    }
+
     /**
      * True if this account uses M-Pesa STK push at checkout.
-     * Staff and college students pay via M-Pesa.
+     * Staff, college students and the public pay via M-Pesa.
      */
     public function paysViaMpesa(): bool
     {
-        return in_array($this->user_type, ['staff', 'college_student']);
+        return in_array($this->user_type, ['staff', 'college_student', 'public'], true);
     }
 
     /**
@@ -126,6 +132,7 @@ class PreOrderAccount extends Model
             'staff' => 'Staff',
             'college_student' => 'College Student',
             'high_school_student' => 'High School Student',
+            'public' => 'Public',
             default => 'Unknown',
         };
     }

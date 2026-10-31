@@ -189,20 +189,19 @@
     function renderProducts(products) {
         const grid = document.getElementById('productsGrid');
         grid.innerHTML = products.map(p => `
-            <div class="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition ${!p.is_available ? 'opacity-50' : ''}">
+            <div class="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition">
                 <div class="relative bg-gray-100" style="padding-bottom: 100%;">
                     ${p.image
                         ? `<img src="${p.image}" class="absolute inset-0 w-full h-full object-cover">`
                         : `<div class="absolute inset-0 flex items-center justify-center text-4xl text-gray-300">🍽️</div>`}
-                    ${!p.is_available ? '<span class="absolute top-1 right-1 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded">Out</span>' : ''}
+                    ${p.made_to_order ? '<span class="absolute top-1 right-1 bg-amber-500 text-white text-xs px-1.5 py-0.5 rounded">Made to order</span>' : ''}
                 </div>
                 <div class="p-2">
                     <p class="text-sm font-medium text-gray-800 truncate">${p.product_name}</p>
                     <p class="text-xs text-gray-500">KES ${parseFloat(p.selling_price).toFixed(0)}</p>
                     <button type="button"
                             class="add-btn w-full mt-2 text-xs bg-red-700 hover:bg-red-800 text-white py-1.5 rounded transition"
-                            data-id="${p.id}"
-                            ${!p.is_available ? 'disabled' : ''}>
+                            data-id="${p.id}">
                         Add
                     </button>
                 </div>

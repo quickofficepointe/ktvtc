@@ -3,7 +3,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\InventoryMovement;
 use App\Models\PreOrder;
+use App\Models\PreOrderItem;
+use App\Models\Product;
 use App\Services\PreOrderSmsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -88,7 +91,9 @@ class CafeteriaPreOrderController extends Controller
                                 ->count(),
         ];
 
-        return view('ktvtc.cafeteria.pre-orders.index', compact('orders', 'counts', 'status'));
+        $toPrepare = $this->toPrepare();
+
+        return view('ktvtc.cafeteria.pre-orders.index', compact('orders', 'counts', 'status', 'toPrepare'));
     }
 
     /**
@@ -165,13 +170,78 @@ class CafeteriaPreOrderController extends Controller
             return back()->with('error', 'Only ready or accepted orders can be marked picked up.');
         }
 
-        $order->update([
-            'status' => 'completed',
-            'completed_at' => now(),
-            'staff_notes' => $request->input('staff_notes') ?: $order->staff_notes,
-        ]);
+        DB::transaction(function () use ($order, $request) {
+            $order->update([
+                'status' => 'completed',
+                'completed_at' => now(),
+                'staff_notes' => $request->input('staff_notes') ?: $order->staff_notes,
+            ]);
+            $this->takeOffStock($order);
+        });
 
         return back()->with('success', 'Order marked as picked up.');
+    }
+
+    /**
+     * What the kitchen has to make for paid orders not yet collected, per product,
+     * and how much of it is not covered by stock on hand.
+     */
+    protected function toPrepare()
+    {
+        return PreOrderItem::query()
+            ->join('pre_orders', 'pre_orders.id', '=', 'pre_order_items.pre_order_id')
+            ->whereIn('pre_orders.status', ['paid', 'accepted'])
+            ->groupBy('pre_order_items.product_id', 'pre_order_items.product_name')
+            ->selectRaw('pre_order_items.product_id, pre_order_items.product_name, SUM(pre_order_items.quantity) AS quantity, COUNT(DISTINCT pre_orders.id) AS orders')
+            ->orderByDesc('quantity')
+            ->get()
+            ->map(function ($row) {
+                $product = Product::find($row->product_id);
+                $stock = $product && $product->track_inventory ? max(0, (float) $product->current_stock) : null;
+                $row->in_stock = $stock;
+                $row->to_make = $stock === null ? (float) $row->quantity : max(0, (float) $row->quantity - $stock);
+                return $row;
+            });
+    }
+
+    /**
+     * Collected items come off stock. Items made for the order (not in stock) can't take
+     * stock below zero; the movement notes how many were made to order.
+     */
+    protected function takeOffStock(PreOrder $order): void
+    {
+        foreach ($order->items as $item) {
+            $product = Product::whereKey($item->product_id)->lockForUpdate()->first();
+            if (!$product || !$product->track_inventory) {
+                continue;
+            }
+
+            $onHand = max(0, (float) $product->current_stock);
+            $fromStock = min($onHand, (float) $item->quantity);
+            $madeToOrder = (float) $item->quantity - $fromStock;
+            if ($fromStock <= 0) {
+                continue;
+            }
+
+            InventoryMovement::create([
+                'movement_number' => 'PRE-' . $order->order_number . '-' . $item->id,
+                'product_id'      => $product->id,
+                'shop_id'         => $order->shop_id,
+                'movement_type'   => 'sale',
+                'quantity'        => $fromStock,
+                'unit'            => $product->unit ?? 'piece',
+                'unit_cost'       => $product->cost_price,
+                'total_cost'      => (float) $product->cost_price * $fromStock,
+                'previous_stock'  => $product->current_stock,
+                'new_stock'       => (float) $product->current_stock - $fromStock,
+                'reference_number' => $order->order_number,
+                'reference_type'  => 'pre_order',
+                'reference_id'    => $order->id,
+                'recorded_by'     => Auth::id(),
+                'notes'           => "Pre-order {$order->order_number} collected" . ($madeToOrder > 0 ? "; {$madeToOrder} made to order" : ''),
+            ]);
+            $product->decrement('current_stock', $fromStock);
+        }
     }
 
     /**

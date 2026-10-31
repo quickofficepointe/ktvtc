@@ -98,7 +98,9 @@ class PreOrderPortalController extends Controller
                     'category_id' => $p->category_id,
                     'category_name' => $p->category->category_name ?? null,
                     'shop_id' => $p->shop_id,
-                    'is_available' => !$p->track_inventory || $p->current_stock > 0,
+                    // Pre-orders tell the kitchen what to prepare, so items not in stock can still be ordered
+                    'is_available' => true,
+                    'made_to_order' => $p->track_inventory && $p->current_stock <= 0,
                     'current_stock' => (float) $p->current_stock,
                 ];
             });
@@ -140,9 +142,6 @@ class PreOrderPortalController extends Controller
             return response()->json(['error' => 'Product is not available'], 400);
         }
 
-        if ($product->track_inventory && $product->current_stock <= 0) {
-            return response()->json(['error' => 'Product is out of stock'], 400);
-        }
 
         $cart = session()->get('preorder_cart', []);
 
@@ -275,12 +274,6 @@ class PreOrderPortalController extends Controller
             $product = Product::find($line['product_id']);
             if (!$product || !$product->is_active) {
                 return response()->json(['error' => "Product {$line['product_name']} is no longer available"], 400);
-            }
-
-            if ($product->track_inventory && $product->current_stock < $line['quantity']) {
-                return response()->json([
-                    'error' => "Insufficient stock for {$product->product_name}. Only {$product->current_stock} left."
-                ], 400);
             }
 
             $lineTotal = (float) $product->selling_price * $line['quantity'];
@@ -442,12 +435,16 @@ class PreOrderPortalController extends Controller
                 'business_section_id' => $shop->business_section_id,
                 'shop_id' => $shop->id,
                 'sale_type' => 'preorder',
-                'channel' => 'preorder_portal',
+                'channel' => 'cafeteria',
                 'invoice_number' => $invoice,
                 'customer_name' => $account->display_name,
                 'customer_phone' => $formattedPhone,
                 'customer_email' => $account->isStaff() ? $account->identifier : null,
-                'customer_type' => $account->user_type,
+                'customer_type' => match ($account->user_type) {
+                    'staff'  => 'staff',
+                    'public' => 'walk_in',
+                    default  => 'student',
+                },
                 'payment_method' => 'mpesa',
                 'payment_status' => 'pending',
                 'order_status' => 'pending',

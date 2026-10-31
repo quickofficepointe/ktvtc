@@ -6,6 +6,30 @@
 @section('content')
 <div class="max-w-7xl mx-auto space-y-5">
 
+    {{-- What the kitchen has to make for paid orders not yet collected --}}
+    @if($toPrepare->isNotEmpty())
+        <div class="bg-white rounded-xl shadow-sm p-4">
+            <h3 class="font-semibold text-gray-800 mb-1"><i class="fas fa-utensils mr-2 text-red-700"></i>To prepare</h3>
+            <p class="text-xs text-gray-500 mb-3">Paid orders not yet collected. Items not in stock were ordered so the kitchen can make them.</p>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead><tr class="text-left text-gray-500 border-b"><th class="py-2 pr-3">Item</th><th class="py-2 pr-3 text-right">Ordered</th><th class="py-2 pr-3 text-right">In stock</th><th class="py-2 pr-3 text-right">To make</th><th class="py-2 text-right">Orders</th></tr></thead>
+                    <tbody>
+                        @foreach($toPrepare as $row)
+                            <tr class="border-b">
+                                <td class="py-2 pr-3 font-medium">{{ $row->product_name }}</td>
+                                <td class="py-2 pr-3 text-right">{{ rtrim(rtrim(number_format($row->quantity, 2), '0'), '.') }}</td>
+                                <td class="py-2 pr-3 text-right text-gray-500">{{ $row->in_stock === null ? '—' : rtrim(rtrim(number_format($row->in_stock, 2), '0'), '.') }}</td>
+                                <td class="py-2 pr-3 text-right font-semibold {{ $row->to_make > 0 ? 'text-amber-700' : 'text-green-700' }}">{{ rtrim(rtrim(number_format($row->to_make, 2), '0'), '.') }}</td>
+                                <td class="py-2 text-right text-gray-500">{{ $row->orders }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    @endif
+
     {{-- Status tabs --}}
     <div class="bg-white rounded-xl shadow-sm p-4">
         <div class="flex flex-wrap items-center gap-2">

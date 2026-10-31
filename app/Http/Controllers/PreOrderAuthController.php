@@ -36,7 +36,7 @@ class PreOrderAuthController extends Controller
             'pin' => 'required|digits:4',
         ]);
 
-        $identifier = trim($request->input('identifier'));
+        $identifier = $this->normalizeIdentifier($request->input('identifier'));
         $account = PreOrderAccount::where('identifier', $identifier)->first();
 
         if (!$account) {
@@ -81,7 +81,7 @@ class PreOrderAuthController extends Controller
             'identifier' => 'required|string|max:150',
         ]);
 
-        $identifier = trim($request->input('identifier'));
+        $identifier = $this->normalizeIdentifier($request->input('identifier'));
 
         if (PreOrderAccount::where('identifier', $identifier)->exists()) {
             return redirect()
@@ -336,7 +336,7 @@ class PreOrderAuthController extends Controller
             'identifier' => 'required|string|max:150',
         ]);
 
-        $identifier = trim($request->input('identifier'));
+        $identifier = $this->normalizeIdentifier($request->input('identifier'));
         $account    = PreOrderAccount::where('identifier', $identifier)->first();
 
         if (!$account) {
@@ -499,7 +499,32 @@ class PreOrderAuthController extends Controller
             ];
         }
 
+        // Anyone else: a Kenyan mobile number. The code goes to that phone, and they pay by M-Pesa.
+        if ($this->isMobileNumber($identifier)) {
+            return [
+                'user_type'    => 'public',
+                'user_id'      => null,
+                'display_name' => 'Customer ' . substr($identifier, -4),
+                'first_name'   => '',
+                'phone'        => $identifier,
+            ];
+        }
+
         return null;
+    }
+
+    /** Phone numbers are stored as 2547XXXXXXXX / 2541XXXXXXXX; anything else as typed. */
+    protected function normalizeIdentifier(?string $identifier): string
+    {
+        $identifier = trim((string) $identifier);
+        return preg_match('/^(?:\+?254|0)[17]\d{8}$/', preg_replace('/\s+/', '', $identifier))
+            ? $this->normalizePhone($identifier)
+            : $identifier;
+    }
+
+    protected function isMobileNumber(string $identifier): bool
+    {
+        return (bool) preg_match('/^254[17]\d{8}$/', $identifier);
     }
 
     // ─── SESSION ESTABLISHMENT ──────────────────────────────

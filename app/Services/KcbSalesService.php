@@ -640,10 +640,10 @@ class KcbSalesService extends KcbService
                 $product = $item->product;
 
                 // Only deduct inventory for trackable items (gift shop, not cafeteria food)
-                if ($product && $product->track_inventory && !$item->is_production_item) {
+                if ($product && $product->track_inventory && !$item->is_production_item && $sale->sale_type !== 'preorder') {
                     // Create inventory movement
                     \App\Models\InventoryMovement::create([
-                        'movement_number' => 'SALE-' . $sale->invoice_number,
+                        'movement_number' => 'SALE-' . $sale->invoice_number . '-' . $item->id, // unique per line
                         'product_id' => $product->id,
                         'shop_id' => $sale->shop_id,
                         'movement_type' => 'sale',
