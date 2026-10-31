@@ -14,7 +14,7 @@
 @section('title', $partner->name . ' - Kenswed Technical College Partner')
 
 @section('content')
-<!-- Partner Hero Section -->
+{{-- Partner Hero Section --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-16 text-white">
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto">
@@ -29,7 +29,7 @@
             </nav>
 
             <div class="flex flex-col md:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-8">
-                <!-- Partner Logo -->
+                {{-- Partner Logo --}}
                 <div class="flex-shrink-0">
                     @if($partner->logo_path)
                         <img src="{{ Storage::url($partner->logo_path) }}"
@@ -42,7 +42,7 @@
                     @endif
                 </div>
 
-                <!-- Partner Info -->
+                {{-- Partner Info --}}
                 <div class="flex-1 text-center md:text-left">
                     <h1 class="text-3xl md:text-4xl font-bold mb-4">{{ $partner->name }}</h1>
                     <div class="flex flex-wrap items-center justify-center md:justify-start gap-4">
@@ -68,13 +68,13 @@
     </div>
 </section>
 
-<!-- Partner Content Section -->
+{{-- Partner Content Section --}}
 <section class="py-16 bg-white">
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto">
-            <!-- Partnership Details -->
+            {{-- Partnership Details --}}
             <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <!-- Header -->
+                {{-- Header --}}
                 <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
                     <div class="flex items-center space-x-3">
                         <div class="p-2 bg-red-100 rounded-lg">
@@ -89,14 +89,14 @@
                     </div>
                 </div>
 
-                <!-- Content -->
+                {{-- Content --}}
                 <div class="p-6 md:p-8">
                     <div class="prose max-w-none text-gray-700">
                         <p class="text-lg leading-relaxed">
                             We are proud to partner with <strong>{{ $partner->name }}</strong> to enhance our educational programs and provide valuable opportunities for our students. This collaboration strengthens our commitment to delivering industry-relevant education and creating pathways to successful careers.
                         </p>
 
-                        <!-- Partnership Benefits -->
+                        {{-- Partnership Benefits --}}
                         <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div class="bg-red-50 rounded-lg p-4">
                                 <h3 class="text-lg font-semibold text-[#B91C1C] mb-2">Benefits for Students</h3>
@@ -147,7 +147,7 @@
                             </div>
                         </div>
 
-                        <!-- External Link -->
+                        {{-- External Link --}}
                         @if($partner->website)
                         <div class="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
                             <div class="flex items-center justify-between">
@@ -171,7 +171,7 @@
                 </div>
             </div>
 
-            <!-- Navigation Buttons -->
+            {{-- Navigation Buttons --}}
             <div class="flex flex-col sm:flex-row gap-4 justify-between mt-8">
                 <a href="{{ route('partner.index') }}"
                    class="inline-flex items-center px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-semibold">

@@ -14,7 +14,7 @@
 @section('title', 'Gallery - Kenswed Technical College')
 
 @section('content')
-<!-- Gallery Hero Section -->
+{{-- Gallery Hero Section --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-16 text-white">
     <div class="container mx-auto px-4">
         <div class="text-center">
@@ -24,7 +24,7 @@
     </div>
 </section>
 
-<!-- Gallery Content Section -->
+{{-- Gallery Content Section --}}
 <section class="py-16 bg-gray-50">
     <div class="container mx-auto px-4">
         @if($galleries->count() > 0)
@@ -32,7 +32,7 @@
             @foreach($galleries as $gallery)
             <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 border border-gray-200 hover:border-[#B91C1C]/20 group cursor-pointer"
                  onclick="openGalleryModal({{ $gallery->id }})">
-                <!-- Gallery Cover Image -->
+                {{-- Gallery Cover Image --}}
                 @if($gallery->cover_image)
                     <img src="{{ Storage::url($gallery->cover_image) }}" alt="{{ $gallery->title }}"
                          class="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300">
@@ -48,7 +48,7 @@
                 @endif
 
                 <div class="p-6">
-                    <!-- Status Badge -->
+                    {{-- Status Badge --}}
                     <div class="mb-3">
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $gallery->is_active ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-gray-100 text-gray-800 border border-gray-200' }}">
                             <span class="w-2 h-2 rounded-full mr-2 {{ $gallery->is_active ? 'bg-green-400' : 'bg-gray-400' }}"></span>
@@ -58,14 +58,14 @@
 
                     <h3 class="text-xl font-bold text-gray-800 mb-3 leading-tight group-hover:text-[#B91C1C] transition-colors">{{ $gallery->title }}</h3>
 
-                    <!-- Description -->
+                    {{-- Description --}}
                     @if($gallery->description)
                     <p class="text-gray-600 text-sm leading-relaxed mb-4 line-clamp-2">
                         {{ $gallery->description }}
                     </p>
                     @endif
 
-                    <!-- Image Count & Date -->
+                    {{-- Image Count & Date --}}
                     <div class="flex items-center justify-between text-sm text-gray-500">
                         <div class="flex items-center">
                             <svg class="w-4 h-4 mr-2 text-[#B91C1C]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -76,7 +76,7 @@
                         <span>{{ $gallery->created_at->format('M j, Y') }}</span>
                     </div>
 
-                    <!-- View Gallery Button -->
+                    {{-- View Gallery Button --}}
                     <div class="mt-4 pt-4 border-t border-gray-200">
                         <button class="w-full flex items-center justify-center px-4 py-2 bg-[#B91C1C] text-white rounded-lg hover:bg-[#991B1B] transition-colors duration-200 font-semibold text-sm">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,13 +105,13 @@
     </div>
 </section>
 
-<!-- Gallery Modal -->
+{{-- Gallery Modal --}}
 <div id="galleryModal" class="fixed inset-0 z-50 hidden overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4 py-6">
         <div class="fixed inset-0 bg-black bg-opacity-90 transition-opacity" onclick="closeGalleryModal()"></div>
 
         <div class="relative bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden transform transition-all">
-            <!-- Modal Header -->
+            {{-- Modal Header --}}
             <div class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] px-6 py-4">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center space-x-3">
@@ -134,10 +134,10 @@
                 </div>
             </div>
 
-            <!-- Modal Body -->
+            {{-- Modal Body --}}
             <div class="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
                 <div id="modalGalleryContent" class="space-y-6">
-                    <!-- Content will be loaded via JavaScript -->
+                    {{-- Content will be loaded via JavaScript --}}
                 </div>
             </div>
         </div>
@@ -264,7 +264,7 @@
     });
 </script>
 
-<!-- Add this CSS for the loading spinner if not already present -->
+{{-- Add this CSS for the loading spinner if not already present --}}
 <style>
     .loading-spinner {
         border: 3px solid #f3f3f3;

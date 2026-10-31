@@ -3,7 +3,7 @@
 @section('title', 'Application Fee Payment - Kenswed Technical College')
 
 @section('content')
-<!-- SweetAlert2 CSS -->
+{{-- SweetAlert2 CSS --}}
 <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
@@ -20,7 +20,7 @@
     <div class="container mx-auto px-4">
         <div class="max-w-2xl mx-auto">
 
-            <!-- Application Summary -->
+            {{-- Application Summary --}}
             <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
                 <h3 class="text-lg font-semibold text-gray-800 mb-4">Application Summary</h3>
                 <div class="space-y-2">
@@ -31,7 +31,7 @@
                 </div>
             </div>
 
-            <!-- Payment Form -->
+            {{-- Payment Form --}}
             <div class="bg-white rounded-xl shadow-lg p-6">
                 <h3 class="text-lg font-semibold text-gray-800 mb-4">Payment Details</h3>
 
@@ -51,7 +51,7 @@
                     </button>
                 </div>
 
-                <!-- Processing State -->
+                {{-- Processing State --}}
                 <div id="processingState" class="hidden text-center py-8">
                     <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-[#B91C1C] mx-auto mb-4"></div>
                     <h4 class="text-xl font-semibold text-gray-800 mb-2">Processing Payment</h4>
@@ -68,7 +68,7 @@
                     </div>
                 </div>
 
-                <!-- Success State -->
+                {{-- Success State --}}
                 <div id="successState" class="hidden text-center py-8">
                     <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <svg class="w-10 h-10 text-green-600" fill="currentColor" viewBox="0 0 20 20">
@@ -90,7 +90,7 @@
                     </div>
                 </div>
 
-                <!-- Error State -->
+                {{-- Error State --}}
                 <div id="errorState" class="hidden text-center py-8">
                     <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <svg class="w-10 h-10 text-red-600" fill="currentColor" viewBox="0 0 20 20">
@@ -106,7 +106,7 @@
                 </div>
             </div>
 
-            <!-- Payment Instructions -->
+            {{-- Payment Instructions --}}
             <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 class="font-semibold text-blue-800 mb-2 flex items-center">
                     <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">

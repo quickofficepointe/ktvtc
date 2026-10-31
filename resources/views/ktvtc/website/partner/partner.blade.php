@@ -14,7 +14,7 @@
 @section('title', 'Our Partners - Kenswed Technical College')
 
 @section('content')
-<!-- Partners Hero Section -->
+{{-- Partners Hero Section --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-16 text-white">
     <div class="container mx-auto px-4">
         <div class="text-center">
@@ -24,16 +24,16 @@
     </div>
 </section>
 
-<!-- Partners Content Section -->
+{{-- Partners Content Section --}}
 <section class="py-16 bg-gray-50">
     <div class="container mx-auto px-4">
         @if($partners->count() > 0)
         <div class="max-w-6xl mx-auto">
-            <!-- Partners Grid -->
+            {{-- Partners Grid --}}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                 @foreach($partners as $partner)
                 <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 border border-gray-200 hover:border-[#B91C1C]/20 group">
-                    <!-- Partner Logo -->
+                    {{-- Partner Logo --}}
                     <div class="p-6 flex items-center justify-center h-48 bg-white">
                         @if($partner->logo_path)
                             <img src="{{ Storage::url($partner->logo_path) }}"
@@ -47,7 +47,7 @@
                     </div>
 
                     <div class="p-6 border-t border-gray-200">
-                        <!-- Status Badge -->
+                        {{-- Status Badge --}}
                         <div class="mb-3">
                             <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $partner->is_active ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-gray-100 text-gray-800 border border-gray-200' }}">
                                 <span class="w-2 h-2 rounded-full mr-2 {{ $partner->is_active ? 'bg-green-400' : 'bg-gray-400' }}"></span>
@@ -55,10 +55,10 @@
                             </span>
                         </div>
 
-                        <!-- Partner Name -->
+                        {{-- Partner Name --}}
                         <h3 class="text-xl font-bold text-gray-800 mb-3 leading-tight group-hover:text-[#B91C1C] transition-colors">{{ $partner->name }}</h3>
 
-                        <!-- Action Buttons -->
+                        {{-- Action Buttons --}}
                         <div class="flex space-x-2 mt-4">
                             @if($partner->website)
                             <a href="{{ $partner->website }}"
@@ -84,7 +84,7 @@
                 @endforeach
             </div>
 
-            <!-- Partnership Benefits Section -->
+            {{-- Partnership Benefits Section --}}
             <div class="mt-16 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
                 <div class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] px-6 py-8 text-white">
                     <div class="text-center">
@@ -128,7 +128,7 @@
                 </div>
             </div>
 
-            <!-- Partnership CTA -->
+            {{-- Partnership CTA --}}
             <div class="mt-12 text-center">
                 <div class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] rounded-2xl p-8 text-white">
                     <h3 class="text-2xl font-bold mb-4">Interested in Partnering With Us?</h3>

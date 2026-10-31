@@ -4,30 +4,30 @@
 @section('meta_description', 'Get in touch with Kenswed Technical and Vocational Training College in Ngong. Contact us for admissions, course information, partnerships, and general inquiries.')
 @section('meta_keywords', 'contact Kenswed College, technical college Ngong, vocational training Kenya, admissions contact, college inquiries, visit Kenswed, campus location')
 
-<!-- Open Graph Tags -->
+{{-- Open Graph Tags --}}
 @section('og_title', 'Contact Kenswed Technical College | Ngong, Kenya')
 @section('og_description', 'Reach out to Kenswed College for admissions, course information, and partnerships. Visit our campus in Ngong or send us a message.')
 @section('og_url', url()->current())
 @section('og_image', asset('Assets/images/Kenswed_logo.png'))
 
-<!-- Twitter Card -->
+{{-- Twitter Card --}}
 @section('twitter_title', 'Contact Kenswed College')
 @section('twitter_description', 'Get in touch with Kenswed Technical and Vocational Training College in Ngong for admissions and course information')
 @section('twitter_image', asset('Assets/images/Kenswed_logo.png'))
 
-<!-- Canonical URL -->
+{{-- Canonical URL --}}
 @section('canonical', url()->current())
 
-<!-- Structured Data for Contact Page -->
+{{-- Structured Data for Contact Page --}}
 @section('structured_data')
 
 @endsection
 
 @section('content')
-    <!-- CONTACT SECTION -->
+    {{-- CONTACT SECTION --}}
     <section class="py-16 bg-gray-100">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            <!-- Contact Information Header -->
+            {{-- Contact Information Header --}}
             <div class="text-center mb-12">
                 <h1 class="text-4xl md:text-5xl font-bold text-gray-800 mb-4">Contact Us</h1>
                 <p class="text-xl text-gray-600 max-w-3xl mx-auto">
@@ -35,7 +35,7 @@
                 </p>
             </div>
 
-            <!-- Quick Contact Info Cards -->
+            {{-- Quick Contact Info Cards --}}
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
                 <div class="bg-white rounded-lg shadow-md p-6 text-center">
                     <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -73,7 +73,7 @@
             </div>
 
             <div class="bg-white rounded-lg shadow-lg overflow-hidden md:flex md:gap-8">
-                <!-- Contact Form Section -->
+                {{-- Contact Form Section --}}
                 <div class="w-full md:w-1/2 p-12">
                     <h2 class="text-3xl font-bold text-gray-800 mb-8">Get in Touch</h2>
 
@@ -98,7 +98,7 @@
                     <form action="{{ route('messages.store') }}" method="POST" class="space-y-6">
                         @csrf
 
-                        <!-- Name -->
+                        {{-- Name --}}
                         <div>
                             <input
                                 type="text"
@@ -110,7 +110,7 @@
                             >
                         </div>
 
-                        <!-- Email -->
+                        {{-- Email --}}
                         <div>
                             <input
                                 type="email"
@@ -122,7 +122,7 @@
                             >
                         </div>
 
-                        <!-- Phone -->
+                        {{-- Phone --}}
                         <div>
                             <input
                                 type="text"
@@ -133,7 +133,7 @@
                             >
                         </div>
 
-                        <!-- Message -->
+                        {{-- Message --}}
                         <div>
                             <textarea
                                 name="message"
@@ -144,7 +144,7 @@
                             >{{ old('message') }}</textarea>
                         </div>
 
-                        <!-- Submit -->
+                        {{-- Submit --}}
                         <button
                             type="submit"
                             class="w-full bg-red-600 text-white font-semibold py-4 rounded-lg hover:bg-red-700 transition-colors duration-300"
@@ -154,7 +154,7 @@
                     </form>
                 </div>
 
-                <!-- Google Maps Embed Section -->
+                {{-- Google Maps Embed Section --}}
                 <div class="w-full md:w-1/2">
                     <iframe
                         src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3988.712206916075!2d36.638279775896585!3d-1.3491832357000195!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x182f03f903a8baa7%3A0xa70e1a7d03ee96bd!2sKenswed%20Technical%20and%20Vocational%20Training%20College!5e0!3m2!1sen!2ske!4v1757846718629!5m2!1sen!2ske"

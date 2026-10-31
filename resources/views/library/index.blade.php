@@ -4,7 +4,7 @@
 @section('meta_description', 'Browse our library collection of books, journals, and educational resources at Kenswed Technical College.')
 
 @section('content')
-<!-- Library Header -->
+{{-- Library Header --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-12 text-white">
     <div class="container mx-auto px-4">
         <div class="text-center max-w-4xl mx-auto">
@@ -14,7 +14,7 @@
     </div>
 </section>
 
-<!-- Search & Filter Section -->
+{{-- Search & Filter Section --}}
 <section class="py-8 bg-gray-100 border-b">
     <div class="container mx-auto px-4">
         <form method="GET" action="{{ route('library.index') }}" class="max-w-5xl mx-auto">
@@ -53,7 +53,7 @@
     </div>
 </section>
 
-<!-- Branch Info Section -->
+{{-- Branch Info Section --}}
 <section class="py-8 bg-white border-b">
     <div class="container mx-auto px-4">
         <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">Book Availability by Branch</h2>
@@ -74,7 +74,7 @@
     </div>
 </section>
 
-<!-- Featured Books Section -->
+{{-- Featured Books Section --}}
 <section class="py-12 bg-gray-50">
     <div class="container mx-auto px-4">
         <div class="flex justify-between items-center mb-8">
@@ -118,7 +118,7 @@
     </div>
 </section>
 
-<!-- E-Books Section -->
+{{-- E-Books Section --}}
 <section class="py-12 bg-white">
     <div class="container mx-auto px-4">
         <div class="flex justify-between items-center mb-8">
@@ -170,7 +170,7 @@
     </div>
 </section>
 
-<!-- Donation CTA Section -->
+{{-- Donation CTA Section --}}
 <section class="py-12 bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] text-white">
     <div class="container mx-auto px-4 text-center">
         <h2 class="text-3xl font-bold mb-4">Support Our Library</h2>

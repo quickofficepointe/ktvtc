@@ -3,22 +3,22 @@
 @section('meta_description', strip_tags(Str::limit($faq->answer, 150)))
 @section('meta_keywords', 'Kenswed FAQ, ' . Str::words($faq->question, 10, '') . ', college questions, technical training information')
 
-<!-- Open Graph Tags -->
+{{-- Open Graph Tags --}}
 @section('og_title', $faq->question . ' | Kenswed FAQ')
 @section('og_description', strip_tags(Str::limit($faq->answer, 150)))
 @section('og_url', url()->current())
 @section('og_image', asset('Assets/images/Kenswed_logo.png'))
 
-<!-- Twitter Card -->
+{{-- Twitter Card --}}
 @section('twitter_title', $faq->question)
 @section('twitter_description', strip_tags(Str::limit($faq->answer, 150)))
 @section('twitter_image', asset('Assets/images/Kenswed_logo.png'))
 
-<!-- Canonical URL -->
+{{-- Canonical URL --}}
 @section('canonical', route('faq.show', $faq->slug))
 
 @section('content')
-<!-- FAQ Hero Section -->
+{{-- FAQ Hero Section --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-16 text-white">
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto">
@@ -38,11 +38,11 @@
     </div>
 </section>
 
-<!-- FAQ Content Section -->
+{{-- FAQ Content Section --}}
 <section class="py-16 bg-white">
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto">
-            <!-- Single FAQ Content -->
+            {{-- Single FAQ Content --}}
             <div class="bg-gray-50 rounded-2xl p-8 mb-8">
                 <div class="flex items-start space-x-6">
                     <div class="flex-shrink-0">
@@ -57,7 +57,7 @@
                             {!! $faq->answer !!}
                         </div>
 
-                        <!-- FAQ Meta -->
+                        {{-- FAQ Meta --}}
                         <div class="mt-8 pt-6 border-t border-gray-200">
                             <div class="flex items-center justify-between text-sm text-gray-600">
                                 <div class="flex items-center space-x-4">
@@ -72,7 +72,7 @@
                                     </span>
                                 </div>
 
-                                <!-- Share Buttons -->
+                                {{-- Share Buttons --}}
                                 <div class="flex items-center space-x-3">
                                     <span class="text-gray-600">Share:</span>
                                     <a href="https://www.facebook.com/sharer/sharer.php?u={{ urlencode(url()->current()) }}"
@@ -96,7 +96,7 @@
                 </div>
             </div>
 
-            <!-- Navigation Buttons -->
+            {{-- Navigation Buttons --}}
             <div class="flex flex-col sm:flex-row gap-4 justify-between">
                 <a href="{{ route('faq.index') }}"
                    class="inline-flex items-center px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-semibold">

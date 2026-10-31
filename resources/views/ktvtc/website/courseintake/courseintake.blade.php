@@ -14,7 +14,7 @@
 @section('title', 'Course Intakes & Application Deadlines - Kenswed Technical College')
 
 @section('content')
-<!-- Course Intakes Hero Section -->
+{{-- Course Intakes Hero Section --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-16 text-white">
     <div class="container mx-auto px-4">
         <div class="text-center">
@@ -24,12 +24,12 @@
     </div>
 </section>
 
-<!-- Course Intakes Content Section -->
+{{-- Course Intakes Content Section --}}
 <section class="py-16 bg-gray-50">
     <div class="container mx-auto px-4">
         @if($courses->count() > 0)
         <div class="max-w-6xl mx-auto">
-            <!-- Stats Summary -->
+            {{-- Stats Summary --}}
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div class="bg-white rounded-xl p-6 shadow-lg border border-gray-200 text-center">
                     <div class="text-3xl font-bold text-[#B91C1C] mb-2">{{ $courses->count() }}</div>
@@ -39,7 +39,7 @@
                     @php
                         $totalIntakes = 0;
                         foreach($courses as $course) {
-                            $totalIntakes += $course->intakes->where('is_active', true)->count();
+                            $totalIntakes += $course->upcomingIntakes()->count();
                         }
                     @endphp
                     <div class="text-3xl font-bold text-[#B91C1C] mb-2">{{ $totalIntakes }}</div>
@@ -50,7 +50,7 @@
                         $currentYear = date('Y');
                         $currentYearIntakes = 0;
                         foreach($courses as $course) {
-                            $currentYearIntakes += $course->intakes->where('is_active', true)->where('year', $currentYear)->count();
+                            $currentYearIntakes += $course->upcomingIntakes()->where('year', $currentYear)->count();
                         }
                     @endphp
                     <div class="text-3xl font-bold text-[#B91C1C] mb-2">{{ $currentYearIntakes }}</div>
@@ -58,12 +58,12 @@
                 </div>
             </div>
 
-            <!-- Courses with Intakes -->
+            {{-- Courses with Intakes --}}
             <div class="space-y-8">
                 @foreach($courses as $course)
-                    @if($course->intakes->where('is_active', true)->count() > 0)
+                    @if($course->upcomingIntakes()->count() > 0)
                     <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-                        <!-- Course Header -->
+                        {{-- Course Header --}}
                         <div class="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
                             <div class="flex flex-col md:flex-row md:items-center md:justify-between">
                                 <div>
@@ -86,13 +86,13 @@
                                 </div>
                                 <div class="mt-2 md:mt-0">
                                     <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                                        {{ $course->intakes->where('is_active', true)->count() }} Upcoming Intakes
+                                        {{ $course->upcomingIntakes()->count() }} Upcoming Intakes
                                     </span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Intakes Table -->
+                        {{-- Intakes Table --}}
                         <div class="overflow-x-auto">
                             <table class="w-full">
                                 <thead class="bg-gray-50">
@@ -105,12 +105,9 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-200">
-                                    @foreach($course->intakes->where('is_active', true)->sortBy(['year', function($intake) {
-                                        $months = ['January' => 1, 'February' => 2, 'March' => 3, 'April' => 4, 'May' => 5, 'June' => 6, 'July' => 7, 'August' => 8, 'September' => 9, 'October' => 10, 'November' => 11, 'December' => 12];
-                                        return $months[$intake->month];
-                                    }]) as $intake)
+                                    @foreach($course->upcomingIntakes() as $intake)
                                     <tr class="hover:bg-gray-50 transition-colors duration-150">
-                                        <!-- Intake Period -->
+                                        {{-- Intake Period --}}
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex items-center">
                                                 <div class="flex-shrink-0 w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
@@ -125,7 +122,7 @@
                                             </div>
                                         </td>
 
-                                        <!-- Application Deadline -->
+                                        {{-- Application Deadline --}}
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             @if($intake->application_deadline)
                                                 @php
@@ -158,7 +155,7 @@
                                             @endif
                                         </td>
 
-                                        <!-- Status -->
+                                        {{-- Status --}}
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             @php
                                                 $currentMonth = date('F');
@@ -185,7 +182,7 @@
                                             </span>
                                         </td>
 
-                                        <!-- Notes -->
+                                        {{-- Notes --}}
                                         <td class="px-6 py-4">
                                             @if($intake->notes)
                                                 <p class="text-sm text-gray-600 max-w-xs">{{ $intake->notes }}</p>
@@ -194,7 +191,7 @@
                                             @endif
                                         </td>
 
-                                        <!-- Action -->
+                                        {{-- Action --}}
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             @if($intake->application_deadline && !\Carbon\Carbon::parse($intake->application_deadline)->isPast())
                                             <a href="{{ route('application.form') }}"
@@ -223,8 +220,8 @@
                 @endforeach
             </div>
 
-            <!-- No Active Intakes Message -->
-            @if(!$courses->contains(function($course) { return $course->intakes->where('is_active', true)->count() > 0; }))
+            {{-- No Active Intakes Message --}}
+            @if(!$courses->contains(function($course) { return $course->upcomingIntakes()->count() > 0; }))
             <div class="text-center py-16 bg-white rounded-xl shadow-lg border border-gray-200">
                 <svg class="w-20 h-20 mx-auto text-gray-400 mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>

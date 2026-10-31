@@ -14,7 +14,7 @@
 @section('title', $category->name . ' - Kenswed Technical College News')
 
 @section('content')
-<!-- Category Hero Section -->
+{{-- Category Hero Section --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-16 text-white">
     <div class="container mx-auto px-4">
         <div class="text-center">
@@ -36,13 +36,13 @@
     </div>
 </section>
 
-<!-- Category Content Section -->
+{{-- Category Content Section --}}
 <section class="py-16 bg-gray-50">
     <div class="container mx-auto px-4">
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            <!-- Main Content -->
+            {{-- Main Content --}}
             <div class="lg:col-span-3">
-                <!-- Categories Filter -->
+                {{-- Categories Filter --}}
                 @if($categories->count() > 0)
                 <div class="flex flex-wrap gap-3 mb-8">
                     <a href="{{ route('blog.index') }}"
@@ -64,7 +64,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
                     @foreach($blogs as $blog)
                     <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 border border-gray-200 hover:border-[#B91C1C]/20 group">
-                        <!-- Blog Image -->
+                        {{-- Blog Image --}}
                         @if($blog->cover_image)
                             <img src="{{ Storage::url($blog->cover_image) }}" alt="{{ $blog->title }}" class="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300">
                         @else
@@ -76,7 +76,7 @@
                         @endif
 
                         <div class="p-6">
-                            <!-- Category Badge -->
+                            {{-- Category Badge --}}
                             @if($blog->category)
                             <div class="mb-3">
                                 <a href="{{ route('blog.by-category', $blog->category->slug) }}"
@@ -88,7 +88,7 @@
 
                             <h3 class="text-xl font-bold text-gray-800 mb-3 leading-tight group-hover:text-[#B91C1C] transition-colors">{{ $blog->title }}</h3>
 
-                            <!-- Published Date -->
+                            {{-- Published Date --}}
                             <div class="flex items-center text-sm text-gray-600 mb-3">
                                 <svg class="w-4 h-4 mr-2 text-[#B91C1C]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -96,12 +96,12 @@
                                 {{ $blog->published_at->format('M j, Y') }}
                             </div>
 
-                            <!-- Excerpt -->
+                            {{-- Excerpt --}}
                             <p class="text-gray-600 text-sm leading-relaxed mb-4 line-clamp-3">
                                 {{ Str::limit(strip_tags($blog->content), 120) }}
                             </p>
 
-                            <!-- Read More Button -->
+                            {{-- Read More Button --}}
                             <a href="{{ route('blog.show', [$blog->category->slug, $blog->slug]) }}"
                                class="inline-flex items-center text-[#B91C1C] font-semibold text-sm hover:underline group-hover:text-[#991B1B] transition-colors">
                                 Read More
@@ -114,7 +114,7 @@
                     @endforeach
                 </div>
 
-                <!-- Pagination -->
+                {{-- Pagination --}}
                 @if($blogs->hasPages())
                 <div class="mt-12 flex justify-center">
                     <div class="flex space-x-2">
@@ -153,9 +153,9 @@
                 @endif
             </div>
 
-            <!-- Sidebar -->
+            {{-- Sidebar --}}
             <div class="lg:col-span-1">
-                <!-- Category Info -->
+                {{-- Category Info --}}
                 <div class="bg-white rounded-xl p-6 shadow-lg border border-gray-200 mb-8">
                     <h3 class="text-xl font-bold text-gray-800 mb-4 border-b border-gray-200 pb-2">About {{ $category->name }}</h3>
                     @if($category->description)
@@ -167,7 +167,7 @@
                     </div>
                 </div>
 
-                <!-- Categories -->
+                {{-- Categories --}}
                 @if($categories->count() > 0)
                 <div class="bg-white rounded-xl p-6 shadow-lg border border-gray-200">
                     <h3 class="text-xl font-bold text-gray-800 mb-4 border-b border-gray-200 pb-2">All Categories</h3>

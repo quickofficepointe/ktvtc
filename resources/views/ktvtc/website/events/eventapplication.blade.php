@@ -4,22 +4,22 @@
 @section('meta_description', 'Register for ' . $event->title . ' at Kenswed College. Event date: ' . \Carbon\Carbon::parse($event->event_start_date)->format('F j, Y') . '. Location: ' . $event->location . '. Complete your application online.')
 @section('meta_keywords', $event->title . ' registration, event application, Kenswed College events, ' . $event->event_type . ' registration, student events Kenya, technical workshop application')
 
-<!-- Open Graph Tags -->
+{{-- Open Graph Tags --}}
 @section('og_title', 'Apply for ' . $event->title . ' | Kenswed College')
 @section('og_description', 'Register online for ' . $event->title . ' at Kenswed Technical College. ' . ($event->short_description ?: 'Join our upcoming event.'))
 @section('og_url', url()->current())
 @section('og_image', $event->banner_image ? Storage::url($event->banner_image) : asset('Assets/images/Kenswed_logo.png'))
 
-<!-- Twitter Card -->
+{{-- Twitter Card --}}
 @section('twitter_title', 'Apply: ' . $event->title)
 @section('twitter_description', 'Register for ' . $event->title . ' at Kenswed College - ' . \Carbon\Carbon::parse($event->event_start_date)->format('M j, Y'))
 @section('twitter_image', $event->banner_image ? Storage::url($event->banner_image) : asset('Assets/images/Kenswed_logo.png'))
 
-<!-- Canonical URL -->
+{{-- Canonical URL --}}
 @section('canonical', url()->current())
 
 @section('content')
-<!-- Application Header -->
+{{-- Application Header --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-12 text-white">
     <div class="container mx-auto px-4">
         <div class="text-center max-w-4xl mx-auto">
@@ -35,12 +35,12 @@
     </div>
 </section>
 
-<!-- Application Form -->
+{{-- Application Form --}}
 <section class="py-16 bg-gray-50">
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto">
             <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-                <!-- Event Summary -->
+                {{-- Event Summary --}}
                 <div class="bg-gray-50 border-b border-gray-200 p-6">
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between">
                         <div>
@@ -80,19 +80,19 @@
                     </div>
                 </div>
 
-                <!-- Payment Status Alert -->
+                {{-- Payment Status Alert --}}
                 <div id="payment-alert" class="hidden m-6"></div>
 
-                <!-- Application Form -->
+                {{-- Application Form --}}
                 <form id="event-application-form" class="p-6">
                     @csrf
 
-                    <!-- Parent/Guardian Information -->
+                    {{-- Parent/Guardian Information --}}
                     <div class="mb-8">
                         <h3 class="text-xl font-bold text-gray-800 mb-6 pb-2 border-b border-gray-200">Parent/Guardian Information</h3>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <!-- Parent Name -->
+                            {{-- Parent Name --}}
                             <div>
                                 <label for="parent_name" class="block text-sm font-semibold text-gray-700 mb-2">Full Name *</label>
                                 <input type="text"
@@ -105,7 +105,7 @@
                                 <div id="parent_name_error" class="text-red-600 text-sm mt-1 hidden"></div>
                             </div>
 
-                            <!-- Parent Contact -->
+                            {{-- Parent Contact --}}
                             <div>
                                 <label for="parent_contact" class="block text-sm font-semibold text-gray-700 mb-2">Phone Number *</label>
                                 <input type="tel"
@@ -118,7 +118,7 @@
                                 <div id="parent_contact_error" class="text-red-600 text-sm mt-1 hidden"></div>
                             </div>
 
-                            <!-- Parent Email -->
+                            {{-- Parent Email --}}
                             <div class="md:col-span-2">
                                 <label for="parent_email" class="block text-sm font-semibold text-gray-700 mb-2">Email Address *</label>
                                 <input type="email"
@@ -133,7 +133,7 @@
                         </div>
                     </div>
 
-                    <!-- Number of People -->
+                    {{-- Number of People --}}
                     <div class="mb-8">
                         <h3 class="text-xl font-bold text-gray-800 mb-6 pb-2 border-b border-gray-200">Number of Participants</h3>
 
@@ -152,17 +152,17 @@
                         </div>
                     </div>
 
-                    <!-- Attendees Information -->
+                    {{-- Attendees Information --}}
                     <div id="attendees-section" class="mb-8 hidden">
                         <h3 class="text-xl font-bold text-gray-800 mb-6 pb-2 border-b border-gray-200">Participants Information</h3>
                         <p class="text-gray-600 mb-6">Please provide details for each participant you're registering.</p>
 
                         <div id="attendees-container" class="space-y-6">
-                            <!-- Attendee fields will be dynamically added here -->
+                            {{-- Attendee fields will be dynamically added here --}}
                         </div>
                     </div>
 
-                    <!-- Payment Information -->
+                    {{-- Payment Information --}}
                     @if($event->is_paid)
                     <div class="mb-8">
                         <h3 class="text-xl font-bold text-gray-800 mb-6 pb-2 border-b border-gray-200">Payment Information</h3>
@@ -187,7 +187,7 @@
                     </div>
                     @endif
 
-                    <!-- Summary -->
+                    {{-- Summary --}}
                     <div class="mb-8">
                         <h3 class="text-xl font-bold text-gray-800 mb-6 pb-2 border-b border-gray-200">Order Summary</h3>
 
@@ -217,7 +217,7 @@
                         </div>
                     </div>
 
-                    <!-- Submit Button -->
+                    {{-- Submit Button --}}
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-6 border-t border-gray-200">
                         <p class="text-sm text-gray-600">
                             By submitting this form, you agree to our
@@ -246,7 +246,7 @@
                     </div>
                 </form>
 
-                <!-- Payment Processing Modal -->
+                {{-- Payment Processing Modal --}}
                 <div id="payment-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
                     <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
                         <div class="mt-3 text-center">

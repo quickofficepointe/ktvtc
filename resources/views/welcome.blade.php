@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Essential Meta Tags -->
+  {{-- Essential Meta Tags --}}
   <meta charset="UTF-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,14 +12,14 @@
   <meta name="author" content="Kenswed Technical and Vocational Training College" />
   <link rel="canonical" href="https://ktvtc.ac.ke/" />
 
-  <!-- Favicons -->
+  {{-- Favicons --}}
   <link rel="icon" type="image/png" sizes="32x32" href="{{asset ('Assets/images/Kenswed_logo.png') }}" />
   <link rel="icon" type="image/png" sizes="16x16" href="{{asset ('Assets/images/Kenswed_logo.png') }}" />
   <link rel="apple-touch-icon" sizes="180x180" href="{{asset ('Assets/images/Kenswed_logo.png') }}" />
   <link rel="shortcut icon" href="{{asset ('Assets/images/Kenswed_logo.png') }}" />
   <meta name="theme-color" content="#0b3d91" />
 
-  <!-- Open Graph / Facebook -->
+  {{-- Open Graph / Facebook --}}
   <meta property="og:locale" content="en_US" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Kenswed Technical and Vocational Training College (KTVTC) | Ngong, Kenya" />
@@ -31,7 +31,7 @@
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
 
-  <!-- Twitter Card -->
+  {{-- Twitter Card --}}
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Kenswed Technical and Vocational Training College (KTVTC)" />
   <meta name="twitter:description" content="KTVTC in Ngong, Kenya — training youth in ICT, tailoring, beauty, entrepreneurship, solar electrical and more." />
@@ -41,13 +41,13 @@
   <meta name="twitter:creator" content="@kenswed_tvtc" />
 
 
-  <!-- Styles & Frameworks -->
+  {{-- Styles & Frameworks --}}
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 
-  <!-- Fonts & Custom Styles -->
+  {{-- Fonts & Custom Styles --}}
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     body {
@@ -127,29 +127,20 @@
         100% { transform: translateX(-50%); }
     }
 
-    @media (max-width: 640px) {
-        .cert-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-    }
-    @media (min-width: 768px) and (max-width: 1023px) {
-        .cert-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-    }
   </style>
+    @include('partials.image-fallback')
 </head>
 
 <body class="bg-gray-100">
 
-    <!-- Information Bar -->
+    {{-- Information Bar --}}
     <div class="bg-[#B91C1C] text-white py-2">
         <div class="container mx-auto px-4 flex flex-col sm:flex-row items-center justify-center gap-4 text-sm">
             <div class="hidden md:flex items-center space-x-2">
                 <span>Have any questions?</span>
-                <button class="bg-white text-[#B91C1C] font-semibold px-4 py-1 transition-colors duration-200">
-                    Talk to support now!
-                </button>
+                <a href="https://wa.me/254790148509" target="_blank" rel="noopener" class="bg-white text-[#B91C1C] font-semibold px-4 py-1 rounded hover:bg-red-50 transition-colors">
+                    Talk to support now
+                </a>
             </div>
             <div class="flex items-center space-x-4">
                 <div class="flex items-center">
@@ -169,7 +160,7 @@
         </div>
     </div>
 
-    <!-- Main Navigation Bar -->
+    {{-- Main Navigation Bar --}}
     <nav class="bg-white shadow-lg relative z-50">
         <div class="container mx-auto px-4 flex justify-between items-center py-2">
             <div class="flex items-center">
@@ -178,15 +169,15 @@
                     onerror="this.onerror=null; this.src='https://placehold.co/48x48/B91C1C/ffffff?text=Logo';">
             </div>
 
-            <!-- Desktop Nav Links WITH FIXED DROPDOWNS -->
-            <div class="hidden md:flex items-center space-x-6">
+            {{-- Desktop Nav Links --}}
+            <div class="hidden lg:flex items-center gap-5 xl:gap-6 whitespace-nowrap">
                 <a href="/" class="text-black hover:text-red-700">Home</a>
                 <a href="{{ route('aboutus.index') }}" class="text-black hover:text-red-700">About Us</a>
 
-                <!-- Departments Dropdown - FIXED (stays open) -->
+                {{-- Departments Dropdown --}}
                 <div class="desktop-dropdown">
                     <button class="flex items-center gap-1 text-black hover:text-red-700">
-                        Departments <span class="text-xs">▼</span>
+                        Departments <i class="fas fa-chevron-down text-xs"></i>
                     </button>
                     <div class="dropdown-content">
                         @foreach($departments as $department)
@@ -195,10 +186,10 @@
                     </div>
                 </div>
 
-                <!-- Student Life Dropdown - FIXED (stays open) -->
+                {{-- Student Life Dropdown --}}
                 <div class="desktop-dropdown">
                     <button class="flex items-center gap-1 text-black hover:text-red-700">
-                        Student Life <span class="text-xs">▼</span>
+                        Student Life <i class="fas fa-chevron-down text-xs"></i>
                     </button>
                     <div class="dropdown-content">
                         <a href="{{ route('public.cafeteria.index') }}">Cafeteria</a>
@@ -212,20 +203,20 @@
                 <a href="{{ route('contact') }}" class="text-black hover:text-red-700">Contact Us</a>
             </div>
 
-            <!-- Student Portal & eLearning Buttons (Updated names, properly placed) -->
-            <div class="hidden md:flex items-center gap-4">
+            {{-- Student Portal & eLearning Buttons (Updated names, properly placed) --}}
+            <div class="hidden lg:flex items-center gap-3 whitespace-nowrap">
                 <a href="{{ route('login') }}"
                    class="bg-[#BF1F30] hover:bg-red-800 text-white font-semibold py-2 px-5 rounded-lg transition-all duration-200 shadow-md text-center">
                     Student Portal
                 </a>
-                <a href="httpS://eLearning.ktvtc.ac.ke" target="_blank"
+                <a href="https://elearning.ktvtc.ac.ke" target="_blank"
                    class="bg-gray-800 hover:bg-gray-900 text-white font-semibold py-2 px-5 rounded-lg transition-all duration-200 shadow-md text-center">
                     eLearning
                 </a>
             </div>
 
-            <!-- Desktop Social Media -->
-            <div class="hidden md:flex bg-[#BF1F30] px-3 py-2 space-x-3">
+            {{-- Desktop Social Media --}}
+            <div class="hidden xl:flex items-center bg-[#BF1F30] rounded-lg px-3 py-2 space-x-3">
                 <a href="https://www.facebook.com/KENSWEDVTC" target="_blank"><img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/facebook.svg" class="w-5 h-5 filter invert" alt="Facebook"></a>
                 <a href="https://wa.me/254790148509" target="_blank"><img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/whatsapp.svg" class="w-5 h-5 filter invert" alt="WhatsApp"></a>
                 <a href="https://www.instagram.com/kenswed_technical_college/" target="_blank"><img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/instagram.svg" class="w-5 h-5 filter invert" alt="Instagram"></a>
@@ -233,9 +224,9 @@
                 <a href="https://www.tiktok.com/@kenswedtechnicalcollege" target="_blank"><img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/tiktok.svg" class="w-5 h-5 filter invert" alt="TikTok"></a>
             </div>
 
-            <!-- Mobile Menu Icon -->
-            <div class="md:hidden">
-                <button id="menu-btn" class="text-black hover:text-red-700 focus:outline-none">
+            {{-- Mobile Menu Icon --}}
+            <div class="lg:hidden">
+                <button id="menu-btn" aria-label="Open menu" class="text-black hover:text-red-700 focus:outline-none">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                     </svg>
@@ -244,19 +235,19 @@
         </div>
     </nav>
 
-    <!-- Side Drawer Menu (Mobile) - WITH UPDATED BUTTONS -->
+    {{-- Side Drawer Menu (Mobile) - WITH UPDATED BUTTONS --}}
     <div id="side-drawer" class="fixed top-0 left-0 w-64 h-full bg-white shadow-lg transform -translate-x-full transition-transform duration-300 z-50 flex flex-col">
         <div class="flex items-center p-4 border-b">
             <img src="{{asset ('Assets/images/Kenswed_logo.png') }}" alt="Logo" class="w-10 h-10 rounded-full">
-            <button id="close-btn" class="ml-auto text-[#BF1F30] hover:text-red-700 text-2xl">&times;</button>
+            <button id="close-btn" aria-label="Close menu" class="ml-auto text-[#BF1F30] hover:text-red-700 text-2xl">&times;</button>
         </div>
 
-        <!-- Mobile Portal & eLearning Buttons -->
+        {{-- Mobile Portal & eLearning Buttons --}}
         <div class="p-4 border-b border-gray-200">
             <a href="{{ route('login') }}" class="block bg-[#BF1F30] hover:bg-red-800 text-white font-semibold py-2 px-4 rounded-lg text-center mb-3 transition">
                 Student Portal
             </a>
-            <a href="http://ekenswed.kenswed.org" target="_blank" class="block bg-gray-800 hover:bg-gray-900 text-white font-semibold py-2 px-4 rounded-lg text-center transition">
+            <a href="https://elearning.ktvtc.ac.ke" target="_blank" class="block bg-gray-800 hover:bg-gray-900 text-white font-semibold py-2 px-4 rounded-lg text-center transition">
                 eLearning
             </a>
         </div>
@@ -264,16 +255,7 @@
         <ul class="p-4 space-y-1 flex-1 overflow-y-auto">
             <li><a href="/" class="flex items-center px-3 py-2 rounded-lg text-gray-800 hover:bg-red-50 hover:text-red-700 transition"><i class="fas fa-home mr-2 text-red-600"></i> Home</a></li>
 
-            <li>
-                <button class="dropdown-btn w-full flex justify-between items-center px-3 py-2 rounded-lg text-gray-800 hover:bg-red-50 hover:text-red-700 transition">
-                    <span><i class="fas fa-info-circle mr-2 text-red-600"></i> About Us</span>
-                    <i class="fas fa-chevron-down text-sm transition-transform duration-200"></i>
-                </button>
-                <ul class="dropdown-menu ml-6 mt-1 space-y-1">
-                    <li><a href="{{ route('aboutus.index') }}" class="block px-3 py-1.5 rounded text-gray-600 hover:bg-gray-100">Our Story</a></li>
-                    <li><a href="{{ route('aboutus.index') }}" class="block px-3 py-1.5 rounded text-gray-600 hover:bg-gray-100">Mission & Vision</a></li>
-                </ul>
-            </li>
+            <li><a href="{{ route('aboutus.index') }}" class="flex items-center px-3 py-2 rounded-lg text-gray-800 hover:bg-red-50 hover:text-red-700 transition"><i class="fas fa-info-circle mr-2 text-red-600"></i> About Us</a></li>
 
             <li>
                 <button class="dropdown-btn w-full flex justify-between items-center px-3 py-2 rounded-lg text-gray-800 hover:bg-red-50 hover:text-red-700 transition">
@@ -318,7 +300,7 @@
         </div>
     </div>
 
-    <!-- DYNAMIC BANNER CAROUSEL SECTION -->
+    {{-- DYNAMIC BANNER CAROUSEL SECTION --}}
     <section class="hero-carousel relative">
         <div class="swiper bannerSwiper">
             <div class="swiper-wrapper">
@@ -330,21 +312,10 @@
                             <div class="relative z-10 container mx-auto px-4 py-20 md:py-32 pb-16">
                                 @if($banner->title)<h2 class="text-3xl md:text-5xl font-bold mb-4">{{ $banner->title }}</h2>@endif
                                 <h1 class="text-4xl md:text-6xl font-extrabold mb-8">INTAKE ONGOING NOW!</h1>
-                                <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4 justify-center">
-                                    <div class="flex w-full space-x-4 md:w-auto">
-                                        <a href="{{ route('course.index') }}" class="bg-[#BF1F30] text-white font-semibold px-6 py-3 w-1/2 rounded-lg hover:bg-red-800 transition-all duration-200 text-center flex items-center justify-center group">
-                                            <svg class="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                            APPLY NOW!
-                                        </a>
-                                        <a href="{{ route('course.index') }}" class="bg-[#BF1F30] text-white font-semibold px-6 py-3 w-1/2 rounded-lg hover:bg-red-800 transition-all duration-200 text-center flex items-center justify-center group">
-                                            <svg class="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-                                            OUR COURSES
-                                        </a>
-                                    </div>
-                                    <a href="{{ route('event.index') }}" class="bg-[#BF1F30] text-white font-semibold px-6 py-3 w-full md:w-auto rounded-lg hover:bg-red-800 transition-all duration-200 text-center flex items-center justify-center group">
-                                        <svg class="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                                        STUDENT LIFE
-                                    </a>
+                                <div class="flex flex-wrap justify-center gap-3">
+                                    <a href="{{ route('application.form') }}" class="inline-flex items-center justify-center gap-2 whitespace-nowrap bg-[#BF1F30] hover:bg-red-800 text-white font-semibold px-6 py-3 rounded-lg transition-colors"><i class="fas fa-pen-to-square"></i> Apply now</a>
+                                    <a href="{{ route('course.index') }}" class="inline-flex items-center justify-center gap-2 whitespace-nowrap bg-[#BF1F30] hover:bg-red-800 text-white font-semibold px-6 py-3 rounded-lg transition-colors"><i class="fas fa-book-open"></i> Our courses</a>
+                                    <a href="{{ route('event.index') }}" class="inline-flex items-center justify-center gap-2 whitespace-nowrap bg-[#BF1F30] hover:bg-red-800 text-white font-semibold px-6 py-3 rounded-lg transition-colors"><i class="fas fa-users"></i> Student life</a>
                                 </div>
                             </div>
                         </div>
@@ -355,12 +326,10 @@
                             <div class="relative z-10 container mx-auto px-4 py-20 md:py-32 pb-16">
                                 @if($banner->title)<h2 class="text-3xl md:text-5xl font-bold mb-4">{{ $banner->title }}</h2>@endif
                                 <h1 class="text-4xl md:text-6xl font-extrabold mb-8">INTAKE ONGOING NOW!</h1>
-                                <div class="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4 justify-center">
-                                    <div class="flex w-full space-x-4 md:w-auto">
-                                        <button class="bg-[#BF1F30] text-white font-semibold px-8 py-2 w-1/2 rounded-md hover:bg-red-800">APPLY NOW!</button>
-                                        <button class="bg-[#BF1F30] text-white font-semibold px-8 py-2 w-1/2 rounded-md hover:bg-red-800">OUR COURSES</button>
-                                    </div>
-                                    <button class="bg-[#BF1F30] text-white font-semibold px-8 py-4 w-full md:w-auto rounded-md hover:bg-red-800">STUDENT LIFE</button>
+                                <div class="flex flex-wrap justify-center gap-3">
+                                    <a href="{{ route('application.form') }}" class="inline-flex items-center justify-center gap-2 whitespace-nowrap bg-[#BF1F30] hover:bg-red-800 text-white font-semibold px-6 py-3 rounded-lg transition-colors"><i class="fas fa-pen-to-square"></i> Apply now</a>
+                                    <a href="{{ route('course.index') }}" class="inline-flex items-center justify-center gap-2 whitespace-nowrap bg-[#BF1F30] hover:bg-red-800 text-white font-semibold px-6 py-3 rounded-lg transition-colors"><i class="fas fa-book-open"></i> Our courses</a>
+                                    <a href="{{ route('event.index') }}" class="inline-flex items-center justify-center gap-2 whitespace-nowrap bg-[#BF1F30] hover:bg-red-800 text-white font-semibold px-6 py-3 rounded-lg transition-colors"><i class="fas fa-users"></i> Student life</a>
                                 </div>
                             </div>
                         </div>
@@ -374,12 +343,12 @@
         </div>
     </section>
 
-    <!-- Our Courses Section -->
+    {{-- Our Courses Section --}}
     <section class="py-16 bg-white">
         <div class="container mx-auto px-4">
             <div class="text-center mb-12">
                 <h2 class="text-3xl md:text-4xl font-extrabold text-gray-900">Our Courses</h2>
-                <p class="mt-2 text-lg text-gray-700">Kickstart your career with any of our courses!</p>
+                <p class="mt-2 text-lg text-gray-700">Technical and vocational courses with intakes every month.</p>
                 @if($departments->count() > 0)
                 <div class="mt-6 flex flex-wrap justify-center gap-3">
                     <a href="{{ route('course.index') }}" class="px-6 py-3 rounded-full text-sm font-medium bg-[#BF1F30] text-white hover:bg-[#9A1826] transition-colors shadow-md">View All Courses</a>
@@ -393,7 +362,7 @@
             @if($featuredCourses->count() > 0)
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 @foreach($featuredCourses as $course)
-                <div class="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
+                <div class="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
                     @if($course->cover_image_url)
                         <img src="{{ $course->cover_image_url }}" alt="{{ $course->name }}" class="w-full h-48 object-cover">
                     @else
@@ -401,7 +370,7 @@
                             <svg class="w-16 h-16 text-white opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
                         </div>
                     @endif
-                    <div class="p-6">
+                    <div class="p-6 flex flex-col flex-1">
                         @if($course->department)<div class="mb-2"><span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{{ $course->department->name }}</span></div>@endif
                         <h3 class="text-xl font-bold text-gray-800 mb-2">{{ $course->name }}</h3>
                         @if($course->code)<p class="text-sm text-gray-600 mb-2">Code: {{ $course->code }}</p>@endif
@@ -412,10 +381,10 @@
                         </div>
                         <p class="text-gray-700 text-sm leading-relaxed mb-4 line-clamp-3">{{ Str::limit(strip_tags($course->description), 120) }}</p>
                         @if($course->schedule)<div class="flex items-center text-xs text-gray-600 mb-3"><svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>{{ $course->schedule }}</div>@endif
-                        @if($course->intakes->count() > 0)<div class="mb-4"><p class="text-xs text-gray-600 mb-1">Next Intakes:</p><div class="flex flex-wrap gap-1">@foreach($course->intakes->take(2) as $intake)<span class="inline-flex items-center px-2 py-1 rounded text-xs bg-green-100 text-green-800">{{ $intake->month }} {{ $intake->year }}</span>@endforeach</div></div>@endif
-                        <div class="flex justify-between items-center">
-                            <a href="{{ route('application.form', ['course_slug' => $course->slug]) }}" class="text-red-700 font-semibold text-sm">APPLY NOW</a>
-                            <a href="{{ route('courses.show', $course->slug) }}" class="text-red-700 font-semibold px-4 py-2 rounded-md hover:underline transition-colors duration-200 text-sm border border-[#BF1F30]">READ MORE &gt;&gt;</a>
+                        @if($course->upcomingIntakes()->isNotEmpty())<div class="mb-4"><p class="text-xs text-gray-600 mb-1">Next intakes:</p><div class="flex flex-wrap gap-1">@foreach($course->upcomingIntakes(2) as $intake)<span class="inline-flex items-center px-2 py-1 rounded text-xs bg-green-100 text-green-800">{{ $intake->month }} {{ $intake->year }}</span>@endforeach</div></div>@endif
+                        <div class="flex justify-between items-center gap-3 mt-auto pt-2">
+                            <a href="{{ route('application.form', ['course_slug' => $course->slug]) }}" class="text-red-700 font-semibold text-sm hover:underline">Apply now</a>
+                            <a href="{{ route('courses.show', $course->slug) }}" class="text-red-700 font-semibold px-4 py-2 rounded-md hover:underline transition-colors duration-200 text-sm border border-[#BF1F30]">Read more <i class="fas fa-arrow-right text-xs ml-1"></i></a>
                         </div>
                     </div>
                 </div>
@@ -430,7 +399,7 @@
         </div>
     </section>
 
-    <!-- Events Section -->
+    {{-- Events Section --}}
     <section class="py-16 bg-gray-50">
         <div class="container mx-auto px-4">
             <div class="text-center mb-12">
@@ -463,7 +432,7 @@
         </div>
     </section>
 
-    <!-- News & Media Section -->
+    {{-- News & Media Section --}}
     <section class="py-16 bg-white">
         <div class="container mx-auto px-4">
             <div class="text-center mb-12">
@@ -493,7 +462,7 @@
         </div>
     </section>
 
-    <!-- Trust & Recognition Section (Merged Partners + Certifications) -->
+    {{-- Trust & Recognition Section (Merged Partners + Certifications) --}}
     <section class="py-16 bg-gray-50">
         <div class="container mx-auto px-4">
             <div class="text-center mb-12">
@@ -501,15 +470,15 @@
                 <div class="w-20 h-1 bg-[#B91C1C] mx-auto mt-3"></div>
             </div>
 
-            <!-- Certifications Section -->
+            {{-- Certifications Section --}}
             @if(isset($certifications) && $certifications->count() > 0)
-                <!-- Accreditation Bodies -->
+                {{-- Accreditation Bodies --}}
                 @if(isset($accreditations) && $accreditations->count() > 0)
                 <div class="mb-12">
                     <h3 class="text-lg font-semibold text-gray-700 mb-6 text-center">Accreditations</h3>
-                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 cert-grid">
+                    <div class="flex flex-wrap justify-center gap-6 cert-grid">
                         @foreach($accreditations as $cert)
-                        <div class="bg-white rounded-xl p-6 text-center hover:shadow-lg transition-all duration-300 border border-gray-200 group">
+                        <div class="w-[calc(50%-0.75rem)] sm:w-56 bg-white rounded-xl p-6 text-center hover:shadow-lg transition-all duration-300 border border-gray-200 group">
                             <div class="h-20 flex items-center justify-center mb-4">
                                 @if($cert->logo_url)
                                     <img src="{{ $cert->logo_url }}" alt="{{ $cert->name }}" class="max-h-16 object-contain group-hover:scale-105 transition-transform">
@@ -528,13 +497,13 @@
                 </div>
                 @endif
 
-                <!-- Examination Bodies -->
+                {{-- Examination Bodies --}}
                 @if(isset($examBodies) && $examBodies->count() > 0)
                 <div class="mb-12">
                     <h3 class="text-lg font-semibold text-gray-700 mb-6 text-center">Examination Bodies</h3>
-                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 cert-grid">
+                    <div class="flex flex-wrap justify-center gap-6 cert-grid">
                         @foreach($examBodies as $cert)
-                        <div class="bg-white rounded-xl p-6 text-center hover:shadow-lg transition-all duration-300 border border-gray-200 group">
+                        <div class="w-[calc(50%-0.75rem)] sm:w-56 bg-white rounded-xl p-6 text-center hover:shadow-lg transition-all duration-300 border border-gray-200 group">
                             <div class="h-20 flex items-center justify-center mb-4">
                                 @if($cert->logo_url)
                                     <img src="{{ $cert->logo_url }}" alt="{{ $cert->name }}" class="max-h-16 object-contain group-hover:scale-105 transition-transform">
@@ -553,13 +522,13 @@
                 </div>
                 @endif
 
-                <!-- Professional Bodies -->
+                {{-- Professional Bodies --}}
                 @if(isset($professionalBodies) && $professionalBodies->count() > 0)
                 <div class="mb-12">
                     <h3 class="text-lg font-semibold text-gray-700 mb-6 text-center">Professional Bodies</h3>
-                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 cert-grid">
+                    <div class="flex flex-wrap justify-center gap-6 cert-grid">
                         @foreach($professionalBodies as $cert)
-                        <div class="bg-white rounded-xl p-6 text-center hover:shadow-lg transition-all duration-300 border border-gray-200 group">
+                        <div class="w-[calc(50%-0.75rem)] sm:w-56 bg-white rounded-xl p-6 text-center hover:shadow-lg transition-all duration-300 border border-gray-200 group">
                             <div class="h-20 flex items-center justify-center mb-4">
                                 @if($cert->logo_url)
                                     <img src="{{ $cert->logo_url }}" alt="{{ $cert->name }}" class="max-h-16 object-contain group-hover:scale-105 transition-transform">
@@ -578,13 +547,13 @@
                 </div>
                 @endif
 
-                <!-- Registrations -->
+                {{-- Registrations --}}
                 @if(isset($registrations) && $registrations->count() > 0)
                 <div class="mb-12">
                     <h3 class="text-lg font-semibold text-gray-700 mb-6 text-center">Registrations</h3>
-                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 cert-grid">
+                    <div class="flex flex-wrap justify-center gap-6 cert-grid">
                         @foreach($registrations as $cert)
-                        <div class="bg-white rounded-xl p-6 text-center hover:shadow-lg transition-all duration-300 border border-gray-200 group">
+                        <div class="w-[calc(50%-0.75rem)] sm:w-56 bg-white rounded-xl p-6 text-center hover:shadow-lg transition-all duration-300 border border-gray-200 group">
                             <div class="h-20 flex items-center justify-center mb-4">
                                 @if($cert->logo_url)
                                     <img src="{{ $cert->logo_url }}" alt="{{ $cert->name }}" class="max-h-16 object-contain group-hover:scale-105 transition-transform">
@@ -603,7 +572,7 @@
                 </div>
                 @endif
 
-                <!-- Registration Info Card -->
+                {{-- Registration Info Card --}}
                 <div class="text-center">
                     <div class="inline-block bg-white rounded-xl shadow-md p-6">
                         <p class="text-gray-700"><span class="font-semibold text-[#B91C1C]">Registration Number:</span> TVETA/PRIVATE/XXX/2024</p>
@@ -612,7 +581,7 @@
                 </div>
             @endif
 
-            <!-- Partners Section -->
+            {{-- Partners Section --}}
             @php
                 $partners = App\Models\Partner::where('is_active', true)->get();
             @endphp
@@ -654,7 +623,7 @@
         </div>
     </section>
 
-    <!-- CTA Section -->
+    {{-- CTA Section --}}
     <section class="relative overflow-hidden py-12">
         <div class="absolute inset-0 z-0">
             <img src="{{asset ('Assets/images/CTA_bg.png') }}" alt="Background" class="object-cover w-full h-full">
@@ -663,17 +632,17 @@
         <div class="relative z-10 h-full flex items-center justify-center">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
-                    <div class="flex flex-col items-center"><div class="w-16 h-16 mb-2 rounded-full flex items-center justify-center bg-opacity-50"><img src="{{asset ('Assets/images/learners.svg') }}" alt="Enrolled Learners Icon" class="w-10 h-10"></div><p class="text-4xl text-white font-bold">500 +</p><p class="text-gray-300">Enrolled Learners</p></div>
-                    <div class="flex flex-col items-center"><div class="w-16 h-16 mb-2 rounded-full flex items-center justify-center bg-opacity-50"><img src="{{asset ('Assets/images/persons.svg') }}" alt="Successful Graduates Icon" class="w-10 h-10"></div><p class="text-4xl text-white font-bold">100 +</p><p class="text-gray-300">Successful Graduates</p></div>
-                    <div class="flex flex-col items-center"><div class="w-16 h-16 mb-2 rounded-full flex items-center justify-center bg-opacity-50"><img src="{{asset ('Assets/images/location.svg') }}" alt="Countries Reached Icon" class="w-10 h-10"></div><p class="text-4xl text-white font-bold">10 +</p><p class="text-gray-300">Countries Reached</p></div>
-                    <div class="flex flex-col items-center"><div class="w-16 h-16 mb-2 rounded-full flex items-center justify-center bg-opacity-50"><img src="{{asset ('Assets/images/courses.svg') }}" alt="Courses Published Icon" class="w-10 h-10"></div><p class="text-4xl text-white font-bold">50 +</p><p class="text-gray-300">Courses Published</p></div>
+                    <div class="flex flex-col items-center"><div class="w-16 h-16 mb-2 rounded-full flex items-center justify-center bg-opacity-50"><img src="{{asset ('Assets/images/learners.svg') }}" alt="Enrolled Learners Icon" class="w-10 h-10"></div><p class="text-4xl text-white font-bold">500+</p><p class="text-gray-300">Enrolled Learners</p></div>
+                    <div class="flex flex-col items-center"><div class="w-16 h-16 mb-2 rounded-full flex items-center justify-center bg-opacity-50"><img src="{{asset ('Assets/images/persons.svg') }}" alt="Successful Graduates Icon" class="w-10 h-10"></div><p class="text-4xl text-white font-bold">100+</p><p class="text-gray-300">Successful Graduates</p></div>
+                    <div class="flex flex-col items-center"><div class="w-16 h-16 mb-2 rounded-full flex items-center justify-center bg-opacity-50"><img src="{{asset ('Assets/images/location.svg') }}" alt="Countries Reached Icon" class="w-10 h-10"></div><p class="text-4xl text-white font-bold">10+</p><p class="text-gray-300">Countries Reached</p></div>
+                    <div class="flex flex-col items-center"><div class="w-16 h-16 mb-2 rounded-full flex items-center justify-center bg-opacity-50"><img src="{{asset ('Assets/images/courses.svg') }}" alt="Courses Published Icon" class="w-10 h-10"></div><p class="text-4xl text-white font-bold">50+</p><p class="text-gray-300">Courses Published</p></div>
                 </div>
-                <button class="bg-white text-[#BF1F30] font-bold text-2xl py-4 px-12 shadow-lg hover:bg-gray-200 transition-colors duration-300">APPLY NOW!</button>
+                <a href="{{ route('application.form') }}" class="inline-block bg-white text-[#BF1F30] font-bold text-xl py-4 px-12 rounded-lg shadow-lg hover:bg-gray-100 transition-colors">Apply now</a>
             </div>
         </div>
     </section>
 
-    <!-- Newsletter Section -->
+    {{-- Newsletter Section --}}
     <section class="py-16">
         <div class="container mx-auto px-4">
             <div class="max-w-5xl mx-auto">
@@ -706,7 +675,7 @@
         </div>
     </section>
 
-    <!-- Contact Section -->
+    {{-- Contact Section --}}
     <section class="py-16">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="bg-white rounded-lg shadow-lg overflow-hidden md:flex md:gap-8">
@@ -729,18 +698,17 @@
             </div>
         </div>
     </section>
-<!-- Floating WhatsApp Button - Added just before closing body tag -->
+{{-- Floating WhatsApp Button --}}
 <a href="https://wa.me/254790148509" target="_blank"
-   class="fixed bottom-6 right-6 bg-[#25D366] hover:bg-[#20b859] text-white rounded-full p-4 shadow-xl transition-all duration-300 z-50 flex items-center justify-center group"
+   class="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 bg-[#25D366] hover:bg-[#20b859] text-white rounded-full p-3 sm:p-4 shadow-xl transition-all duration-300 z-50 flex items-center justify-center group"
    aria-label="Chat with us on WhatsApp">
-    <i class="fab fa-whatsapp text-3xl group-hover:scale-110 transition-transform"></i>
+    <i class="fab fa-whatsapp text-2xl sm:text-3xl group-hover:scale-110 transition-transform"></i>
     <span class="absolute right-full mr-3 bg-gray-800 text-white text-sm font-medium py-1 px-3 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none">
         Chat with us
     </span>
 </a>
 
-<!-- Add Font Awesome if not already present (already in your head) -->
-    <!-- Footer -->
+    {{-- Footer --}}
     <footer class="bg-red-700 text-white py-12">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
@@ -757,18 +725,18 @@
                     </div>
                 </div>
                 <div><h3 class="font-bold text-lg mb-4">Quick Links</h3><ul class="space-y-2"><li><a href="{{ route('mobile-schools.index') }}" class="hover:underline">M-School</a></li><li><a href="{{ route('aboutus.index') }}" class="hover:underline">About Us</a></li><li><a href="{{ route('contact') }}" class="hover:underline">Contact Us</a></li><li><a href="{{ route('policie.index') }}" class="hover:underline">Privacy Policy</a></li><li><a href="{{ route('policie.index') }}" class="hover:underline">Terms & Conditions</a></li></ul></div>
-                <div><h3 class="font-bold text-lg mb-4">Resources</h3><ul class="space-y-2"><li><a href="{{ route('course.index') }}" class="hover:underline">Our Courses</a></li><li><a href="{{ route('faq.index') }}" class="hover:underline">FAQS</a></li><li><a href="{{ route('gallerie.index') }}" class="hover:underline">Gallery</a></li><li><a href="{{ route('download.index') }}" class="hover:underline">Downloads</a></li><li><a href="{{ route('event.index') }}" class="hover:underline">Events</a></li></ul></div>
-                <div><h3 class="font-bold text-lg mb-4">News & Media</h3><ul class="space-y-2"><li><a href="#" class="hover:underline">Our Alumni</a></li><li><a href="{{ route('partner.index') }}" class="hover:underline">Our partners</a></li><li><a href="{{ route('blog.index') }}" class="hover:underline">News & Blogs</a></li><li><a href="{{ route('courseintake.show') }}" class="hover:underline">Our Intakes</a></li></ul></div>
+                <div><h3 class="font-bold text-lg mb-4">Resources</h3><ul class="space-y-2"><li><a href="{{ route('course.index') }}" class="hover:underline">Our Courses</a></li><li><a href="{{ route('faq.index') }}" class="hover:underline">FAQs</a></li><li><a href="{{ route('gallerie.index') }}" class="hover:underline">Gallery</a></li><li><a href="{{ route('download.index') }}" class="hover:underline">Downloads</a></li><li><a href="{{ route('event.index') }}" class="hover:underline">Events</a></li></ul></div>
+                <div><h3 class="font-bold text-lg mb-4">News & Media</h3><ul class="space-y-2"><li><a href="{{ route('partner.index') }}" class="hover:underline">Our Partners</a></li><li><a href="{{ route('blog.index') }}" class="hover:underline">News & Blogs</a></li><li><a href="{{ route('courseintake.show') }}" class="hover:underline">Our Intakes</a></li></ul></div>
             </div>
             <div class="mt-12 pt-8 relative">
-                <div class="w-full h-20 overflow-hidden"><img src="Assets/images/footer_HR.svg" class="w-full" alt=""></div>
-                <p class="text-sm text-center mt-8">&copy; 2025 Copyright: KENSWED COLLEGE | Developed By <a href="https://quickofficepointe.co.ke" target="_blank" class="underline hover:text-gray-300">Quick office Pointe</a></p>
+                <img src="{{ asset('Assets/images/footer_HR.svg') }}" class="w-full max-h-24" alt="">
+                <p class="text-sm text-center mt-8">&copy; {{ date('Y') }} Kenswed College. Developed by <a href="https://quickofficepointe.co.ke" target="_blank" class="underline hover:text-gray-300">Quick Office Pointe</a></p>
             </div>
         </div>
     </footer>
 
     <script>
-        // Mobile Side Drawer and Dropdown Functionality - FIXED
+        // Mobile Side Drawer and Dropdown Functionality
         document.addEventListener('DOMContentLoaded', function() {
             const menuBtn = document.getElementById('menu-btn');
             const closeBtn = document.getElementById('close-btn');
@@ -804,7 +772,7 @@
                 }
             });
 
-            // Dropdown toggle functionality - FIXED
+            // Dropdown toggle functionality
             dropdownBtns.forEach(btn => {
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();

@@ -71,6 +71,23 @@ class Course extends Model
         return $this->hasMany(CourseIntakes::class);
     }
 
+    /** Active intakes from this month on, each month once, soonest first. */
+    public function upcomingIntakes(int $limit = 0)
+    {
+        $intakes = ($this->relationLoaded('intakes') ? $this->intakes : $this->intakes()->get())
+            ->where('is_active', true)
+            ->map(function ($intake) {
+                $intake->starts = \Carbon\Carbon::parse("1 {$intake->month} {$intake->year}");
+                return $intake;
+            })
+            ->filter(fn ($intake) => $intake->starts->gte(now()->startOfMonth()))
+            ->unique(fn ($intake) => $intake->starts->format('Y-m'))
+            ->sortBy('starts')
+            ->values();
+
+        return $limit ? $intakes->take($limit)->values() : $intakes;
+    }
+
     public function feeModifiedBy()
     {
         return $this->belongsTo(User::class, 'fee_modified_by');

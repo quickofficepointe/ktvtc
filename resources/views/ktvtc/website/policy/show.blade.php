@@ -14,7 +14,7 @@
 @section('title', $policy->title . ' - Kenswed Technical College')
 
 @section('content')
-<!-- Policy Hero Section -->
+{{-- Policy Hero Section --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-16 text-white">
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto">
@@ -45,13 +45,13 @@
     </div>
 </section>
 
-<!-- Policy Content Section -->
+{{-- Policy Content Section --}}
 <section class="py-16 bg-white">
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto">
-            <!-- Policy Content -->
+            {{-- Policy Content --}}
             <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <!-- Content Header -->
+                {{-- Content Header --}}
                 <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center space-x-3">
@@ -68,13 +68,13 @@
                     </div>
                 </div>
 
-                <!-- Policy Content -->
+                {{-- Policy Content --}}
                 <div class="p-6 md:p-8">
                     <article class="prose max-w-none policy-content">
                         {!! $policy->content !!}
                     </article>
 
-                    <!-- Last Updated & Contact -->
+                    {{-- Last Updated & Contact --}}
                     <div class="mt-12 pt-8 border-t border-gray-200">
                         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                             <div class="text-sm text-gray-600">
@@ -95,7 +95,7 @@
                 </div>
             </div>
 
-            <!-- Navigation Buttons -->
+            {{-- Navigation Buttons --}}
             <div class="flex flex-col sm:flex-row gap-4 justify-between mt-8">
                 <a href="{{ route('policie.index') }}"
                    class="inline-flex items-center px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-semibold">
@@ -106,7 +106,7 @@
                 </a>
 
                 <div class="flex space-x-3">
-                    <!-- Print Button -->
+                    {{-- Print Button --}}
                     <button onclick="window.print()"
                            class="inline-flex items-center px-4 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-semibold">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -115,7 +115,7 @@
                         Print
                     </button>
 
-                    <!-- Download as PDF (you can implement this functionality) -->
+                    {{-- Download as PDF (you can implement this functionality) --}}
                     <button onclick="downloadAsPDF()"
                            class="inline-flex items-center px-4 py-3 bg-[#B91C1C] text-white rounded-lg hover:bg-[#991B1B] transition-colors font-semibold">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

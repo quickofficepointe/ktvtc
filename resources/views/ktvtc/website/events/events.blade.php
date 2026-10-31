@@ -4,21 +4,21 @@
 @section('meta_description', 'Discover upcoming events, workshops, bootcamps, and seminars at Kenswed Technical and Vocational Training College. Join our technical training events in Ngong, Kenya.')
 @section('meta_keywords', 'college events, technical workshops, vocational training seminars, bootcamps Kenya, student activities, Kenswed events, Ngong events, technical education workshops')
 
-<!-- Open Graph Tags -->
+{{-- Open Graph Tags --}}
 @section('og_title', 'Upcoming Events & Workshops | Kenswed Technical College')
 @section('og_description', 'Join technical workshops, bootcamps, and seminars at Kenswed College. Enhance your skills with our vocational training events in Ngong.')
 @section('og_url', url()->current())
 @section('og_image', $events->count() > 0 && $events->first()->cover_image ? Storage::url($events->first()->cover_image) : asset('Assets/images/Kenswed_logo.png'))
 
-<!-- Twitter Card -->
+{{-- Twitter Card --}}
 @section('twitter_title', 'Events & Workshops | Kenswed College')
 @section('twitter_description', 'Technical workshops, bootcamps, and vocational training events at Kenswed Technical College in Ngong, Kenya.')
 @section('twitter_image', $events->count() > 0 && $events->first()->cover_image ? Storage::url($events->first()->cover_image) : asset('Assets/images/Kenswed_logo.png'))
 
-<!-- Canonical URL -->
+{{-- Canonical URL --}}
 @section('canonical', url()->current())
 @section('content')
-<!-- Events Hero Section -->
+{{-- Events Hero Section --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-16 text-white">
     <div class="container mx-auto px-4">
         <div class="text-center">
@@ -28,13 +28,13 @@
     </div>
 </section>
 
-<!-- Events Content Section -->
+{{-- Events Content Section --}}
 <section class="py-16 bg-gray-50">
     <div class="container mx-auto px-4">
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            <!-- Main Content -->
+            {{-- Main Content --}}
             <div class="lg:col-span-3">
-                <!-- Event Type Filter -->
+                {{-- Event Type Filter --}}
                 <div class="flex flex-wrap gap-3 mb-8">
                     <a href="{{ route('event.index') }}"
                        class="px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200
@@ -57,7 +57,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
                     @foreach($events as $event)
                     <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 border border-gray-200 hover:border-[#B91C1C]/20 group">
-                        <!-- Event Image -->
+                        {{-- Event Image --}}
                         @if($event->cover_image)
                             <img src="{{ Storage::url($event->cover_image) }}" alt="{{ $event->title }}" class="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300">
                         @else
@@ -69,7 +69,7 @@
                         @endif
 
                         <div class="p-6">
-                            <!-- Event Type Badge -->
+                            {{-- Event Type Badge --}}
                             <div class="mb-3">
                                 <span class="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold bg-red-50 text-[#B91C1C] border border-red-200">
                                     {{ ucfirst($event->event_type) }}
@@ -78,7 +78,7 @@
 
                             <h3 class="text-xl font-bold text-gray-800 mb-3 leading-tight group-hover:text-[#B91C1C] transition-colors">{{ $event->title }}</h3>
 
-                            <!-- Event Details -->
+                            {{-- Event Details --}}
                             <div class="space-y-2 mb-4">
                                 <div class="flex items-center text-sm text-gray-600">
                                     <svg class="w-4 h-4 mr-2 text-[#B91C1C]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -118,14 +118,14 @@
                                 @endif
                             </div>
 
-                            <!-- Short Description -->
+                            {{-- Short Description --}}
                             @if($event->short_description)
                             <p class="text-gray-600 text-sm leading-relaxed mb-4 line-clamp-2">
                                 {{ $event->short_description }}
                             </p>
                             @endif
 
-                            <!-- Event Status & Actions -->
+                            {{-- Event Status & Actions --}}
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center space-x-4">
                                     @if($event->registration_start_date && $event->registration_end_date)
@@ -151,7 +151,7 @@
                                     @endif
                                 </div>
 
-                                <!-- View Details Button -->
+                                {{-- View Details Button --}}
                                 <a href="{{ route('events.show', $event->slug) }}"
                                    class="inline-flex items-center text-[#B91C1C] font-semibold text-sm hover:underline group-hover:text-[#991B1B] transition-colors">
                                     View Details
@@ -165,7 +165,7 @@
                     @endforeach
                 </div>
 
-                <!-- Pagination -->
+                {{-- Pagination --}}
                 @if($events->hasPages())
                 <div class="mt-12 flex justify-center">
                     <div class="flex space-x-2">
@@ -204,9 +204,9 @@
                 @endif
             </div>
 
-            <!-- Sidebar -->
+            {{-- Sidebar --}}
             <div class="lg:col-span-1">
-                <!-- Featured Events -->
+                {{-- Featured Events --}}
                 @if($featuredEvents->count() > 0)
                 <div class="bg-white rounded-xl p-6 shadow-lg border border-gray-200 mb-8">
                     <h3 class="text-xl font-bold text-gray-800 mb-4 border-b border-gray-200 pb-2">Featured Events</h3>
@@ -239,7 +239,7 @@
                 </div>
                 @endif
 
-                <!-- Event Types -->
+                {{-- Event Types --}}
                 <div class="bg-white rounded-xl p-6 shadow-lg border border-gray-200 mb-8">
                     <h3 class="text-xl font-bold text-gray-800 mb-4 border-b border-gray-200 pb-2">Event Types</h3>
                     <div class="space-y-2">
@@ -254,7 +254,7 @@
                     </div>
                 </div>
 
-                <!-- Quick Info -->
+                {{-- Quick Info --}}
                 <div class="bg-gradient-to-br from-[#B91C1C] to-[#BF1F30] rounded-xl p-6 text-white">
                     <h3 class="text-xl font-bold mb-4">Need Help?</h3>
                     <p class="text-sm opacity-90 mb-4">Have questions about our events or need assistance with registration?</p>
@@ -263,7 +263,7 @@
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
                             </svg>
-                            Contact: {{ $event->organizer_phone ?? '254 790 148 509
+                            Contact: {{ $event->organizer_phone ?? '+254 790 148 509
 ' }}
                         </div>
                         <div class="flex items-center">

@@ -14,7 +14,7 @@
 @section('title', $gallery->title . ' - Kenswed Technical College Gallery')
 
 @section('content')
-<!-- Gallery Hero Section -->
+{{-- Gallery Hero Section --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-16 text-white">
     <div class="container mx-auto px-4">
         <div class="max-w-6xl mx-auto">
@@ -36,11 +36,11 @@
     </div>
 </section>
 
-<!-- Gallery Content Section -->
+{{-- Gallery Content Section --}}
 <section class="py-16 bg-white">
     <div class="container mx-auto px-4">
         <div class="max-w-6xl mx-auto">
-            <!-- Gallery Info -->
+            {{-- Gallery Info --}}
             <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
                 <div class="flex items-center space-x-4 mb-4 md:mb-0">
                     <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
@@ -59,7 +59,7 @@
                 </a>
             </div>
 
-            <!-- Photos Grid -->
+            {{-- Photos Grid --}}
             @if($gallery->images->count() > 0)
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 @foreach($gallery->images as $image)
@@ -92,7 +92,7 @@
     </div>
 </section>
 
-<!-- Lightbox Modal -->
+{{-- Lightbox Modal --}}
 <div id="lightboxModal" class="fixed inset-0 z-50 hidden overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4 py-6">
         <div class="fixed inset-0 bg-black bg-opacity-95 transition-opacity" onclick="closeLightbox()"></div>

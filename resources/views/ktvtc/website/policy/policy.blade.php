@@ -14,7 +14,7 @@
 @section('title', 'Policies & Terms - Kenswed Technical College')
 
 @section('content')
-<!-- Policies Hero Section -->
+{{-- Policies Hero Section --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-16 text-white">
     <div class="container mx-auto px-4">
         <div class="text-center">
@@ -24,20 +24,20 @@
     </div>
 </section>
 
-<!-- Policies Content Section -->
+{{-- Policies Content Section --}}
 <section class="py-16 bg-gray-50">
     <div class="container mx-auto px-4">
         @if($policies->count() > 0)
         <div class="max-w-4xl mx-auto">
-            <!-- Policies List -->
+            {{-- Policies List --}}
             <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-                <!-- Header -->
+                {{-- Header --}}
                 <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
                     <h2 class="text-lg font-semibold text-gray-900">Our Policies</h2>
                     <p class="text-sm text-gray-600 mt-1">Click on any policy to read the full document</p>
                 </div>
 
-                <!-- Policies Table -->
+                {{-- Policies Table --}}
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead class="bg-gray-50">
@@ -51,7 +51,7 @@
                         <tbody class="bg-white divide-y divide-gray-200">
                             @foreach($policies as $policy)
                             <tr class="hover:bg-gray-50 transition-colors duration-150">
-                                <!-- Policy Title & Preview -->
+                                {{-- Policy Title & Preview --}}
                                 <td class="px-6 py-4">
                                     <div class="flex items-start space-x-4">
                                         <div class="flex-shrink-0 w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
@@ -68,7 +68,7 @@
                                     </div>
                                 </td>
 
-                                <!-- Status -->
+                                {{-- Status --}}
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium {{ $policy->is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
                                         <span class="w-2 h-2 rounded-full mr-2 {{ $policy->is_active ? 'bg-green-400' : 'bg-gray-400' }}"></span>
@@ -76,12 +76,12 @@
                                     </span>
                                 </td>
 
-                                <!-- Last Updated -->
+                                {{-- Last Updated --}}
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     {{ $policy->updated_at->format('M j, Y') }}
                                 </td>
 
-                                <!-- Action -->
+                                {{-- Action --}}
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <a href="{{ route('policies.show', $policy->slug) }}"
                                        class="inline-flex items-center px-4 py-2 bg-[#B91C1C] text-white rounded-lg hover:bg-[#991B1B] transition-colors duration-200 font-semibold text-sm">
@@ -97,7 +97,7 @@
                     </table>
                 </div>
 
-                <!-- Footer -->
+                {{-- Footer --}}
                 <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
                     <p class="text-sm text-gray-600">
                         Showing <span class="font-semibold">{{ $policies->count() }}</span> policy documents
@@ -105,7 +105,7 @@
                 </div>
             </div>
 
-            <!-- Contact Information -->
+            {{-- Contact Information --}}
             <div class="mt-12 bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] rounded-2xl p-8 text-white">
                 <div class="text-center">
                     <h3 class="text-2xl font-bold mb-4">Questions About Our Policies?</h3>

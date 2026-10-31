@@ -14,7 +14,7 @@
 @section('title', $blog->title . ' - Kenswed Technical College')
 
 @section('content')
-<!-- Blog Hero Section -->
+{{-- Blog Hero Section --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-16 text-white">
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto">
@@ -33,13 +33,13 @@
             <h1 class="text-3xl md:text-4xl font-bold mb-4">{{ $blog->title }}</h1>
 
             <div class="flex flex-wrap items-center gap-4 text-sm">
-                <!-- Category -->
+                {{-- Category --}}
                 <a href="{{ route('blog.by-category', $blog->category->slug) }}"
                    class="inline-flex items-center px-3 py-1 bg-white bg-opacity-20 rounded-full hover:bg-opacity-30 transition-colors">
                     {{ $blog->category->name }}
                 </a>
 
-                <!-- Published Date -->
+                {{-- Published Date --}}
                 <div class="flex items-center">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -47,7 +47,7 @@
                     {{ $blog->published_at->format('F j, Y') }}
                 </div>
 
-                <!-- Reading Time -->
+                {{-- Reading Time --}}
                 @php
                     $wordCount = str_word_count(strip_tags($blog->content));
                     $readingTime = ceil($wordCount / 200);
@@ -63,32 +63,32 @@
     </div>
 </section>
 
-<!-- Blog Content Section -->
+{{-- Blog Content Section --}}
 <section class="py-16 bg-white">
     <div class="container mx-auto px-4">
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            <!-- Main Content -->
+            {{-- Main Content --}}
             <div class="lg:col-span-3">
-                <!-- Blog Image -->
+                {{-- Blog Image --}}
                 @if($blog->cover_image)
                 <div class="mb-8 rounded-xl overflow-hidden shadow-lg">
                     <img src="{{ Storage::url($blog->cover_image) }}" alt="{{ $blog->title }}" class="w-full h-64 md:h-96 object-cover">
                 </div>
                 @endif
 
-                <!-- Blog Content -->
+                {{-- Blog Content --}}
                 <article class="prose max-w-none prose-lg">
                     <div class="blog-content">
                         {!! $blog->content !!}
                     </div>
                 </article>
 
-                <!-- Social Sharing -->
+                {{-- Social Sharing --}}
                 <div class="mt-12 pt-8 border-t border-gray-200">
                     <div class="flex items-center justify-between">
                         <span class="text-gray-700 font-medium">Share this article:</span>
                         <div class="flex space-x-3">
-                            <!-- Facebook -->
+                            {{-- Facebook --}}
                             <a href="https://www.facebook.com/sharer/sharer.php?u={{ urlencode(url()->current()) }}"
                                target="_blank"
                                class="bg-[#1877F2] text-white p-2 rounded-full hover:bg-[#166FE5] transition-colors">
@@ -97,7 +97,7 @@
                                 </svg>
                             </a>
 
-                            <!-- Twitter -->
+                            {{-- Twitter --}}
                             <a href="https://twitter.com/intent/tweet?text={{ urlencode($blog->title) }}&url={{ urlencode(url()->current()) }}"
                                target="_blank"
                                class="bg-[#1DA1F2] text-white p-2 rounded-full hover:bg-[#0d8bd9] transition-colors">
@@ -106,7 +106,7 @@
                                 </svg>
                             </a>
 
-                            <!-- LinkedIn -->
+                            {{-- LinkedIn --}}
                             <a href="https://www.linkedin.com/sharing/share-offsite/?url={{ urlencode(url()->current()) }}"
                                target="_blank"
                                class="bg-[#0A66C2] text-white p-2 rounded-full hover:bg-[#004182] transition-colors">
@@ -115,7 +115,7 @@
                                 </svg>
                             </a>
 
-                            <!-- WhatsApp -->
+                            {{-- WhatsApp --}}
                             <a href="https://wa.me/?text={{ urlencode('Check out this article: ' . $blog->title . ' - ' . url()->current()) }}"
                                target="_blank"
                                class="bg-[#25D366] text-white p-2 rounded-full hover:bg-[#128C7E] transition-colors">
@@ -128,9 +128,9 @@
                 </div>
             </div>
 
-            <!-- Sidebar -->
+            {{-- Sidebar --}}
             <div class="lg:col-span-1">
-                <!-- Related Articles -->
+                {{-- Related Articles --}}
                 @if($relatedBlogs->count() > 0)
                 <div class="bg-white rounded-xl p-6 shadow-lg border border-gray-200 mb-8">
                     <h3 class="text-xl font-bold text-gray-800 mb-4 border-b border-gray-200 pb-2">Related Articles</h3>
@@ -158,7 +158,7 @@
                 </div>
                 @endif
 
-                <!-- Categories -->
+                {{-- Categories --}}
                 @if($categories->count() > 0)
                 <div class="bg-white rounded-xl p-6 shadow-lg border border-gray-200">
                     <h3 class="text-xl font-bold text-gray-800 mb-4 border-b border-gray-200 pb-2">Categories</h3>

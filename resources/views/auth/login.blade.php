@@ -15,7 +15,7 @@
 @section('content')
 <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-white px-4 py-8">
     <div class="w-full max-w-md">
-        <!-- Logo Header -->
+        {{-- Logo Header --}}
         <div class="text-center mb-8">
             <div class="flex items-center justify-center mb-4">
                 <img src="{{ asset('Assets/images/Kenswed_logo.png') }}" alt="Kenswed"
@@ -30,7 +30,7 @@
             <p class="text-gray-600 mt-1">Enter your credentials to access your account</p>
         </div>
 
-        <!-- Login Card -->
+        {{-- Login Card --}}
         <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 md:p-8">
             @if(session('registered'))
                 <div class="mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
@@ -66,7 +66,7 @@
             <form method="POST" action="{{ route('login') }}" class="space-y-6">
                 @csrf
 
-                <!-- Email or Student Number -->
+                {{-- Email or Student Number --}}
                 <div>
                     <label for="login" class="block text-sm font-medium text-gray-700 mb-2">Email or Student Number</label>
                     <div class="relative">
@@ -82,7 +82,7 @@
                     </p>
                 </div>
 
-                <!-- Password -->
+                {{-- Password --}}
                 <div>
                     <div class="flex items-center justify-between mb-2">
                         <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
@@ -105,7 +105,7 @@
                     
                 </div>
 
-                <!-- Remember Me -->
+                {{-- Remember Me --}}
                 <div class="flex items-center">
                     <input type="checkbox" name="remember" id="remember"
                            class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
@@ -113,13 +113,13 @@
                     <label for="remember" class="ml-2 block text-sm text-gray-700">Keep me signed in</label>
                 </div>
 
-                <!-- Submit Button -->
+                {{-- Submit Button --}}
                 <button type="submit"
                         class="w-full py-3 px-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
                     Sign In to Portal
                 </button>
 
-                <!-- Registration Link -->
+                {{-- Registration Link --}}
                 <div class="text-center pt-4 border-t border-gray-200">
                     <p class="text-gray-600">
                         New student?
@@ -132,7 +132,7 @@
             </form>
         </div>
 
-        <!-- Support Info -->
+        {{-- Support Info --}}
         <div class="mt-6 text-center">
             <p class="text-sm text-gray-600">
                 Need help? Contact IT Support:

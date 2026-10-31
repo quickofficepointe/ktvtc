@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('seo')
-    <meta name="description" content="Explore our comprehensive range of technical and vocational courses at Kenswed College. Kickstart your career with industry-relevant training programs.">
+    <meta name="description" content="Technical and vocational courses at Kenswed College, with intakes every month.">
     <meta name="keywords" content="technical courses, vocational training, Kenya education, career courses, skills development">
     <meta property="og:title" content="Our Courses - Kenswed Technical College">
     <meta property="og:description" content="Explore our comprehensive range of technical and vocational courses at Kenswed College.">
@@ -14,14 +14,14 @@
 @section('title', 'Our Courses - Kenswed Technical College')
 
 @section('content')
-<!-- OUR COURSES SECTION -->
+{{-- OUR COURSES SECTION --}}
 <section class="py-16 bg-gray-50">
     <div class="container mx-auto px-4">
         <div class="text-center mb-12">
             <h2 class="text-3xl md:text-4xl font-extrabold text-gray-800 mb-4">Our Courses</h2>
-            <p class="text-lg text-gray-600 max-w-2xl mx-auto">Kickstart your career with industry-relevant technical and vocational training programs designed for success.</p>
+            <p class="text-lg text-gray-600 max-w-2xl mx-auto">Technical and vocational courses with practical training and recognised certification.</p>
 
-            <!-- Departments Filter -->
+            {{-- Departments Filter --}}
             @if($departments->count() > 0)
             <div class="mt-8 flex flex-wrap justify-center gap-3">
                 <a href="{{ route('course.index') }}"
@@ -44,7 +44,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             @foreach($courses as $course)
             <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 border border-gray-200 hover:border-[#B91C1C]/20">
-                <!-- Course Image -->
+                {{-- Course Image --}}
                 @if($course->cover_image_url)
                     <img src="{{ $course->cover_image_url }}" alt="{{ $course->name }}" class="w-full h-48 object-cover">
                 @else
@@ -56,7 +56,7 @@
                 @endif
 
                 <div class="p-6">
-                    <!-- Department Badge -->
+                    {{-- Department Badge --}}
                     @if($course->department)
                     <div class="mb-3">
                         <a href="{{ route('departments.show', $course->department->slug) }}"
@@ -68,12 +68,12 @@
 
                     <h3 class="text-xl font-bold text-gray-800 mb-2 leading-tight">{{ $course->name }}</h3>
 
-                    <!-- Course Code -->
+                    {{-- Course Code --}}
                     @if($course->code)
                     <p class="text-sm text-gray-600 mb-2 font-medium">Code: <span class="text-[#B91C1C]">{{ $course->code }}</span></p>
                     @endif
 
-                    <!-- Duration -->
+                    {{-- Duration --}}
                     <div class="flex items-center text-sm text-gray-700 mb-3">
                         <svg class="w-4 h-4 mr-2 text-[#B91C1C]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -81,7 +81,7 @@
                         Duration: <span class="font-semibold text-[#B91C1C] ml-1">{{ $course->duration ?? 'Flexible' }}</span>
                     </div>
 
-                    <!-- Level & Featured Badges -->
+                    {{-- Level & Featured Badges --}}
                     <div class="mb-4 flex flex-wrap gap-2">
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold
                             @if($course->level == 'beginner') bg-green-100 text-green-800 border border-green-200
@@ -100,12 +100,12 @@
                         @endif
                     </div>
 
-                    <!-- Description -->
+                    {{-- Description --}}
                     <p class="text-gray-600 text-sm leading-relaxed mb-4 line-clamp-3">
                         {{ Str::limit(strip_tags($course->description), 120) }}
                     </p>
 
-                    <!-- Schedule -->
+                    {{-- Schedule --}}
                     @if($course->schedule)
                     <div class="flex items-center text-xs text-gray-600 mb-3">
                         <svg class="w-4 h-4 mr-2 text-[#B91C1C]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -115,26 +115,27 @@
                     </div>
                     @endif
 
-                    <!-- Intakes -->
-                    @if($course->intakes->count() > 0)
+                    {{-- Intakes --}}
+                    @php $upcoming = $course->upcomingIntakes(); @endphp
+                    @if($upcoming->isNotEmpty())
                     <div class="mb-5">
-                        <p class="text-xs font-semibold text-gray-700 mb-2">Next Intakes:</p>
+                        <p class="text-xs font-semibold text-gray-700 mb-2">Next intakes:</p>
                         <div class="flex flex-wrap gap-2">
-                            @foreach($course->intakes->take(2) as $intake)
+                            @foreach($upcoming->take(2) as $intake)
                             <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
                                 {{ $intake->month }} {{ $intake->year }}
                             </span>
                             @endforeach
-                            @if($course->intakes->count() > 2)
+                            @if($upcoming->count() > 2)
                             <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-50 text-gray-700 border border-gray-200">
-                                +{{ $course->intakes->count() - 2 }} more
+                                +{{ $upcoming->count() - 2 }} more
                             </span>
                             @endif
                         </div>
                     </div>
                     @endif
 
-                    <!-- Action Buttons -->
+                    {{-- Action Buttons --}}
                     <div class="flex justify-between items-center pt-4 border-t border-gray-200">
                       <a href="{{ route('application.form', ['course_slug' => $course->slug]) }}">APPLY NOW</a>
                         <a href="{{ route('courses.show', $course->slug) }}"
@@ -150,7 +151,7 @@
             @endforeach
         </div>
 
-        <!-- Pagination -->
+        {{-- Pagination --}}
         @if($courses->hasPages())
         <div class="mt-12 flex justify-center">
             <div class="flex space-x-2">
@@ -196,13 +197,13 @@
     </div>
 </section>
 
-<!-- STUDENT LIFE SECTION -->
+{{-- STUDENT LIFE SECTION --}}
 <section class="py-20 relative overflow-hidden bg-gradient-to-r from-[#B91C1C] to-[#BF1F30]">
     <div class="absolute inset-0 bg-black/20"></div>
     <div class="relative z-10 container mx-auto px-4">
         <div class="text-center text-white mb-12">
             <h2 class="text-3xl md:text-4xl font-bold mb-4">Experience Student Life</h2>
-            <p class="text-xl opacity-90 max-w-2xl mx-auto">Join a vibrant community of learners and build lifelong connections</p>
+            <p class="text-xl opacity-90 max-w-2xl mx-auto">Life at Kenswed beyond the classroom</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -212,8 +213,8 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
                     </svg>
                 </div>
-                <h3 class="text-xl font-semibold mb-2">Vibrant Community</h3>
-                <p class="opacity-90">Join over 1,000 students in a supportive and inclusive learning environment.</p>
+                <h3 class="text-xl font-semibold mb-2">Student community</h3>
+                <p class="opacity-90">Clubs, sports and events through the year, with support from staff and fellow students.</p>
             </div>
 
             <div class="bg-white/10 backdrop-blur-sm rounded-xl p-6 text-white border border-white/20">
@@ -223,7 +224,7 @@
                     </svg>
                 </div>
                 <h3 class="text-xl font-semibold mb-2">Modern Facilities</h3>
-                <p class="opacity-90">State-of-the-art labs and learning spaces designed for hands-on training.</p>
+                <p class="opacity-90">Workshops, labs and salons where students practise what they learn.</p>
             </div>
 
             <div class="bg-white/10 backdrop-blur-sm rounded-xl p-6 text-white border border-white/20">
@@ -233,13 +234,13 @@
                     </svg>
                 </div>
                 <h3 class="text-xl font-semibold mb-2">Career Support</h3>
-                <p class="opacity-90">Comprehensive career services including internships and job placement assistance.</p>
+                <p class="opacity-90">Industrial attachment arranged through the college liaison office.</p>
             </div>
         </div>
     </div>
 </section>
 
-<!-- CTA SECTION
+{{-- CTA SECTION
 <section class="relative py-20 bg-gradient-to-br from-gray-900 to-gray-800 overflow-hidden">
     <div class="absolute inset-0 bg-[url('Assets/images/CTA_bg.png')] bg-cover bg-center opacity-10"></div>
     <div class="relative z-10 container mx-auto px-4 text-center">
@@ -256,8 +257,7 @@
             </a>
         </div>
     </div>
-</section>
--->
+</section> --}}
 <style>
     .line-clamp-3 {
         display: -webkit-box;

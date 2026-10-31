@@ -14,7 +14,7 @@
 @section('title', 'Mobile Schools - Kenswed Technical College')
 
 @section('content')
-<!-- Mobile Schools Hero Section -->
+{{-- Mobile Schools Hero Section --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-16 text-white">
     <div class="container mx-auto px-4">
         <div class="text-center">
@@ -24,24 +24,24 @@
     </div>
 </section>
 
-<!-- Mobile Schools Content Section -->
+{{-- Mobile Schools Content Section --}}
 <section class="py-16 bg-gray-50">
     <div class="container mx-auto px-4">
         @if($mschools->count() > 0)
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             @foreach($mschools as $mschool)
             <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 border border-gray-200 hover:border-[#B91C1C]/20 group">
-                <!-- Mobile School Image -->
+                {{-- Mobile School Image --}}
                 @if($mschool->cover_image)
     <img src="{{ asset('storage/' . $mschool->cover_image) }}" alt="{{ $mschool->name }}" class="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300">
 @else
-    <!-- Fallback image -->
+    {{-- Fallback image --}}
 @endif
 
                 <div class="p-6">
                     <h3 class="text-xl font-bold text-gray-800 mb-3 leading-tight group-hover:text-[#B91C1C] transition-colors">{{ $mschool->name }}</h3>
 
-                    <!-- Address -->
+                    {{-- Address --}}
                     @if($mschool->address)
                     <div class="flex items-start text-sm text-gray-600 mb-3">
                         <svg class="w-4 h-4 mr-2 text-[#B91C1C] mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -52,14 +52,14 @@
                     </div>
                     @endif
 
-                    <!-- Description -->
+                    {{-- Description --}}
                     @if($mschool->description)
                     <p class="text-gray-600 text-sm leading-relaxed mb-4 line-clamp-3">
                         {{ Str::limit($mschool->description, 120) }}
                     </p>
                     @endif
 
-                    <!-- Coordinator Info -->
+                    {{-- Coordinator Info --}}
                     @if($mschool->coordinator_name)
                     <div class="border-t border-gray-200 pt-4 mt-4">
                         <h4 class="text-sm font-semibold text-gray-800 mb-2">Coordinator</h4>
@@ -83,7 +83,7 @@
                     </div>
                     @endif
 
-                    <!-- Action Buttons -->
+                    {{-- Action Buttons --}}
                     <div class="flex space-x-3 mt-6 pt-4 border-t border-gray-200">
                         @if($mschool->google_map_link)
                         <a href="{{ $mschool->google_map_link }}" target="_blank"

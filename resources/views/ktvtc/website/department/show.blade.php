@@ -13,10 +13,10 @@
 @section('title', $department->name . ' - Kenswed Technical College')
 
 @section('content')
-<!-- Department Hero Section -->
+{{-- Department Hero Section --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-12 text-white">
     <div class="container mx-auto px-4">
-        <!-- Breadcrumb -->
+        {{-- Breadcrumb --}}
         <nav class="flex mb-4" aria-label="Breadcrumb">
             <ol class="flex items-center space-x-2 text-sm">
                 <li>
@@ -46,7 +46,7 @@
                 @endif
             </div>
 
-            <!-- Quick Stats -->
+            {{-- Quick Stats --}}
             <div class="mt-4 md:mt-0 flex items-center space-x-4">
                 <div class="bg-white bg-opacity-20 rounded-lg px-4 py-2 text-center">
                     <span class="block text-2xl font-bold">{{ $department->courses->count() }}</span>
@@ -57,20 +57,20 @@
     </div>
 </section>
 
-<!-- Department Courses Section -->
+{{-- Department Courses Section --}}
 <section class="py-16 bg-gray-50">
     <div class="container mx-auto px-4">
         <div class="flex flex-col lg:flex-row gap-8">
-            <!-- Main Content -->
+            {{-- Main Content --}}
             <div class="lg:w-3/4">
-                <!-- Header with Department Navigation -->
+                {{-- Header with Department Navigation --}}
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
                     <h2 class="text-2xl font-bold text-gray-800">
                         Available Courses
                         <span class="ml-2 text-sm font-normal text-gray-500">({{ $department->courses->count() }} found)</span>
                     </h2>
 
-                    <!-- Departments Navigation Dropdown -->
+                    {{-- Departments Navigation Dropdown --}}
                     @if($otherDepartments->count() > 0)
                     <div class="relative w-full sm:w-auto">
                         <select onchange="window.location.href=this.value"
@@ -112,7 +112,7 @@
                                 {{ $course->name }}
                             </h3>
 
-                            <!-- Course Badges -->
+                            {{-- Course Badges --}}
                             <div class="flex flex-wrap items-center gap-2 mb-3">
                                 @if($course->duration)
                                 <span class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
@@ -143,19 +143,19 @@
                                 @endif
                             </div>
 
-                            <!-- Short Description -->
+                            {{-- Short Description --}}
                             <p class="text-gray-700 text-sm leading-relaxed mb-4 line-clamp-2">
                                 {{ Str::limit(strip_tags($course->description), 120) }}
                             </p>
 
-                            <!-- Course Code (if available) -->
+                            {{-- Course Code (if available) --}}
                             @if($course->code)
                             <p class="text-xs text-gray-500 mb-4">
                                 <span class="font-medium">Course Code:</span> {{ $course->code }}
                             </p>
                             @endif
 
-                            <!-- Action Buttons -->
+                            {{-- Action Buttons --}}
                             <div class="flex items-center justify-between pt-2 border-t border-gray-200">
                                 <a href="{{ route('application.form', ['course_slug' => $course->slug]) }}"
                                    class="inline-flex items-center bg-[#B91C1C] text-white font-semibold px-4 py-2 rounded-lg hover:bg-[#991B1B] transition-all duration-200 text-sm shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
@@ -177,7 +177,7 @@
                     @endforeach
                 </div>
 
-                <!-- Pagination if needed -->
+                {{-- Pagination if needed --}}
                 @if(method_exists($department->courses, 'links'))
                 <div class="mt-8">
                     {{ $department->courses->links() }}
@@ -201,9 +201,9 @@
                 @endif
             </div>
 
-            <!-- Sidebar -->
+            {{-- Sidebar --}}
             <div class="lg:w-1/4">
-                <!-- All Departments Card -->
+                {{-- All Departments Card --}}
                 <div class="bg-white rounded-xl shadow-lg p-6 mb-6 border border-gray-200">
                     <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                         <svg class="w-5 h-5 mr-2 text-[#B91C1C]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -245,7 +245,7 @@
                     </ul>
                 </div>
 
-                <!-- Quick Apply Card -->
+                {{-- Quick Apply Card --}}
                 <div class="bg-gradient-to-br from-[#B91C1C] to-[#BF1F30] rounded-xl shadow-lg p-6 text-white text-center border border-[#B91C1C]">
                     <div class="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4">
                         <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -264,7 +264,7 @@
                     <p class="text-xs text-white text-opacity-80 mt-4">No application fee required*</p>
                 </div>
 
-                <!-- Need Help Card -->
+                {{-- Need Help Card --}}
                 <div class="bg-gray-100 rounded-xl shadow-lg p-6 mt-6 border border-gray-200">
                     <h3 class="text-lg font-semibold text-gray-800 mb-3 flex items-center">
                         <svg class="w-5 h-5 mr-2 text-[#B91C1C]" fill="none" stroke="currentColor" viewBox="0 0 24 24">

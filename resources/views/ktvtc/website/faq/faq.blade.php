@@ -4,21 +4,21 @@
 @section('meta_description', 'Get answers to common questions about admissions, courses, fees, student life, and more at Kenswed Technical and Vocational Training College in Ngong, Kenya.')
 @section('meta_keywords', 'Kenswed College FAQ, admissions questions, course information, tuition fees, student life, technical college Kenya, vocational training questions, college application process')
 
-<!-- Open Graph Tags -->
+{{-- Open Graph Tags --}}
 @section('og_title', 'FAQ - Kenswed Technical College')
 @section('og_description', 'Find answers to frequently asked questions about admissions, courses, and student life at Kenswed College in Ngong.')
 @section('og_url', url()->current())
 @section('og_image', asset('Assets/images/Kenswed_logo.png'))
 
-<!-- Twitter Card -->
+{{-- Twitter Card --}}
 @section('twitter_title', 'FAQ - Kenswed College')
 @section('twitter_description', 'Common questions about admissions, courses, and student life at Kenswed Technical College')
 @section('twitter_image', asset('Assets/images/Kenswed_logo.png'))
 
-<!-- Canonical URL -->
+{{-- Canonical URL --}}
 @section('canonical', url()->current())
 @section('content')
-<!-- FAQ Hero Section -->
+{{-- FAQ Hero Section --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-16 text-white">
     <div class="container mx-auto px-4">
         <div class="text-center">
@@ -28,12 +28,12 @@
     </div>
 </section>
 
-<!-- FAQ Content Section -->
+{{-- FAQ Content Section --}}
 <section class="py-16 bg-gray-50">
     <div class="container mx-auto px-4">
         @if($faqs->count() > 0)
         <div class="max-w-4xl mx-auto">
-            <!-- Search Box -->
+            {{-- Search Box --}}
             <div class="mb-8">
                 <div class="relative">
                     <input type="text" id="faqSearch" placeholder="Search questions..."
@@ -44,7 +44,7 @@
                 </div>
             </div>
 
-            <!-- FAQ Accordion -->
+            {{-- FAQ Accordion --}}
             <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
                 @foreach($faqs->where('is_active', true) as $index => $faq)
                 <div class="faq-item border-b border-gray-200 last:border-b-0" data-search="{{ strtolower($faq->question . ' ' . $faq->answer) }}">
@@ -90,7 +90,7 @@
                 @endforeach
             </div>
 
-            <!-- No Results Message -->
+            {{-- No Results Message --}}
             <div id="noResults" class="hidden text-center py-12 bg-white rounded-xl shadow-lg border border-gray-200 mt-6">
                 <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -102,7 +102,7 @@
                 </button>
             </div>
 
-            <!-- Contact CTA -->
+            {{-- Contact CTA --}}
             <div class="mt-12 text-center">
                 <div class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] rounded-2xl p-8 text-white">
                     <h3 class="text-2xl font-bold mb-4">Still have questions?</h3>

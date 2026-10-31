@@ -48,6 +48,9 @@ class CourseController extends Controller
         ->where('is_active', true)
         ->firstOrFail();
 
+        // Visitors only need the next few intakes
+        $course->setRelation('intakes', $course->upcomingIntakes(6));
+
         $relatedCourses = Course::with('department')
             ->where('department_id', $course->department_id)
             ->where('id', '!=', $course->id)

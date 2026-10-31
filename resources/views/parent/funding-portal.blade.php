@@ -86,10 +86,11 @@
             .balance-card h2 { font-size: 1.5rem !important; }
         }
     </style>
+    @include('partials.image-fallback')
 </head>
 <body class="bg-gray-100 min-h-screen">
 
-    <!-- Toast Notification -->
+    {{-- Toast Notification --}}
     <div id="toast" class="toast hidden">
         <div id="toast-content" class="bg-white rounded-lg shadow-lg p-4 border-l-4">
             <div class="flex items-center">
@@ -107,7 +108,7 @@
     </div>
 
     <div class="container mx-auto px-4 py-6 max-w-5xl">
-        <!-- Header -->
+        {{-- Header --}}
         <div class="bg-gradient-to-r from-red-700 to-red-800 rounded-2xl shadow-xl p-6 mb-8 text-white">
             <div class="flex flex-col md:flex-row items-center justify-between">
                 <div class="flex items-center">
@@ -127,7 +128,7 @@
             </div>
         </div>
 
-        <!-- Student Info -->
+        {{-- Student Info --}}
         <div class="bg-white rounded-2xl shadow-lg p-6 mb-8">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="flex items-center">
@@ -160,9 +161,9 @@
             </div>
         </div>
 
-        <!-- Balance Cards -->
+        {{-- Balance Cards --}}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <!-- Transport Balance -->
+            {{-- Transport Balance --}}
             <div class="balance-card bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl shadow-lg p-6 text-white">
                 <div class="flex items-center justify-between">
                     <div>
@@ -186,12 +187,12 @@
                         </div>
                     </div>
                     <p class="text-blue-200 text-xs mt-1">
-                        {{ ($card->transport_balance ?? 0) > 0 ? 'Available for transport' : '⚠️ Low balance' }}
+                        {{ ($card->transport_balance ?? 0) > 0 ? 'Available for transport' : 'Low balance' }}
                     </p>
                 </div>
             </div>
 
-            <!-- Canteen Balance -->
+            {{-- Canteen Balance --}}
             <div class="balance-card bg-gradient-to-br from-green-500 to-green-700 rounded-2xl shadow-lg p-6 text-white">
                 <div class="flex items-center justify-between">
                     <div>
@@ -215,13 +216,13 @@
                         </div>
                     </div>
                     <p class="text-green-200 text-xs mt-1">
-                        {{ ($card->canteen_balance ?? 0) > 0 ? 'Available for meals' : '⚠️ Low balance' }}
+                        {{ ($card->canteen_balance ?? 0) > 0 ? 'Available for meals' : 'Low balance' }}
                     </p>
                 </div>
             </div>
         </div>
 
-        <!-- Recent Transactions -->
+        {{-- Recent Transactions --}}
         @if($recentTransactions->count() > 0)
         <div class="bg-white rounded-2xl shadow-lg p-6 mb-8">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">
@@ -273,9 +274,9 @@
         </div>
         @endif
 
-        <!-- Funding Options -->
+        {{-- Funding Options --}}
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Fund Transport -->
+            {{-- Fund Transport --}}
             <div class="bg-white rounded-2xl shadow-lg p-6">
                 <div class="flex items-center mb-4">
                     <div class="bg-blue-100 rounded-full p-3 mr-3">
@@ -335,7 +336,7 @@
                 </form>
             </div>
 
-            <!-- Fund Canteen -->
+            {{-- Fund Canteen --}}
             <div class="bg-white rounded-2xl shadow-lg p-6">
                 <div class="flex items-center mb-4">
                     <div class="bg-green-100 rounded-full p-3 mr-3">
@@ -395,7 +396,7 @@
             </div>
         </div>
 
-        <!-- Pending Funding Status -->
+        {{-- Pending Funding Status --}}
         @if($pendingFunding)
         <div class="mt-6 bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-4 status-pending">
             <div class="flex items-center">
@@ -421,7 +422,7 @@
         </div>
         @endif
 
-        <!-- Quick Tips -->
+        {{-- Quick Tips --}}
         <div class="mt-8 bg-blue-50 border-2 border-blue-200 rounded-2xl p-4">
             <h4 class="font-semibold text-blue-800 mb-2 flex items-center">
                 <i class="fas fa-info-circle mr-2"></i>
@@ -431,13 +432,13 @@
                 <li><i class="fas fa-check-circle text-green-500 mr-2"></i> You'll receive an M-Pesa prompt on your phone after clicking "Fund"</li>
                 <li><i class="fas fa-check-circle text-green-500 mr-2"></i> Enter your M-Pesa PIN to complete the transaction</li>
                 <li><i class="fas fa-check-circle text-green-500 mr-2"></i> Funds reflect immediately after successful payment</li>
-                <li><i class="fas fa-check-circle text-green-500 mr-2"></i> Check transaction history for all past funding</li>
+                <li><i class="fas fa-check-circle text-green-500 mr-2"></i> Each top-up is confirmed to the parent by SMS</li>
                 <li><i class="fas fa-check-circle text-green-500 mr-2"></i> For help, contact the school finance office</li>
             </ul>
         </div>
     </div>
 
-    <!-- Footer -->
+    {{-- Footer --}}
     <footer class="bg-red-700 text-white py-6 mt-12">
         <div class="container mx-auto px-4 text-center">
             <p class="text-sm">&copy; {{ date('Y') }} Kenswed Senior School. All rights reserved.</p>
@@ -519,7 +520,7 @@
             const csrfToken = document.querySelector('meta[name="csrf-token"]');
             const token = csrfToken ? csrfToken.content : '';
             
-            // ✅ Convert FormData to JSON
+            // Send the form as JSON
             const data = {};
             formData.forEach((value, key) => {
                 data[key] = value;
@@ -587,11 +588,11 @@
                 .then(data => {
                     if (data.status === 'completed') {
                         clearInterval(interval);
-                        showToast('success', '✅ Payment successful! Card has been funded.');
+                        showToast('success', 'Payment successful. The card has been funded.');
                         setTimeout(() => window.location.reload(), 3000);
                     } else if (data.status === 'failed') {
                         clearInterval(interval);
-                        showToast('error', '❌ Payment failed: ' + (data.result_description || 'Unknown error'));
+                        showToast('error', 'Payment failed: ' + (data.result_description || 'Unknown error'));
                     } else {
                         if (attempts % 3 === 0) {
                             showToast('info', '⏳ Waiting for payment confirmation...');

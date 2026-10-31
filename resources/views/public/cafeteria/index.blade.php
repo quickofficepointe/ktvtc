@@ -278,10 +278,10 @@
 @section('content')
 <div class="min-h-screen py-8 bg-gray-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <!-- Header -->
+        {{-- Header --}}
         <div class="text-center mb-8">
             <h1 class="text-3xl font-bold text-gray-900">Cafeteria Online</h1>
-            <p class="text-gray-600 mt-1">Order your favorite meals in seconds</p>
+            <p class="text-gray-600 mt-1">Order from the college cafeteria and gift shop</p>
         </div>
 {{-- Pre-Order Portal Card --}}
 <div class="mb-8">
@@ -293,21 +293,17 @@
         <div class="relative p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center gap-5">
             <div class="flex-shrink-0">
                 <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                    <i class="fas fa-bolt text-3xl text-white"></i>
+                    <i class="fas fa-utensils text-3xl text-white"></i>
                 </div>
             </div>
 
             <div class="flex-1 min-w-0">
-                <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/20 text-xs font-semibold uppercase tracking-wide mb-2">
-                    <span class="w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse"></span>
-                    New
-                </div>
                 <h2 class="text-xl sm:text-2xl font-bold leading-tight">
-                    Skip the queue  Pre-Order & Pick Up
+                    Pre-order and pick up
                 </h2>
                 <p class="text-sm text-white/90 mt-1.5 max-w-2xl">
-                    Staff, college students and high school students can pre-order meals in advance.
-                    Set a 4-digit PIN once, order anytime, and collect from the cafeteria without waiting.
+                    Order ahead and collect from the cafeteria without queuing. Anyone can sign up with a phone number;
+                    students and staff can use their student number or college email. Items not in stock are made for your order.
                 </p>
 
                 <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-white/80">
@@ -331,9 +327,9 @@
     </div>
 </div>
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Left Column - Cafeteria & Menu -->
+            {{-- Left Column - Cafeteria & Menu --}}
             <div class="lg:col-span-2 space-y-6">
-                <!-- Cafeteria Selection -->
+                {{-- Cafeteria Selection --}}
                 <div class="bg-white rounded-xl shadow-sm p-5">
                     <h2 class="text-lg font-semibold text-gray-900 mb-3">Choose Cafeteria</h2>
                     @if($cafeterias->isEmpty())
@@ -357,14 +353,14 @@
                     @endif
                 </div>
 
-                <!-- Menu Section -->
+                {{-- Menu Section --}}
                 <div id="menuSection" class="hidden">
-                    <!-- Categories -->
+                    {{-- Categories --}}
                     <div id="categoriesSection" class="bg-white rounded-xl shadow-sm p-5 mb-4 hidden">
                         <div class="flex flex-wrap gap-2" id="categoriesList"></div>
                     </div>
 
-                    <!-- Products -->
+                    {{-- Products --}}
                     <div id="productsSection" class="bg-white rounded-xl shadow-sm p-5 hidden">
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-lg font-semibold text-gray-900">Menu</h2>
@@ -376,7 +372,7 @@
                             </div>
                         </div>
 
-                        <!-- Loading -->
+                        {{-- Loading --}}
                         <div id="productsLoading">
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 @for($i = 0; $i < 4; $i++)
@@ -395,10 +391,10 @@
                             </div>
                         </div>
 
-                        <!-- Products Grid -->
+                        {{-- Products Grid --}}
                         <div id="productsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-4 hidden"></div>
 
-                        <!-- Empty -->
+                        {{-- Empty --}}
                         <div id="productsEmpty" class="text-center py-8 hidden">
                             <i class="fas fa-utensils text-gray-300 text-3xl mb-2"></i>
                             <p class="text-gray-500">No items available</p>
@@ -407,7 +403,7 @@
                 </div>
             </div>
 
-            <!-- Right Column - Desktop Cart -->
+            {{-- Right Column - Desktop Cart --}}
             <div class="lg:col-span-1 space-y-5 desktop-cart">
                 <div class="bg-white rounded-xl shadow-sm p-5 sticky top-24">
                     <div class="flex justify-between items-center mb-4">
@@ -496,13 +492,13 @@
     </div>
 </div>
 
-<!-- FLOATING CART TRIGGER (Mobile) -->
+{{-- FLOATING CART TRIGGER (Mobile) --}}
 <button id="cartFloatTrigger" class="cart-float-trigger">
     <i class="fas fa-shopping-bag"></i>
     <span class="badge" id="floatBadge">0</span>
 </button>
 
-<!-- CART DRAWER WITH FULL ORDER FORM (Mobile) -->
+{{-- CART DRAWER WITH FULL ORDER FORM (Mobile) --}}
 <div id="cartDrawerBackdrop" class="cart-drawer-backdrop"></div>
 <div id="cartDrawer" class="cart-drawer">
     <div class="drag-handle"></div>
@@ -511,7 +507,7 @@
         <button class="close-drawer" id="closeDrawer">&times;</button>
     </div>
 
-    <!-- Cart Items -->
+    {{-- Cart Items --}}
     <div id="cartDrawerItems" class="space-y-2 max-h-48 overflow-y-auto">
         <div id="emptyCartDrawer" class="text-center py-6 text-gray-400 text-sm">
             <i class="fas fa-basket-shopping text-2xl mb-2 block opacity-40"></i>
@@ -520,7 +516,7 @@
         <div id="cartDrawerList" class="space-y-2 hidden"></div>
     </div>
 
-    <!-- Totals -->
+    {{-- Totals --}}
     <div id="cartDrawerTotals" class="hidden mt-3 pt-3 border-t border-gray-200 space-y-1.5 text-sm">
         <div class="flex justify-between"><span class="text-gray-500">Subtotal</span><span id="drawerSubtotal" class="font-medium">KES 0</span></div>
         <div class="flex justify-between"><span class="text-gray-500">Delivery</span><span id="drawerDelivery" class="font-medium">KES 0</span></div>
@@ -529,9 +525,9 @@
         </div>
     </div>
 
-    <!-- ORDER FORM INSIDE DRAWER -->
+    {{-- ORDER FORM INSIDE DRAWER --}}
     <div id="drawerOrderForm" class="hidden mt-4 pt-4 border-t border-gray-200">
-        <!-- Order Type Toggle -->
+        {{-- Order Type Toggle --}}
         <div class="grid grid-cols-2 gap-2 mb-3">
             <button type="button" class="drawer-order-type-btn active" data-type="pickup" id="drawerPickupBtn">
                 <i class="fas fa-store mr-1"></i> Pickup
@@ -541,7 +537,7 @@
             </button>
         </div>
 
-        <!-- Pickup Locations -->
+        {{-- Pickup Locations --}}
         <div id="drawerPickupOptions" class="space-y-2">
             <label class="text-xs font-medium text-gray-700">Pickup Location</label>
             @foreach($locations as $key => $location)
@@ -556,7 +552,7 @@
             @endforeach
         </div>
 
-        <!-- Delivery Locations -->
+        {{-- Delivery Locations --}}
         <div id="drawerDeliveryOptions" class="space-y-2 hidden">
             <label class="text-xs font-medium text-gray-700">Delivery Location</label>
             @foreach($locations as $key => $location)
@@ -571,18 +567,18 @@
             @endforeach
         </div>
 
-        <!-- Other location details -->
+        {{-- Other location details --}}
         <div id="drawerOtherLocationDetails" class="mt-2 hidden">
             <textarea id="drawerLocationDetails" placeholder="Specify exact location..." rows="2" class="w-full text-sm border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-red-500 outline-none"></textarea>
         </div>
 
-        <!-- Customer Details -->
+        {{-- Customer Details --}}
         <div class="space-y-2 mt-3 pt-2 border-t border-gray-100">
             <input type="text" id="drawerCustomerName" placeholder="Your name" class="w-full text-sm border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-red-500 outline-none">
             <input type="tel" id="drawerCustomerPhone" placeholder="Phone number (07xxxxxxxx)" class="w-full text-sm border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-red-500 outline-none">
         </div>
 
-        <!-- Place Order Button -->
+        {{-- Place Order Button --}}
         <button id="drawerCheckoutBtn" class="w-full mt-4 bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-lg transition shadow-md">
             <i class="fas fa-shopping-cart mr-2"></i> Place Order
         </button>
@@ -592,7 +588,7 @@
     </div>
 </div>
 
-<!-- Confirmation Modal -->
+{{-- Confirmation Modal --}}
 <div id="confirmationModal" class="fixed inset-0 z-50 overflow-auto hidden" aria-hidden="true">
     <div class="fixed inset-0 bg-black bg-opacity-50"></div>
     <div class="relative min-h-screen flex items-center justify-center p-4">
@@ -732,10 +728,10 @@
                     <div class="product-image-wrapper">
                         ${product.image ?
                             `<img src="/storage/${product.image}" alt="${product.product_name}" loading="lazy">` :
-                            `<div class="product-placeholder">🍽️</div>`
+                            `<div class="product-placeholder"><i class="fas fa-utensils"></i></div>`
                         }
                         ${product.is_featured ?
-                            `<span class="absolute top-2 right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full">★</span>` : ''
+                            `<span class="absolute top-2 right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full"><i class="fas fa-star"></i></span>` : ''
                         }
                     </div>
                     <div class="p-3">

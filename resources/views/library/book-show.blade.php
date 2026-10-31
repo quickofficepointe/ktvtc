@@ -4,7 +4,7 @@
 @section('meta_description', Str::limit($book->description ?? 'Book details and availability at Kenswed Technical College Library', 160))
 
 @section('content')
-<!-- Book Header -->
+{{-- Book Header --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-8 text-white">
     <div class="container mx-auto px-4">
         <div class="flex items-center text-sm mb-4">
@@ -21,12 +21,12 @@
     </div>
 </section>
 
-<!-- Book Details Section -->
+{{-- Book Details Section --}}
 <section class="py-12 bg-gray-50">
     <div class="container mx-auto px-4">
         <div class="bg-white rounded-lg shadow-lg overflow-hidden">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 p-6 lg:p-8">
-                <!-- Book Cover -->
+                {{-- Book Cover --}}
                 <div class="lg:col-span-1">
                     <div class="bg-gray-100 rounded-lg overflow-hidden shadow-md">
                         @if($book->cover_image)
@@ -42,7 +42,7 @@
                         @endif
                     </div>
 
-                    <!-- Availability Badge -->
+                    {{-- Availability Badge --}}
                     <div class="mt-4 text-center">
                         @if($book->available_copies > 0)
                             <div class="inline-flex items-center px-4 py-2 bg-green-100 text-green-800 rounded-full">
@@ -62,7 +62,7 @@
                     </div>
                 </div>
 
-                <!-- Book Information -->
+                {{-- Book Information --}}
                 <div class="lg:col-span-2">
                     <h1 class="text-3xl lg:text-4xl font-bold text-gray-800 mb-2">{{ $book->title }}</h1>
 
@@ -109,7 +109,7 @@
                         @endif
                     </div>
 
-                    <!-- Category Badge -->
+                    {{-- Category Badge --}}
                     <div class="mb-4">
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium text-white"
                               style="background-color: {{ $book->category->color ?? '#6B7280' }}">
@@ -117,7 +117,7 @@
                         </span>
                     </div>
 
-                    <!-- Description -->
+                    {{-- Description --}}
                     @if($book->description)
                         <div class="mb-6">
                             <h3 class="text-lg font-semibold text-gray-800 mb-2">Description</h3>
@@ -125,7 +125,7 @@
                         </div>
                     @endif
 
-                    <!-- Copies per Branch -->
+                    {{-- Copies per Branch --}}
                     @if($copiesByBranch && $copiesByBranch->count() > 0)
                         <div class="mb-6">
                             <h3 class="text-lg font-semibold text-gray-800 mb-3">Available Copies by Branch</h3>
@@ -147,7 +147,7 @@
                         </div>
                     @endif
 
-                    <!-- Action Buttons -->
+                    {{-- Action Buttons --}}
                     <div class="flex flex-wrap gap-3 pt-4 border-t border-gray-200">
                         @auth
                             @if($book->available_copies > 0)
@@ -187,7 +187,7 @@
     </div>
 </section>
 
-<!-- Related Books Section -->
+{{-- Related Books Section --}}
 @if($relatedBooks->count() > 0)
 <section class="py-12 bg-white">
     <div class="container mx-auto px-4">
@@ -228,7 +228,7 @@
 </section>
 @endif
 
-<!-- Library Info Footer -->
+{{-- Library Info Footer --}}
 <section class="py-8 bg-gray-100">
     <div class="container mx-auto px-4">
         <div class="bg-white rounded-lg p-6 text-center max-w-2xl mx-auto">

@@ -11,7 +11,7 @@
 @section('content')
 <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-white px-4 py-8">
     <div class="w-full max-w-md">
-        <!-- Header -->
+        {{-- Header --}}
         <div class="text-center mb-8">
             <div class="flex items-center justify-center mb-4">
                 <img src="{{ asset('Assets/images/Kenswed_logo.png') }}" alt="Kenswed"
@@ -26,7 +26,7 @@
             <p class="text-gray-600 mt-1">Enter your email to receive reset instructions</p>
         </div>
 
-        <!-- Reset Card -->
+        {{-- Reset Card --}}
         <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 md:p-8">
             @if (session('status'))
                 <div class="mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
@@ -53,7 +53,7 @@
                     </div>
                 @endif
 
-                <!-- Email Field -->
+                {{-- Email Field --}}
                 <div>
                     <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
                         Email Address
@@ -69,13 +69,13 @@
                     <p class="mt-1 text-xs text-gray-500">Enter the email associated with your account</p>
                 </div>
 
-                <!-- Submit Button -->
+                {{-- Submit Button --}}
                 <button type="submit"
                         class="w-full py-3 px-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
                     Send Reset Link
                 </button>
 
-                <!-- Login Link -->
+                {{-- Login Link --}}
                 <div class="text-center pt-4 border-t border-gray-200">
                     <p class="text-gray-600">
                         Remember your password?
@@ -88,7 +88,7 @@
             </form>
         </div>
 
-        <!-- Instructions -->
+        {{-- Instructions --}}
         <div class="mt-6 text-center">
             <div class="inline-flex items-center text-sm text-gray-600">
                 <i class="fas fa-info-circle mr-2 text-red-600"></i>

@@ -24,56 +24,34 @@ class ApplicationController extends Controller
     }
 
     /**
-     * Display application form with course slug support
-     * SHOW ALL INTAKES (including past months)
+     * Application form. The course comes from the URL slug, ?course_slug= or ?course_id=.
+     * Applicants choose from this month's intake onwards.
      */
     public function index(Request $request, $course_slug = null)
     {
-        $course = null;
-        $intakes = collect();
         $campuses = Campus::active()->orderBy('name', 'asc')->get();
 
-        // Priority: Route parameter (slug) > Query parameter (slug) > Query parameter (id)
-        if ($course_slug) {
-            $course = Course::with(['department', 'intakes' => function($query) {
-                // REMOVED available() scope - show ALL intakes including past
-                $query->orderBy('year', 'desc')
-                      ->orderByRaw("FIELD(month, 'January', 'February', 'March', 'April', 'May', 'June',
-                                           'July', 'August', 'September', 'October', 'November', 'December')");
-            }])->where('slug', $course_slug)
-               ->where('is_active', true)
-               ->first();
-        } elseif ($request->has('course_slug')) {
-            $course = Course::with(['department', 'intakes' => function($query) {
-                // REMOVED available() scope - show ALL intakes including past
-                $query->orderBy('year', 'desc')
-                      ->orderByRaw("FIELD(month, 'January', 'February', 'March', 'April', 'May', 'June',
-                                           'July', 'August', 'September', 'October', 'November', 'December')");
-            }])->where('slug', $request->course_slug)
-               ->where('is_active', true)
-               ->first();
-        } elseif ($request->has('course_id')) {
-            // Keep backward compatibility with ID
-            $course = Course::with(['department', 'intakes' => function($query) {
-                // REMOVED available() scope - show ALL intakes including past
-                $query->orderBy('year', 'desc')
-                      ->orderByRaw("FIELD(month, 'January', 'February', 'March', 'April', 'May', 'June',
-                                           'July', 'August', 'September', 'October', 'November', 'December')");
-            }])->find($request->course_id);
+        $slug = $course_slug ?: $request->query('course_slug');
+        $course = null;
+        if ($slug) {
+            $course = Course::with('department')->where('slug', $slug)->where('is_active', true)->first();
+        } elseif ($request->filled('course_id')) {
+            $course = Course::with('department')->find($request->query('course_id'));
         }
 
-        if ($course) {
-            $intakes = $course->intakes;
-        }
-
+        $intakes = $course ? $this->openIntakes($course) : collect();
         $courses = Course::active()->orderBy('name', 'asc')->get();
 
         return view('ktvtc.website.application.index', compact('course', 'courses', 'intakes', 'campuses'));
     }
 
+    private function openIntakes(Course $course)
+    {
+        return $course->upcomingIntakes();
+    }
+
     /**
-     * Store a new application with campus support
-     * Modified to allow past intakes
+     * Store a new application.
      */
     public function store(Request $request)
     {
@@ -389,17 +367,12 @@ private function generateApplicantConfirmationMessage(Application $application, 
      */
     public function getCourseDetails($id)
     {
-        $course = Course::with(['department', 'intakes' => function($query) {
-            // Show ALL intakes including past
-            $query->orderBy('year', 'desc')
-                  ->orderByRaw("FIELD(month, 'January', 'February', 'March', 'April', 'May', 'June',
-                                       'July', 'August', 'September', 'October', 'November', 'December')");
-        }])->findOrFail($id);
+        $course = Course::with('department')->findOrFail($id);
 
         return response()->json([
             'success' => true,
             'course' => $course,
-            'intakes' => $course->intakes
+            'intakes' => $this->openIntakes($course),
         ]);
     }
 

@@ -3,21 +3,21 @@
 @section('meta_description', $event->short_description ?: 'Join us for ' . $event->title . ' at Kenswed College. ' . $event->location . ' on ' . \Carbon\Carbon::parse($event->event_start_date)->format('F j, Y'))
 @section('meta_keywords', $event->title . ', ' . $event->event_type . ', Kenswed College events, ' . $event->location . ', ' . ($event->department ?: '') . ', technical training events, vocational education Kenya')
 
-<!-- Open Graph Tags -->
+{{-- Open Graph Tags --}}
 @section('og_title', $event->title . ' | KTVTC Events')
 @section('og_description', $event->short_description ?: 'Don\'t miss ' . $event->title . ' at Kenswed College. ' . $event->location . ' - ' . \Carbon\Carbon::parse($event->event_start_date)->format('M j, Y'))
 @section('og_url', url()->current())
 @section('og_image', $event->banner_image ? Storage::url($event->banner_image) : asset('Assets/images/Kenswed_logo.png'))
 
-<!-- Twitter Card -->
+{{-- Twitter Card --}}
 @section('twitter_title', $event->title . ' | Kenswed College')
 @section('twitter_description', $event->short_description ?: 'Join us for ' . $event->title . ' at Kenswed Technical College')
 @section('twitter_image', $event->banner_image ? Storage::url($event->banner_image) : asset('Assets/images/Kenswed_logo.png'))
 
-<!-- Canonical URL -->
+{{-- Canonical URL --}}
 @section('canonical', url()->current())
 
-<!-- Structured Data for Event -->
+{{-- Structured Data for Event --}}
 @section('structured_data')
 
 @endsection
@@ -25,7 +25,7 @@
 
 
 @section('content')
-<!-- Event Hero Section -->
+{{-- Event Hero Section --}}
 @if($event->banner_image)
 <section class="relative h-96 bg-cover bg-center" style="background-image: url('{{ Storage::url($event->banner_image) }}')">
     <div class="absolute inset-0 bg-black bg-opacity-50"></div>
@@ -57,13 +57,13 @@
 </section>
 @endif
 
-<!-- Event Details Section -->
+{{-- Event Details Section --}}
 <section class="py-16 bg-white">
     <div class="container mx-auto px-4">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Main Content -->
+            {{-- Main Content --}}
             <div class="lg:col-span-2">
-                <!-- Event Description -->
+                {{-- Event Description --}}
                 <div class="prose max-w-none mb-8">
                     @if($event->description)
                         {!! $event->description !!}
@@ -72,7 +72,7 @@
                     @endif
                 </div>
 
-                <!-- Event Highlights -->
+                {{-- Event Highlights --}}
                 <div class="bg-gray-50 rounded-xl p-6 mb-8">
                     <h3 class="text-xl font-bold text-gray-800 mb-4">Event Highlights</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -136,7 +136,7 @@
                     </div>
                 </div>
 
-                <!-- Registration Information -->
+                {{-- Registration Information --}}
                 @if($event->registration_start_date && $event->registration_end_date)
                 <div class="bg-green-50 border border-green-200 rounded-xl p-6 mb-8">
                     <h3 class="text-xl font-bold text-gray-800 mb-4">Registration Information</h3>
@@ -184,16 +184,16 @@
                 @endif
             </div>
 
-            <!-- Sidebar -->
+            {{-- Sidebar --}}
             <div class="lg:col-span-1">
-                <!-- Event Summary Card -->
+                {{-- Event Summary Card --}}
                 <div class="bg-white rounded-xl shadow-lg border border-gray-200 sticky top-8">
                     @if($event->cover_image)
                     <img src="{{ Storage::url($event->cover_image) }}" alt="{{ $event->title }}" class="w-full h-48 object-cover rounded-t-xl">
                     @endif
 
                     <div class="p-6">
-                        <!-- Pricing Information -->
+                        {{-- Pricing Information --}}
                         <div class="mb-6">
                             @if($event->is_paid)
                             <div class="text-center mb-4">
@@ -216,7 +216,7 @@
                             @endif
                         </div>
 
-                        <!-- Event Details -->
+                        {{-- Event Details --}}
                         <div class="space-y-4 mb-6">
                             <div class="flex justify-between items-center py-2 border-b border-gray-200">
                                 <span class="text-gray-600">Event Type</span>
@@ -240,7 +240,7 @@
                             </div>
                         </div>
 
-                        <!-- Action Buttons -->
+                        {{-- Action Buttons --}}
                         <div class="space-y-3">
                           @if($registrationOpen)
 <a href="{{ route('event-applications.create', $event) }}"
@@ -254,7 +254,7 @@
                             </button>
 
                             <div class="flex space-x-2">
-                                <!-- Social sharing buttons -->
+                                {{-- Social sharing buttons --}}
                                 <button class="flex-1 border border-gray-300 text-gray-600 py-2 rounded-lg hover:bg-gray-50 transition-colors text-sm">
                                     Share
                                 </button>
@@ -266,7 +266,7 @@
                     </div>
                 </div>
 
-                <!-- Organizer Information -->
+                {{-- Organizer Information --}}
                 @if($event->organizer_name || $event->organizer_email)
                 <div class="bg-white rounded-xl shadow-lg border border-gray-200 mt-8 p-6">
                     <h3 class="text-xl font-bold text-gray-800 mb-4">Event Organizer</h3>
@@ -320,7 +320,7 @@
     </div>
 </section>
 
-<!-- Related Events Section -->
+{{-- Related Events Section --}}
 @if($relatedEvents->count() > 0)
 <section class="py-16 bg-gray-50">
     <div class="container mx-auto px-4">
@@ -357,7 +357,7 @@
 </section>
 @endif
 
-<!-- Back to Events -->
+{{-- Back to Events --}}
 <section class="py-8 bg-white border-t border-gray-200">
     <div class="container mx-auto px-4">
         <a href="{{ route('event.index') }}" class="inline-flex items-center text-[#B91C1C] font-semibold hover:underline">

@@ -14,22 +14,22 @@
 @section('title', 'Application Form - Kenswed Technical College')
 
 @section('content')
-<!-- Application Hero Section -->
+{{-- Application Hero Section --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-16 text-white">
     <div class="container mx-auto px-4">
         <div class="text-center">
             <h1 class="text-4xl md:text-5xl font-bold mb-4">Application Form</h1>
-            <p class="text-xl opacity-90 max-w-2xl mx-auto">Start your journey to a rewarding career at Kenswed Technical College</p>
+            <p class="text-xl opacity-90 max-w-2xl mx-auto">Apply for a course at Kenswed Technical College. It takes about 10 minutes.</p>
         </div>
     </div>
 </section>
 
-<!-- Application Form Section -->
+{{-- Application Form Section --}}
 <section class="py-16 bg-gray-50">
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto">
 
-            <!-- Success/Error Messages -->
+            {{-- Success/Error Messages --}}
             @if(session('success'))
             <div class="mb-6 p-4 rounded-lg bg-green-50 border border-green-200">
                 <div class="flex items-center">
@@ -68,15 +68,15 @@
             </div>
             @endif
 
-            <!-- Progress Steps -->
+            {{-- Progress Steps --}}
             <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
                 <div class="flex items-center justify-between relative">
-                    <!-- Progress Line -->
+                    {{-- Progress Line --}}
                     <div class="absolute top-5 left-0 right-0 h-1 bg-gray-200 -z-10">
                         <div id="progressBar" class="h-1 bg-[#B91C1C] transition-all duration-500" style="width: {{ $course ? '16.66%' : '0%' }}"></div>
                     </div>
 
-                    <!-- Step Indicators -->
+                    {{-- Step Indicators --}}
                     @php
                         $steps = [
                             1 => ['label' => 'Course', 'sub' => $course ? 'Pre-selected' : 'Select course'],
@@ -91,11 +91,12 @@
                     @foreach($steps as $step => $info)
                         <div class="flex flex-col items-center z-10">
                             <div id="step{{ $step }}Indicator"
-                                 class="w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-300
+                                 class="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-sm sm:text-base transition-all duration-300
                                         {{ $step == 1 && $course ? 'bg-[#B91C1C] text-white' : ($step == 1 ? 'bg-[#B91C1C] text-white' : 'bg-gray-300 text-gray-600') }}">
                                 {{ $step }}
                             </div>
-                            <div class="mt-2 text-center">
+                            {{-- Step names only fit side by side from tablet width up --}}
+                            <div class="mt-2 text-center hidden sm:block">
                                 <p class="font-semibold {{ $step == 1 && $course ? 'text-gray-900' : 'text-gray-600' }} text-sm">
                                     {{ $info['label'] }}
                                 </p>
@@ -108,19 +109,19 @@
                 </div>
             </div>
 
-            <!-- Application Form -->
+            {{-- Application Form --}}
             <form id="applicationForm" action="{{ route('application.store') }}" method="POST" enctype="multipart/form-data" class="bg-white rounded-xl shadow-lg overflow-hidden">
                 @csrf
 
-                <!-- Hidden course_id if pre-selected -->
+                {{-- Hidden course_id if pre-selected --}}
                 @if($course)
                     <input type="hidden" name="course_id" value="{{ $course->id }}">
                 @endif
 
-                <!-- Step 1: Course Selection -->
+                {{-- Step 1: Course Selection --}}
                 <div id="step1" class="step p-8 {{ $course ? 'active' : 'active' }}">
                     @if($course)
-                        <!-- Course is pre-selected -->
+                        {{-- Course is pre-selected --}}
                         <div class="mb-6 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6">
                             <div class="flex items-center justify-between mb-4">
                                 <div class="flex items-center">
@@ -132,7 +133,7 @@
 
                             </div>
 
-                            <!-- Course Details -->
+                            {{-- Course Details --}}
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm mb-4">
                                 @if($course->department)
                                 <div>
@@ -170,137 +171,34 @@
                                 @endif
                             </div>
 
-                            @if($course->description)
+                            @if(trim(strip_tags((string) $course->description)) !== '')
                             <div class="border-t pt-4">
                                 <p class="text-sm text-gray-700">{{ Str::limit(strip_tags($course->description), 150) }}</p>
                             </div>
                             @endif
                         </div>
 
-                        <!-- Intake and Study Mode Selection -->
+                        {{-- Intake and Study Mode Selection --}}
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                           <!-- Intake Selection with Separate Sections -->
-<!-- Intake Selection with Separate Sections and 2026 Priority -->
-<div>
-    <label class="block text-sm font-medium text-gray-700 mb-2">Intake Period *</label>
-    <select name="intake_period" id="intakePeriod" required
-            class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#B91C1C] focus:border-transparent transition-colors">
-        <option value="">-- Select Intake --</option>
-
-        @if($course && $course->intakes->count() > 0)
-            @php
-                // Separate intakes into 2026, future, and past
-                $year2026Intakes = $course->intakes->filter(fn($i) => $i->year == 2026 && !$i->is_past);
-                $futureIntakes = $course->intakes->filter(fn($i) => $i->year > 2026 && !$i->is_past);
-                $otherFutureIntakes = $course->intakes->filter(fn($i) => $i->year < 2026 && $i->year >= date('Y') && !$i->is_past);
-                $pastIntakes = $course->intakes->filter(fn($i) => $i->is_past);
-
-                // Sort intakes by month order
-                $monthOrder = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-                $year2026Intakes = $year2026Intakes->sortBy(function($intake) use ($monthOrder) {
-                    return array_search($intake->month, $monthOrder);
-                });
-
-                $futureIntakes = $futureIntakes->sortBy(function($intake) use ($monthOrder) {
-                    return $intake->year * 100 + array_search($intake->month, $monthOrder);
-                });
-
-                $otherFutureIntakes = $otherFutureIntakes->sortBy(function($intake) use ($monthOrder) {
-                    return $intake->year * 100 + array_search($intake->month, $monthOrder);
-                });
-
-                $pastIntakes = $pastIntakes->sortByDesc(function($intake) use ($monthOrder) {
-                    return $intake->year * 100 + array_search($intake->month, $monthOrder);
-                });
-            @endphp
-
-            @if($year2026Intakes->count() > 0)
-                <optgroup label="2026 Intakes (Priority)">
-                    @foreach($year2026Intakes as $intake)
-                        @php
-                            $deadlineDate = $intake->application_deadline ? $intake->application_deadline->format('M j, Y') : null;
-                        @endphp
-                        <option value="{{ $intake->month }} {{ $intake->year }}"
-                                class="text-green-700 font-medium bg-green-50">
-                             {{ $intake->month }} {{ $intake->year }}
-                            @if($deadlineDate)
-                                (Deadline: {{ $deadlineDate }})
-                            @endif
-                        </option>
-                    @endforeach
-                </optgroup>
-            @endif
-
-            @if($futureIntakes->count() > 0)
-                <optgroup label="Future Intakes (2027+)">
-                    @foreach($futureIntakes as $intake)
-                        @php
-                            $deadlineDate = $intake->application_deadline ? $intake->application_deadline->format('M j, Y') : null;
-                        @endphp
-                        <option value="{{ $intake->month }} {{ $intake->year }}"
-                                class="text-blue-700">
-                            {{ $intake->month }} {{ $intake->year }}
-                            @if($deadlineDate)
-                                (Deadline: {{ $deadlineDate }})
-                            @endif
-                        </option>
-                    @endforeach
-                </optgroup>
-            @endif
-
-            @if($otherFutureIntakes->count() > 0)
-                <optgroup label="Other Upcoming Intakes">
-                    @foreach($otherFutureIntakes as $intake)
-                        @php
-                            $deadlineDate = $intake->application_deadline ? $intake->application_deadline->format('M j, Y') : null;
-                        @endphp
-                        <option value="{{ $intake->month }} {{ $intake->year }}"
-                                class="text-gray-700">
-                            {{ $intake->month }} {{ $intake->year }}
-                            @if($deadlineDate)
-                                (Deadline: {{ $deadlineDate }})
-                            @endif
-                        </option>
-                    @endforeach
-                </optgroup>
-            @endif
-
-            @if($pastIntakes->count() > 0)
-                <optgroup label="Past Intakes (Manual Applications)">
-                    @foreach($pastIntakes as $intake)
-                        <option value="{{ $intake->month }} {{ $intake->year }}"
-                                class="text-gray-500">
-                            {{ $intake->month }} {{ $intake->year }} (Past Intake)
-                        </option>
-                    @endforeach
-                </optgroup>
-            @endif
-        @endif
-    </select>
-
-    @error('intake_period')
-        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-    @enderror
-
-    @if(isset($year2026Intakes) && $year2026Intakes->count() > 0)
-        <p class="text-sm text-green-600 mt-2 flex items-start">
-            <svg class="w-4 h-4 mr-1 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-            </svg>
-
-        </p>
-    @endif
-
-    @if(isset($pastIntakes) && $pastIntakes->count() > 0)
-        <p class="text-sm text-amber-600 mt-2 flex items-start">
-            <svg class="w-4 h-4 mr-1 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            <span>Past intakes are available for manual/backdated applications. Select a past intake if you're applying for a previous period.</span>
-        </p>
-    @endif
-</div>
+                            {{-- Intake --}}
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Intake Period *</label>
+                                <select name="intake_period" id="intakePeriod" required
+                                        class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#B91C1C] focus:border-transparent transition-colors">
+                                    <option value="">-- Select Intake --</option>
+                                    @foreach($intakes as $intake)
+                                        <option value="{{ $intake->month }} {{ $intake->year }}" @selected(old('intake_period') === "{$intake->month} {$intake->year}")>
+                                            {{ $intake->month }} {{ $intake->year }}{{ $intake->application_deadline ? ' (apply by ' . $intake->application_deadline->format('j M Y') . ')' : '' }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                @error('intake_period')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                                @if($course && $intakes->isEmpty())
+                                    <p class="text-sm text-amber-700 mt-2">No upcoming intake is open for this course yet. Contact us on +254 790 148 509.</p>
+                                @endif
+                            </div>
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Study Mode *</label>
@@ -319,7 +217,7 @@
                             </div>
                         </div>
                     @else
-                        <!-- No course selected - show dropdown -->
+                        {{-- No course selected - show dropdown --}}
                         <div class="text-center mb-8">
                             <h3 class="text-2xl font-bold text-gray-800 mb-2">Choose Your Course</h3>
                             <p class="text-gray-600">Select the course you want to apply for</p>
@@ -347,7 +245,7 @@
                                 @enderror
                             </div>
 
-                            <!-- Intake and Study Mode (hidden until course selected) -->
+                            {{-- Intake and Study Mode (hidden until course selected) --}}
                             <div id="courseDetails" class="hidden space-y-6">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div>
@@ -378,7 +276,7 @@
                                     </div>
                                 </div>
 
-                                <!-- Course Preview -->
+                                {{-- Course Preview --}}
                                 <div id="coursePreview" class="hidden bg-gray-50 border border-gray-200 rounded-lg p-4">
                                     <h4 class="font-semibold text-gray-800 mb-2">Course Preview</h4>
                                     <div class="grid grid-cols-2 gap-2 text-sm">
@@ -406,13 +304,13 @@
                     </div>
                 </div>
 
-                <!-- Step 2: Campus Selection -->
+                {{-- Step 2: Campus Selection --}}
                 <div id="step2" class="step p-8 hidden">
                     <h3 class="text-2xl font-bold text-gray-800 mb-2">Select Campus</h3>
                     <p class="text-gray-600 mb-6">Choose your preferred campus location</p>
 
                     <div class="space-y-6">
-                        <!-- Course Review -->
+                        {{-- Course Review --}}
                         <div class="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg p-6 border border-gray-200">
                             <h4 class="text-lg font-semibold text-gray-800 mb-3">Selected Course</h4>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -433,7 +331,7 @@
                             </div>
                         </div>
 
-                        <!-- Campus Selection -->
+                        {{-- Campus Selection --}}
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Preferred Campus *</label>
                             @error('campus_id')
@@ -505,7 +403,7 @@
                     </div>
                 </div>
 
-                <!-- Step 3: Personal Information -->
+                {{-- Step 3: Personal Information --}}
                 <div id="step3" class="step p-8 hidden">
                     <h3 class="text-2xl font-bold text-gray-800 mb-2">Personal Information</h3>
                     <p class="text-gray-600 mb-6">Tell us about yourself</p>
@@ -643,7 +541,7 @@
                     </div>
                 </div>
 
-                <!-- Step 4: Education & Background -->
+                {{-- Step 4: Education & Background --}}
                 <div id="step4" class="step p-8 hidden">
                     <h3 class="text-2xl font-bold text-gray-800 mb-2">Education Background</h3>
                     <p class="text-gray-600 mb-6">Tell us about your educational history</p>
@@ -712,7 +610,7 @@
                             @enderror
                         </div>
 
-                        <!-- Emergency Contact Information -->
+                        {{-- Emergency Contact Information --}}
                         <div class="border-t pt-6">
                             <h4 class="text-lg font-semibold text-gray-800 mb-4">Emergency Contact Information</h4>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -749,7 +647,7 @@
                             </div>
                         </div>
 
-                        <!-- Special Needs -->
+                        {{-- Special Needs --}}
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Special Needs (if any)</label>
                             <textarea name="special_needs" id="specialNeeds" rows="3"
@@ -770,13 +668,13 @@
                     </div>
                 </div>
 
-                <!-- Step 5: Documents Upload -->
+                {{-- Step 5: Documents Upload --}}
                 <div id="step5" class="step p-8 hidden">
                     <h3 class="text-2xl font-bold text-gray-800 mb-2">Required Documents</h3>
                     <p class="text-gray-600 mb-6">Upload the necessary documents for your application</p>
 
                     <div class="space-y-6">
-                        <!-- ID/Birth Certificate Document -->
+                        {{-- ID/Birth Certificate Document --}}
                         <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-[#B91C1C] transition-colors duration-200">
                             <label class="block text-sm font-medium text-gray-700 mb-2" id="documentLabel">
                                 National ID or Birth Certificate *
@@ -795,7 +693,7 @@
                             </div>
                         </div>
 
-                        <!-- Education Certificates -->
+                        {{-- Education Certificates --}}
                         <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-[#B91C1C] transition-colors duration-200">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Education Certificates *</label>
                             <input type="file" name="education_certificates" id="educationCertificates" accept=".pdf,.jpg,.jpeg,.png" required
@@ -812,7 +710,7 @@
                             </div>
                         </div>
 
-                        <!-- Passport Photo -->
+                        {{-- Passport Photo --}}
                         <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-[#B91C1C] transition-colors duration-200">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Passport Photo *</label>
                             <input type="file" name="passport_photo" id="passportPhoto" accept=".jpg,.jpeg,.png" required
@@ -842,13 +740,13 @@
                     </div>
                 </div>
 
-                <!-- Step 6: Review & Submit -->
+                {{-- Step 6: Review & Submit --}}
                 <div id="step6" class="step p-8 hidden">
                     <h3 class="text-2xl font-bold text-gray-800 mb-2">Review Your Application</h3>
                     <p class="text-gray-600 mb-6">Please review all information before submitting</p>
 
                     <div class="space-y-6" id="reviewContent">
-                        <!-- Loading placeholder -->
+                        {{-- Loading placeholder --}}
                         <div id="reviewLoading" class="text-center py-12">
                             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-[#B91C1C] mx-auto"></div>
                             <p class="mt-4 text-gray-600">Loading review...</p>
@@ -887,7 +785,7 @@
     </div>
 </section>
 
-<!-- Campus Map Modal -->
+{{-- Campus Map Modal --}}
 <div id="campusMapModal" class="fixed inset-0 z-50 hidden overflow-y-auto">
     <div class="flex items-center justify-center min-h-screen px-4 py-6">
         <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" id="modalOverlay"></div>
@@ -1258,7 +1156,7 @@
 
             // Create review HTML
             const reviewHTML = `
-                <!-- Campus & Course Information -->
+                {{-- Campus & Course Information --}}
                 <div class="bg-gray-50 rounded-lg p-6 border border-gray-200">
                     <h4 class="text-lg font-semibold text-gray-800 mb-4">Campus & Course Information</h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -1285,7 +1183,7 @@
                     </div>
                 </div>
 
-                <!-- Personal Information -->
+                {{-- Personal Information --}}
                 <div class="bg-gray-50 rounded-lg p-6 border border-gray-200">
                     <h4 class="text-lg font-semibold text-gray-800 mb-4">Personal Information</h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -1324,7 +1222,7 @@
                     </div>
                 </div>
 
-                <!-- Education Information -->
+                {{-- Education Information --}}
                 <div class="bg-gray-50 rounded-lg p-6 border border-gray-200">
                     <h4 class="text-lg font-semibold text-gray-800 mb-4">Education Background</h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -1347,7 +1245,7 @@
                     </div>
                 </div>
 
-                <!-- Emergency Contact -->
+                {{-- Emergency Contact --}}
                 <div class="bg-gray-50 rounded-lg p-6 border border-gray-200">
                     <h4 class="text-lg font-semibold text-gray-800 mb-4">Emergency Contact</h4>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -1366,13 +1264,13 @@
                     </div>
                 </div>
 
-                <!-- Special Needs -->
+                {{-- Special Needs --}}
                 <div class="bg-gray-50 rounded-lg p-6 border border-gray-200">
                     <h4 class="text-lg font-semibold text-gray-800 mb-4">Special Requirements</h4>
                     <p class="text-sm text-gray-700">${specialNeeds}</p>
                 </div>
 
-                <!-- Documents -->
+                {{-- Documents --}}
                 <div class="bg-gray-50 rounded-lg p-6 border border-gray-200">
                     <h4 class="text-lg font-semibold text-gray-800 mb-4">Documents to be Submitted</h4>
                     <ul class="space-y-2 text-sm">
@@ -1509,7 +1407,7 @@
                                     data.intakes.forEach(intake => {
                                         const option = document.createElement('option');
                                         option.value = `${intake.month} ${intake.year}`;
-                                        option.textContent = intake.display;
+                                        option.textContent = `${intake.month} ${intake.year}`;
                                         intakeSelect.appendChild(option);
                                     });
 

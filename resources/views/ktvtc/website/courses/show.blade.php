@@ -14,7 +14,7 @@
 @section('title', $course->name . ' - Kenswed Technical College')
 
 @section('content')
-<!-- Course Hero Section -->
+{{-- Course Hero Section --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-12 text-white">
     <div class="container mx-auto px-4">
         <div class="flex flex-col md:flex-row items-center justify-between">
@@ -80,18 +80,18 @@
     </div>
 </section>
 
-<!-- Course Details Section -->
+{{-- Course Details Section --}}
 <section class="py-16 bg-white">
     <div class="container mx-auto px-4">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Main Content -->
+            {{-- Main Content --}}
             <div class="lg:col-span-2">
-                <!-- Social Sharing -->
+                {{-- Social Sharing --}}
                 <div class="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-200">
                     <div class="flex items-center justify-between">
                         <span class="text-gray-700 font-medium">Share this course:</span>
                         <div class="flex space-x-3">
-                            <!-- Facebook -->
+                            {{-- Facebook --}}
                             <a href="https://www.facebook.com/sharer/sharer.php?u={{ urlencode(url()->current()) }}"
                                target="_blank"
                                class="bg-[#1877F2] text-white p-2 rounded-full hover:bg-[#166FE5] transition-colors">
@@ -100,7 +100,7 @@
                                 </svg>
                             </a>
 
-                            <!-- WhatsApp -->
+                            {{-- WhatsApp --}}
                             <a href="https://wa.me/?text={{ urlencode('Check out this course: ' . $course->name . ' - ' . url()->current()) }}"
                                target="_blank"
                                class="bg-[#25D366] text-white p-2 rounded-full hover:bg-[#128C7E] transition-colors">
@@ -109,7 +109,7 @@
                                 </svg>
                             </a>
 
-                            <!-- LinkedIn -->
+                            {{-- LinkedIn --}}
                             <a href="https://www.linkedin.com/sharing/share-offsite/?url={{ urlencode(url()->current()) }}"
                                target="_blank"
                                class="bg-[#0A66C2] text-white p-2 rounded-full hover:bg-[#004182] transition-colors">
@@ -118,7 +118,7 @@
                                 </svg>
                             </a>
 
-                            <!-- Twitter -->
+                            {{-- Twitter --}}
                             <a href="https://twitter.com/intent/tweet?text={{ urlencode('Check out this course: ' . $course->name) }}&url={{ urlencode(url()->current()) }}"
                                target="_blank"
                                class="bg-[#1DA1F2] text-white p-2 rounded-full hover:bg-[#0d8bd9] transition-colors">
@@ -134,15 +134,17 @@
                 <img src="{{ $course->cover_image_url }}" alt="{{ $course->name }}" class="w-full h-64 object-cover rounded-lg mb-8 shadow-md">
                 @endif
 
-                <!-- Description -->
+                {{-- Description --}}
+                @if(trim(strip_tags((string) $course->description)) !== '')
                 <div class="mb-8">
                     <h2 class="text-2xl font-bold text-gray-800 mb-4 border-l-4 border-[#B91C1C] pl-3">Course Overview</h2>
                     <div class="prose max-w-none text-gray-600 leading-relaxed">
                         {!! $course->description !!}
                     </div>
                 </div>
+                @endif
 
-                <!-- What You Will Learn -->
+                {{-- What You Will Learn --}}
                 @if($course->what_you_will_learn)
                 <div class="mb-8">
                     <h2 class="text-2xl font-bold text-gray-800 mb-4 border-l-4 border-[#B91C1C] pl-3">What You Will Learn</h2>
@@ -152,7 +154,7 @@
                 </div>
                 @endif
 
-                <!-- Requirements -->
+                {{-- Requirements --}}
                 @if($course->requirements)
                 <div class="mb-8">
                     <h2 class="text-2xl font-bold text-gray-800 mb-4 border-l-4 border-[#B91C1C] pl-3">Entry Requirements</h2>
@@ -163,9 +165,9 @@
                 @endif
             </div>
 
-            <!-- Sidebar -->
+            {{-- Sidebar --}}
             <div class="lg:col-span-1">
-                <!-- Course Details Card -->
+                {{-- Course Details Card --}}
                 <div class="bg-white rounded-lg p-6 mb-6 shadow-lg border border-gray-200">
                     <h3 class="text-xl font-bold text-gray-800 mb-4 border-b border-gray-200 pb-2">Course Details</h3>
 
@@ -210,7 +212,7 @@
                     </div>
                 </div>
 
-                <!-- Intakes Card -->
+                {{-- Intakes Card --}}
                 @if($course->intakes->count() > 0)
                 <div class="bg-white rounded-lg p-6 mb-6 shadow-lg border border-gray-200">
                     <h3 class="text-xl font-bold text-gray-800 mb-4 border-b border-gray-200 pb-2">Upcoming Intakes</h3>
@@ -223,7 +225,7 @@
                                 <p class="text-sm text-gray-600">Apply by: {{ \Carbon\Carbon::parse($intake->application_deadline)->format('M j, Y') }}</p>
                                 @endif
                             </div>
-                            <a href="{{ route('application.form') }}"
+                            <a href="{{ route('application.form', $course->slug) }}"
                                class="bg-[#B91C1C] text-white px-3 py-1 rounded text-sm hover:bg-[#991B1B] transition-colors font-medium">
                                 Apply
                             </a>
@@ -233,7 +235,7 @@
                 </div>
                 @endif
 
-                <!-- Fees Card - FIXED for your data structure -->
+                {{-- Fees Card --}}
                 @if($course->fees_breakdown)
                 <div class="bg-white rounded-lg p-6 shadow-lg border border-gray-200">
                     <h3 class="text-xl font-bold text-gray-800 mb-4 border-b border-gray-200 pb-2">Fees Breakdown</h3>
@@ -308,7 +310,7 @@
             </div>
         </div>
 
-        <!-- Related Courses -->
+        {{-- Related Courses --}}
         @if($relatedCourses->count() > 0)
         <div class="mt-16">
             <h2 class="text-2xl font-bold text-gray-800 mb-6 border-l-4 border-[#B91C1C] pl-3">Related Courses</h2>

@@ -14,7 +14,7 @@
 @section('title', 'Application Submitted - Kenswed Technical College')
 
 @section('content')
-<!-- Success Hero Section -->
+{{-- Success Hero Section --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-16 text-white">
     <div class="container mx-auto px-4">
         <div class="text-center">
@@ -24,13 +24,13 @@
     </div>
 </section>
 
-<!-- Success Content Section -->
+{{-- Success Content Section --}}
 <section class="py-16 bg-gray-50">
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto">
-            <!-- Success Card -->
+            {{-- Success Card --}}
             <div class="bg-white rounded-xl shadow-lg p-8 text-center">
-                <!-- Success Icon -->
+                {{-- Success Icon --}}
                 <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                     <svg class="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
@@ -44,7 +44,7 @@
                     for applying to our <span class="font-semibold">{{ $application->course->name }}</span> program.
                 </p>
 
-                <!-- Payment Status - DYNAMIC -->
+                {{-- Payment Status - DYNAMIC --}}
 @php
     // Get payment from KcbBuniTransaction table - ONLY application fees
     $payment = \App\Models\KcbBuniTransaction::where('application_id', $application->id)
@@ -83,7 +83,7 @@
                     </div>
                 </div>
                 @else
-                <!-- Pending Payment -->
+                {{-- Pending Payment --}}
                 <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8 max-w-md mx-auto">
                     <h3 class="text-xl font-semibold text-yellow-800 mb-4 flex items-center justify-center">
                         <svg class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 20 20">
@@ -100,7 +100,7 @@
                 </div>
                 @endif
 
-                <!-- Application Details -->
+                {{-- Application Details --}}
                 <div class="bg-gray-50 rounded-lg p-6 mb-8 max-w-md mx-auto">
                     <h3 class="text-xl font-semibold text-gray-800 mb-4">Application Details</h3>
                     <div class="space-y-3 text-left">
@@ -133,7 +133,7 @@
                     </div>
                 </div>
 
-                <!-- Next Steps (Conditional based on payment) -->
+                {{-- Next Steps (Conditional based on payment) --}}
                 @if($hasPayment)
                 <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8 max-w-2xl mx-auto">
                     <h3 class="text-xl font-semibold text-blue-800 mb-4">What Happens Next?</h3>
@@ -199,7 +199,7 @@
                 </div>
                 @endif
 
-                <!-- Important Notes -->
+                {{-- Important Notes --}}
                 <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8 max-w-2xl mx-auto">
                     <h3 class="text-xl font-semibold text-yellow-800 mb-4">Important Information</h3>
                     <ul class="text-left space-y-2 text-yellow-700">
@@ -224,7 +224,7 @@
                     </ul>
                 </div>
 
-                <!-- Action Buttons -->
+                {{-- Action Buttons --}}
                 <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
                     <a href="{{ route('application.form') }}"
                        class="bg-[#B91C1C] text-white px-8 py-3 rounded-lg hover:bg-[#991B1B] transition-colors duration-200 font-semibold">
@@ -240,7 +240,7 @@
                     </button>
                 </div>
 
-                <!-- Contact Information -->
+                {{-- Contact Information --}}
                 <div class="mt-8 pt-6 border-t border-gray-200">
                     <p class="text-gray-600 mb-2">Need help? Contact our admissions office:</p>
                     <div class="flex flex-col sm:flex-row justify-center items-center gap-4 text-sm">
@@ -263,7 +263,7 @@
     </div>
 </section>
 
-<!-- Payment Tracking Script (for pending payments) -->
+{{-- Payment Tracking Script (for pending payments) --}}
 @if(!$hasPayment)
 <script>
     let checkCount = 0;
@@ -296,7 +296,7 @@
 </script>
 @endif
 
-<!-- Print Styles -->
+{{-- Print Styles --}}
 <style>
     @media print {
         .bg-gradient-to-r { background: #B91C1C !important; }

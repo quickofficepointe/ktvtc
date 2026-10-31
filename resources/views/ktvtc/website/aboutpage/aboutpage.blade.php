@@ -37,29 +37,29 @@
 --}}
 
 
-<!-- ====================
+{{-- ====================
      HERO SECTION
-     ==================== -->
+     ==================== --}}
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-20 text-white" aria-labelledby="hero-title">
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto text-center">
             <h1 id="hero-title" class="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">About Kenswed TVTC</h1>
             <p class="text-xl md:text-2xl opacity-90 leading-relaxed">
-                Transforming Lives Through Quality Technical and Vocational Education
+                Technical and vocational training in Ngong, Kajiado County
             </p>
         </div>
     </div>
 </section>
 
-<!-- ====================
+{{-- ====================
      OUR STORY SECTION
-     ==================== -->
+     ==================== --}}
 @if($aboutPage && $aboutPage->our_story)
 <section class="py-16 bg-white" aria-labelledby="story-title">
     <div class="container mx-auto px-4">
         <div class="max-w-6xl mx-auto">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-                <!-- Content -->
+                {{-- Content --}}
                 <div class="lg:pr-8">
                     <h2 id="story-title" class="text-3xl md:text-4xl font-bold text-gray-800 mb-6">Our Story</h2>
                     <div class="prose prose-lg text-gray-600 leading-relaxed">
@@ -67,7 +67,7 @@
                     </div>
                 </div>
 
-                <!-- Image -->
+                {{-- Image --}}
                 <div class="lg:pl-8">
                     @if($aboutImages->count() > 0)
                         <img src="{{ $aboutImages->first()->image_path }}"
@@ -88,9 +88,9 @@
 </section>
 @endif
 
-<!-- ====================
+{{-- ====================
      MISSION & VISION SECTION
-     ==================== -->
+     ==================== --}}
 @if($aboutPage && ($aboutPage->mission || $aboutPage->vision))
 <section class="py-16 bg-gray-50" aria-labelledby="mv-title">
     <div class="container mx-auto px-4">
@@ -98,7 +98,7 @@
             {{-- Hidden heading for screen readers --}}
             <h2 id="mv-title" class="sr-only">Our Mission and Vision</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- Mission -->
+                {{-- Mission --}}
                 @if($aboutPage->mission)
                 <article class="bg-white rounded-2xl p-8 shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-300">
                     <header class="text-center mb-6">
@@ -115,7 +115,7 @@
                 </article>
                 @endif
 
-                <!-- Vision -->
+                {{-- Vision --}}
                 @if($aboutPage->vision)
                 <article class="bg-white rounded-2xl p-8 shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-300">
                     <header class="text-center mb-6">
@@ -138,9 +138,9 @@
 </section>
 @endif
 
-<!-- ====================
+{{-- ====================
      CORE VALUES SECTION
-     ==================== -->
+     ==================== --}}
 @if($aboutPage && $aboutPage->core_values)
 <section class="py-16 bg-white" aria-labelledby="values-title">
     <div class="container mx-auto px-4">
@@ -158,9 +158,9 @@
 </section>
 @endif
 
-<!-- ====================
+{{-- ====================
      GALLERY SECTION
-     ==================== -->
+     ==================== --}}
 @if($aboutImages->count() > 0)
 <section class="py-16 bg-gray-50" aria-labelledby="gallery-title">
     <div class="container mx-auto px-4">
@@ -193,9 +193,9 @@
 </section>
 @endif
 
-<!-- ====================
+{{-- ====================
      VIDEO SECTION
-     ==================== -->
+     ==================== --}}
 @if($aboutPage && $aboutPage->video_url)
 <section class="py-16 bg-white" aria-labelledby="video-title">
     <div class="container mx-auto px-4">
@@ -222,9 +222,9 @@
 </section>
 @endif
 
-<!-- ====================
+{{-- ====================
      STATS SECTION
-     ==================== -->
+     ==================== --}}
 <section class="py-16 bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] text-white" aria-labelledby="stats-title">
     <div class="container mx-auto px-4">
         <h2 id="stats-title" class="sr-only">Kenswed TVTC by the numbers</h2>
@@ -251,15 +251,15 @@
     </div>
 </section>
 
-<!-- ====================
+{{-- ====================
      CALL TO ACTION
-     ==================== -->
+     ==================== --}}
 <section class="py-16 bg-gray-50" aria-labelledby="cta-title">
     <div class="container mx-auto px-4">
         <div class="max-w-4xl mx-auto text-center">
-            <h2 id="cta-title" class="text-3xl md:text-4xl font-bold text-gray-800 mb-6">Ready to Start Your Journey at Kenswed TVTC?</h2>
+            <h2 id="cta-title" class="text-3xl md:text-4xl font-bold text-gray-800 mb-6">Study at Kenswed TVTC</h2>
             <p class="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-                Join the Kenswed family and take the first step towards a rewarding career in technical and vocational education.
+                See the courses on offer and the next intake dates, or talk to our admissions team.
             </p>
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
                 <a href="/courses"

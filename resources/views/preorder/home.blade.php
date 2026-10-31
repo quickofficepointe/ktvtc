@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('title', 'Order Now — KTVTC Cafeteria')
-@section('meta_description', 'Order your favorite cafeteria meals in seconds. Pre-order and pick up at the cafeteria.')
+@section('meta_description', 'Pre-order cafeteria meals and collect them at the counter.')
 
 @section('content')
 <div class="bg-gray-50 min-h-screen py-8" id="portalApp"
@@ -193,7 +193,7 @@
                 <div class="relative bg-gray-100" style="padding-bottom: 100%;">
                     ${p.image
                         ? `<img src="${p.image}" class="absolute inset-0 w-full h-full object-cover">`
-                        : `<div class="absolute inset-0 flex items-center justify-center text-4xl text-gray-300">🍽️</div>`}
+                        : `<div class="absolute inset-0 flex items-center justify-center text-3xl text-gray-300"><i class="fas fa-utensils"></i></div>`}
                     ${p.made_to_order ? '<span class="absolute top-1 right-1 bg-amber-500 text-white text-xs px-1.5 py-0.5 rounded">Made to order</span>' : ''}
                 </div>
                 <div class="p-2">
