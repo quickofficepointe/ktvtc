@@ -28,7 +28,7 @@ class StudentSelfEnrollmentController extends Controller
     {
         $student = $this->currentStudent();
 
-        $courses = $student->enrollments()->with('course')->whereNot('status', 'dropped')->orderByDesc('id')->get()
+        $courses = $student->enrollments()->with('course')->whereNotIn('status', ['dropped', 'transferred'])->orderByDesc('id')->get()
             ->map(function ($enrollment) {
                 // Existing students: register the terms they are already in
                 $this->terms->syncLegacy($enrollment);

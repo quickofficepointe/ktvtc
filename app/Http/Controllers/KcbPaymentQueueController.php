@@ -110,6 +110,23 @@ class KcbPaymentQueueController extends Controller
             ->with('success', "Payment {$ipn->transaction_id} credited to the card.");
     }
 
+    /**
+     * Take back a payment that was credited to the wrong student or card; it returns to the queue.
+     */
+    public function undo(Request $request, KcbIpn $ipn)
+    {
+        $data = $request->validate(['reason' => 'required|string|min:5|max:255']);
+
+        try {
+            $this->router->undoCredit($ipn, $data['reason'], Auth::id());
+        } catch (\DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('finance.kcb-payments.show', $ipn)
+            ->with('success', "Payment {$ipn->transaction_id} taken back. Apply it to the right one below.");
+    }
+
     public function ignore(Request $request, KcbIpn $ipn)
     {
         $data = $request->validate(['reason' => 'required|string|min:5|max:255']);

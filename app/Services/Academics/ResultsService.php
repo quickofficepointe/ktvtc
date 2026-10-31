@@ -34,7 +34,7 @@ class ResultsService
         $rows = collect();
 
         $regs = TermRegistration::with(['student', 'enrollment'])
-            ->active()
+            ->taught()
             ->where('course_id', $unit->course_id)
             ->where('term_number', $unit->term_number)
             ->where('starts_on', '<=', today())
@@ -55,7 +55,7 @@ class ResultsService
 
         foreach ($failedLatest as $failed) {
             $nextAttempt = $failed->attempt + 1;
-            $current = TermRegistration::with(['student', 'enrollment'])->active()
+            $current = TermRegistration::with(['student', 'enrollment'])->taught()
                 ->where('enrollment_id', $failed->enrollment_id)->orderByDesc('term_number')->first();
             if (!$current) {
                 continue;

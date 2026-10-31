@@ -570,6 +570,17 @@
                     <span class="nav-text">Enrollments</span>
                 </a>
 
+                <!-- Course change requests (admissions give the final approval) -->
+                <a href="{{ route('course-changes.index') }}"
+                   class="admin-nav-link flex items-center px-4 py-3 rounded-xl {{ request()->routeIs('course-changes.*') ? 'active' : '' }}">
+                    <i class="fas fa-exchange-alt mr-3 text-lg"></i>
+                    <span class="nav-text">Course Changes</span>
+                    @php $courseChangesWaiting = \App\Models\CourseChangeRequest::where('status', 'admin')->count(); @endphp
+                    @if($courseChangesWaiting > 0)
+                        <span class="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{{ $courseChangesWaiting }}</span>
+                    @endif
+                </a>
+
                 <!-- Academic Terms  ← ADDED -->
                 <a href="{{ route('admin.academic-terms.index') }}"
                    class="admin-nav-link flex items-center px-4 py-3 rounded-xl {{ request()->routeIs('admin.academic-terms.*') ? 'active' : '' }}">

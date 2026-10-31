@@ -35,12 +35,16 @@ class SchoolFeeAllocator
         // excess clears the student's other courses oldest-first. The student's own
         // number is also their first course's number, so parents use it for everything.
         $enrollments = Enrollment::where('student_id', $student->id)
-            ->where('status', '!=', 'dropped')
+            ->whereNotIn('status', ['dropped', 'transferred'])
             ->orderByRaw('start_date IS NULL, start_date')
             ->orderBy('id')
             ->lockForUpdate()
             ->get();
 
+        // A number from a course the student has left (transferred/dropped) is treated like their own number
+        if ($only && !$enrollments->contains('id', $only->id)) {
+            $only = null;
+        }
         if ($only) {
             $enrollments = $enrollments->sortBy(fn ($e) => $e->id === $only->id ? 0 : 1)->values();
         }
@@ -76,6 +80,13 @@ class SchoolFeeAllocator
             }
         }
 
+        // Receipt numbers are unique; a payment re-applied after a reversal gets new ones
+        $receiptBase = 'KCB-' . $ipn->transaction_id;
+        $earlier = FeePayment::where('receipt_number', 'like', $receiptBase . '%')->count();
+        if ($earlier > 0) {
+            $receiptBase .= '-R' . $earlier;
+        }
+
         $payments = collect();
         foreach ($parts as $i => [$enrollment, $part]) {
             $payments->push(FeePayment::create([
@@ -83,7 +94,7 @@ class SchoolFeeAllocator
                 'enrollment_id'         => $enrollment->id,
                 'amount'                => $part,
                 'payment_date'          => ($ipn->transaction_date ?? now())->toDateString(),
-                'receipt_number'        => 'KCB-' . $ipn->transaction_id . ($i > 0 ? '-' . ($i + 1) : ''),
+                'receipt_number'        => $receiptBase . ($i > 0 ? '-' . ($i + 1) : ''),
                 'payment_method'        => 'kcb',
                 'transaction_code'      => $ipn->transaction_id,
                 'kcb_transaction_id'    => $ipn->transaction_id,

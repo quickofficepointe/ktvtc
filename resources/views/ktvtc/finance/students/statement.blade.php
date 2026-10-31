@@ -131,7 +131,8 @@
 </head>
 <body>
 @php
-    $totalPaid = collect($payments ?? [])->where('status', 'completed')->sum('amount');
+    // From the course totals, so refunds and course-change transfers are counted too
+    $totalPaid = \App\Models\Enrollment::where('student_id', $student->id)->sum('amount_paid');
     $totalFees = $totalFees ?? \App\Models\Enrollment::where('student_id', $student->id)->sum('total_fees');
     $balance = $totalFees - $totalPaid;
 @endphp
@@ -240,6 +241,8 @@
             </tr>
         </tfoot>
     </table>
+
+    @include('ktvtc.partials.fee-adjustments', ['studentId' => $student->id])
 
     <div class="footer">
         <p>This is a computer generated statement. For any queries, please contact the Finance Office.</p>

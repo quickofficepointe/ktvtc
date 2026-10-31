@@ -398,6 +398,8 @@
         </table>
         @endif
 
+        @include('ktvtc.partials.fee-adjustments', ['studentId' => $student->id])
+
         <!-- Payment Instructions for Outstanding Balance -->
         @if($totalBalance > 0)
         <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0;">

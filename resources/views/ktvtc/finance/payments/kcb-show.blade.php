@@ -44,6 +44,17 @@
             @endif
         </div>
 
+        @if($ipn->status === \App\Models\KcbIpn::STATUS_CREDITED)
+            <form method="POST" action="{{ route('finance.kcb-payments.undo', $ipn) }}" class="rounded-lg border border-red-200 p-3 text-sm space-y-2"
+                  onsubmit="return confirm('Take KES {{ number_format($ipn->transaction_amount, 2) }} back and put this payment in the queue again?')">
+                @csrf
+                <p class="font-semibold text-red-700">Applied to the wrong {{ $isFees ? 'student' : 'card' }}?</p>
+                <input type="text" name="reason" required minlength="5" maxlength="255" placeholder="Why (e.g. parent typed the wrong number)"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                <button class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-sm">Undo and apply again</button>
+            </form>
+        @endif
+
         @if($ipn->is_historical)
             <div class="rounded-lg p-3 text-sm bg-purple-50 text-purple-900">
                 Recovered from logs after the IPN outage. Before assigning, check that this payment was not already typed in by hand.

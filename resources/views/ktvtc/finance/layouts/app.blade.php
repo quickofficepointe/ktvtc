@@ -407,6 +407,17 @@
                 </a>
             </li>
             <li>
+                <a href="{{ route('course-changes.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('course-changes.*') ? 'active' : '' }}">
+                    <i class="fas fa-exchange-alt w-5 mr-3 text-center"></i>
+                    <span>Course Changes</span>
+                    @php $courseChangesWaiting = \App\Models\CourseChangeRequest::where('status', 'finance')->count(); @endphp
+                    @if($courseChangesWaiting > 0)
+                        <span class="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{{ $courseChangesWaiting }}</span>
+                    @endif
+                </a>
+            </li>
+            <li>
                 <a href="{{ route('finance.kcb-payments.index') }}"
                    class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.kcb-payments.*') ? 'active' : '' }}">
                     <i class="fas fa-inbox w-5 mr-3 text-center"></i>

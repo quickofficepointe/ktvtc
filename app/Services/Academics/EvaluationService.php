@@ -43,7 +43,7 @@ class EvaluationService
     /** @return string[] e.g. ["Evaluate your trainer for Baking Basics (Jane W.)."] */
     public function pendingFor(TermRegistration $reg): array
     {
-        if ($reg->starts_on && $reg->starts_on->isFuture()) {
+        if ($reg->isExempt() || ($reg->starts_on && $reg->starts_on->isFuture())) {
             return [];
         }
 
@@ -158,7 +158,7 @@ class EvaluationService
      */
     public function completion(): Collection
     {
-        return TermRegistration::with('course')->active()->where('starts_on', '<=', today())->where('ends_on', '>=', today()->subDays(30))
+        return TermRegistration::with('course')->taught()->where('starts_on', '<=', today())->where('ends_on', '>=', today()->subDays(30))
             ->get()
             ->groupBy(fn ($r) => $r->course_id . ':' . $r->term_number)
             ->map(function ($regs) {

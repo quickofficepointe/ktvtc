@@ -5,6 +5,7 @@ namespace App\Services\Terms;
 use App\Models\CourseTermFee;
 use App\Models\Enrollment;
 use App\Models\TermRegistration;
+use App\Services\Payments\FeeAdjustmentService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -118,6 +119,40 @@ class TermRegistrationService
     }
 
     /**
+     * A student joining a course part-way (course change): earlier terms are recorded as
+     * exempt (no fee, no marks, no evaluations) and $startTerm is registered and billed.
+     * The enrollment's start date must already place $startTerm at today.
+     */
+    public function startAt(Enrollment $enrollment, int $startTerm, int $userId, string $note): TermRegistration
+    {
+        $course = $enrollment->course;
+        if (!$course || !$course->hasTermSetup()) {
+            throw new \DomainException(($course->name ?? 'The new course') . ' has not been split into terms yet. Finance sets this up under Term Fees.');
+        }
+        if ($startTerm < 1 || $startTerm > $course->term_count) {
+            throw new \DomainException("{$course->name} has {$course->term_count} terms; Term {$startTerm} does not exist.");
+        }
+
+        return DB::transaction(function () use ($enrollment, $course, $startTerm, $userId, $note) {
+            $intake = $this->calendar->intakeDate($enrollment);
+            for ($n = 1; $n < $startTerm; $n++) {
+                [$start, $end] = $this->calendar->termDates($course, $intake, $n);
+                TermRegistration::updateOrCreate(
+                    ['enrollment_id' => $enrollment->id, 'term_number' => $n],
+                    [
+                        'student_id' => $enrollment->student_id, 'course_id' => $course->id,
+                        'starts_on' => $start, 'ends_on' => $end, 'fee_amount' => 0, 'bills_enrollment' => false,
+                        'registration_type' => TermRegistration::TYPE_EXEMPT, 'status' => 'registered',
+                        'registered_by' => $userId, 'override_reason' => $note,
+                    ]
+                );
+            }
+
+            return $this->create($enrollment, $startTerm, TermRegistration::TYPE_STAFF, $userId, $note);
+        });
+    }
+
+    /**
      * Existing (course-billed) students: register every term up to today
      * automatically, so they start the new system in the right term.
      */
@@ -176,7 +211,9 @@ class TermRegistrationService
         $course = $enrollment->course;
 
         if ($this->isCourseBilled($enrollment)) {
-            return [round((float) $enrollment->total_fees / $course->term_count, 2), null, null];
+            // A discount or charge on one term changed the total; it must not spread to the other terms
+            $base = (float) $enrollment->total_fees - app(FeeAdjustmentService::class)->termChanges($enrollment);
+            return [round($base / $course->term_count, 2), null, null];
         }
 
         $intake = $this->calendar->intakeDate($enrollment);
@@ -203,6 +240,9 @@ class TermRegistrationService
         }
 
         [$amount, $feeVersion, $items] = $this->feeFor($enrollment, $n);
+        // Re-registering a cancelled term keeps the discounts/charges already made on it
+        $existingId = TermRegistration::where('enrollment_id', $enrollment->id)->where('term_number', $n)->value('id');
+        $amount = round($amount + app(FeeAdjustmentService::class)->changesForRegistration($existingId), 2);
         [$start, $end] = $this->calendar->termDates($course, $this->calendar->intakeDate($enrollment), $n);
         $bills = $enrollment->billing_mode === 'term';
 

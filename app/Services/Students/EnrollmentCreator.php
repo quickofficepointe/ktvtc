@@ -32,11 +32,12 @@ class EnrollmentCreator
 
     /**
      * @param array $attributes enrollment fields from the form (total_fees, intake_year, intake_month, dates, mode...)
+     * @param bool $replacesNumber course change: the new number also becomes the student's number and login
      * @throws \DomainException when the student already has an open enrollment on this course
      */
-    public function create(Student $student, Course $course, array $attributes, ?int $userId = null): Enrollment
+    public function create(Student $student, Course $course, array $attributes, ?int $userId = null, bool $replacesNumber = false): Enrollment
     {
-        return DB::transaction(function () use ($student, $course, $attributes, $userId) {
+        return DB::transaction(function () use ($student, $course, $attributes, $userId, $replacesNumber) {
             $student = Student::whereKey($student->id)->lockForUpdate()->firstOrFail();
 
             if ($existing = $this->openEnrollment($student, $course)) {
@@ -48,6 +49,7 @@ class EnrollmentCreator
 
             $year = (int) ($attributes['intake_year'] ?? now()->year);
             [$number, $becomesStudentNumber] = $this->numbers->forNewEnrollment($student, $course, $year);
+            $becomesStudentNumber = $becomesStudentNumber || $replacesNumber;
 
             if ($becomesStudentNumber) {
                 $old = $student->student_number;

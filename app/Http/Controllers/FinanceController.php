@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Enrollment;
 use App\Models\FeePayment;
+use App\Models\KcbIpn;
 use App\Models\PaymentTransaction;
+use App\Services\Payments\KcbIpnRouter;
 use App\Models\Student;
 use App\Models\Sale;
 use App\Models\PurchaseOrder;
@@ -400,9 +402,10 @@ class FinanceController extends Controller
             'student_id' => 'required|exists:students,id',
             'enrollment_id' => 'required|exists:enrollments,id',
             'amount' => 'required|numeric|min:1',
-            'payment_method' => 'required|in:cash,mpesa,bank,kcb,other',
-            'payment_date' => 'required|date',
-            'transaction_code' => 'nullable|string|max:100',
+            // KCB payments are credited from the IPN (Finance › KCB Payments), never typed in
+            'payment_method' => 'required|in:cash,mpesa,bank,other',
+            'payment_date' => 'required|date|before_or_equal:today',
+            'transaction_code' => 'nullable|required_if:payment_method,mpesa,bank|string|max:100',
             'payment_for_month' => 'nullable|string|max:20',
             'payer_name' => 'nullable|string|max:255',
             'payer_phone' => 'nullable|string|max:20',
@@ -416,10 +419,14 @@ class FinanceController extends Controller
                 ->withInput();
         }
 
+        if ($problem = $this->manualPaymentProblem($request)) {
+            return redirect()->back()->with('error', $problem)->withInput();
+        }
+
         DB::beginTransaction();
 
         try {
-            $enrollment = Enrollment::find($request->enrollment_id);
+            $enrollment = Enrollment::whereKey($request->enrollment_id)->lockForUpdate()->first();
 
             // Calculate current balance
             $currentBalance = $enrollment->balance;
@@ -482,6 +489,30 @@ class FinanceController extends Controller
     }
 
     /**
+     * Why a hand-typed payment must not be saved: the course belongs to someone else, or the
+     * same M-Pesa/bank code is already on the books or arrived from KCB (that would credit twice).
+     */
+    private function manualPaymentProblem(Request $request): ?string
+    {
+        if (!Enrollment::whereKey($request->enrollment_id)->where('student_id', $request->student_id)->exists()) {
+            return 'That course does not belong to the selected student.';
+        }
+
+        $code = trim((string) $request->transaction_code);
+        if ($code === '') {
+            return null;
+        }
+        if ($existing = FeePayment::where('transaction_code', $code)->where('status', '!=', 'reversed')->first()) {
+            return "Code {$code} is already recorded (receipt {$existing->receipt_number}).";
+        }
+        if (KcbIpn::where('transaction_id', $code)->exists()) {
+            return "Code {$code} was received from KCB. Apply it from Finance › KCB Payments instead of typing it in.";
+        }
+
+        return null;
+    }
+
+    /**
      * Show a single student fee payment
      */
     public function showStudentFee(FeePayment $payment)
@@ -534,16 +565,28 @@ class FinanceController extends Controller
             return redirect()->back()->with('error', 'Payment is already reversed.');
         }
 
+        // A KCB payment (possibly split across courses) is undone as a whole and goes back
+        // to the KCB queue, so it can be applied to the right student
+        $ipn = $payment->import_source === 'kcb_ipn' && $payment->transaction_code
+            ? KcbIpn::where('transaction_id', $payment->transaction_code)->first()
+            : null;
+        if ($ipn) {
+            try {
+                app(KcbIpnRouter::class)->undoCredit($ipn, $request->reason, Auth::id());
+            } catch (\DomainException $e) {
+                return redirect()->back()->with('error', $e->getMessage());
+            }
+            return redirect()->route('finance.kcb-payments.show', $ipn)
+                ->with('success', "Payment {$ipn->transaction_id} reversed and back in the KCB queue. Apply it to the right student below.");
+        }
+
         DB::beginTransaction();
 
         try {
-            // Reverse from enrollment
-            $enrollment = $payment->enrollment;
+            $enrollment = Enrollment::whereKey($payment->enrollment_id)->lockForUpdate()->first();
             $enrollment->amount_paid = $enrollment->amount_paid - $payment->amount;
-            $enrollment->balance = $enrollment->total_fees - $enrollment->amount_paid;
-            $enrollment->save();
+            $enrollment->save(); // balance is recalculated in Enrollment::saving
 
-            // Update payment
             $payment->update([
                 'status' => 'reversed',
                 'reversal_reason' => $request->reason,

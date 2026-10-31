@@ -62,6 +62,7 @@
                     'Teaching',
                     ['academics.trainers.index', 'fa-chalkboard-teacher', 'Trainers', 'academics.trainers.*'],
                     ['academics.index', 'fa-book-open', 'Courses & units', 'academics.index|academics.course'],
+                    ['course-changes.index', 'fa-exchange-alt', 'Course changes', 'course-changes.*'],
                     'Marks',
                     ['academics.results', 'fa-calculator', 'Marks & grades', 'academics.results'],
                     ['academics.review', 'fa-check-double', 'Results to publish', 'academics.review*'],

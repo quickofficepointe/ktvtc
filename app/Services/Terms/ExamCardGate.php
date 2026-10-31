@@ -18,6 +18,10 @@ class ExamCardGate
      */
     public function check(TermRegistration $registration): array
     {
+        if ($registration->isExempt()) {
+            return ['allowed' => false, 'reasons' => ['Exempt: carried over from the previous course, no exam this term.'], 'balance' => 0.0];
+        }
+
         $reasons = [];
 
         $row = $this->ledger->forEnrollment($registration->enrollment)->get($registration->term_number);

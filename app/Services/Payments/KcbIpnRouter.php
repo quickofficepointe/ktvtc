@@ -12,6 +12,8 @@ use App\Models\KcbIpn;
 use App\Models\KcbTransaction;
 use App\Models\PreOrder;
 use App\Models\Student;
+use App\Services\Cards\CardWallet;
+use App\Services\Cards\InsufficientWalletBalance;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -32,6 +34,7 @@ class KcbIpnRouter
     public function __construct(
         private SchoolFeeAllocator $feeAllocator,
         private CardFundingCreditor $cardCreditor,
+        private CardWallet $cardWallet,
     ) {}
 
     /**
@@ -226,6 +229,51 @@ class KcbIpnRouter
             $ipn->route = KcbIpn::ROUTE_CARD_FUNDING;
             $this->resolve($ipn, $userId);
             $ipn->markOutcome(KcbIpn::STATUS_CREDITED, "Assigned to card {$card->card_number} by finance", CardTransaction::class, $tx->id);
+            return $ipn;
+        });
+    }
+
+    /**
+     * Take back what a credited payment applied (wrong student or wrong card) and put the
+     * payment back in the queue, so finance can apply it to the right one.
+     *
+     * @throws \DomainException when it was not credited, or the card money has already been spent
+     */
+    public function undoCredit(KcbIpn $ipn, string $reason, int $userId): KcbIpn
+    {
+        return DB::transaction(function () use ($ipn, $reason, $userId) {
+            $ipn = KcbIpn::whereKey($ipn->id)->lockForUpdate()->firstOrFail();
+            if ($ipn->status !== KcbIpn::STATUS_CREDITED) {
+                throw new \DomainException('Only a payment that was credited can be undone.');
+            }
+
+            $payments = FeePayment::where('transaction_code', $ipn->transaction_id)->where('import_source', 'kcb_ipn')
+                ->where('status', '!=', 'reversed')->lockForUpdate()->get();
+            foreach ($payments as $payment) {
+                $enrollment = Enrollment::whereKey($payment->enrollment_id)->lockForUpdate()->first();
+                $enrollment->amount_paid = $enrollment->amount_paid - $payment->amount;
+                $enrollment->save(); // balance is recalculated in Enrollment::saving
+                $payment->update(['status' => 'reversed', 'reversal_reason' => $reason, 'reversed_at' => now(), 'reversed_by' => $userId]);
+            }
+
+            if ($ipn->matched_record_type === CardTransaction::class && $tx = CardTransaction::find($ipn->matched_record_id)) {
+                $card = CardAccount::findOrFail($tx->card_account_id);
+                try {
+                    $this->cardWallet->debit($card, $tx->wallet ?? CardWallet::CANTEEN, (float) $tx->amount, 'reversal', [
+                        'reference'   => CardTransaction::generateReference('UNDO'),
+                        'description' => "Top-up {$ipn->transaction_id} taken back: {$reason}",
+                        'metadata'    => ['kcb_ipn_id' => $ipn->id, 'undoes_transaction_id' => $tx->id],
+                    ], $userId);
+                } catch (InsufficientWalletBalance) {
+                    throw new \DomainException("Card {$card->card_number} no longer has KES " . number_format($tx->amount, 2)
+                        . " in its {$tx->wallet} wallet (it has been spent). Correct it with a balance adjustment instead.");
+                }
+            }
+
+            $ipn->resolved_by = $userId;
+            $ipn->resolved_at = now();
+            $ipn->suggestions = $this->suggestionsFor($ipn);
+            $ipn->markOutcome(KcbIpn::STATUS_UNALLOCATED, 'Reversed by finance: ' . Str::limit($reason, 200));
             return $ipn;
         });
     }

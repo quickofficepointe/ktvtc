@@ -781,6 +781,10 @@ Route::middleware(['auth', 'verified', 'role.student'])
         Route::get('/status/{transactionId}', [App\Http\Controllers\StudentFeesController::class, 'checkStatus'])->name('status');
         Route::get('/statement/download', [App\Http\Controllers\StudentFeesController::class, 'downloadStatement'])->name('statement.download');
     });
+
+    Route::get('/course-change', [App\Http\Controllers\CourseChangeController::class, 'studentIndex'])->name('course-change.index');
+    Route::post('/course-change', [App\Http\Controllers\CourseChangeController::class, 'store'])->name('course-change.store');
+    Route::post('/course-change/{courseChange}/cancel', [App\Http\Controllers\CourseChangeController::class, 'cancel'])->name('course-change.cancel');
 Route::prefix('attachment')->name('attachment.')->group(function () {
     // Existing:
     Route::get('/',                     [StudentAttachmentController::class, 'index'])->name('index');
@@ -1237,6 +1241,7 @@ Route::middleware(['auth', 'verified', 'role.finance'])
         Route::post('/{ipn}/assign-student', [KcbPaymentQueueController::class, 'assignStudent'])->name('assign-student');
         Route::post('/{ipn}/assign-card', [KcbPaymentQueueController::class, 'assignCard'])->name('assign-card');
         Route::post('/{ipn}/ignore', [KcbPaymentQueueController::class, 'ignore'])->name('ignore');
+        Route::post('/{ipn}/undo', [KcbPaymentQueueController::class, 'undo'])->name('undo');
     });
 
     // ==================== TRANSPORT FARE (cash given against the transport wallet) ====================
@@ -1259,10 +1264,23 @@ Route::middleware(['auth', 'verified', 'role.finance'])
 // ============================================================================
 // STUDENT TERMS on an enrollment: admin (2) and finance (7)
 // ============================================================================
+// Course change requests: academics -> finance -> admissions approve in turn
+Route::middleware(['auth', 'verified', 'role.any:11,7,2'])->prefix('course-changes')->name('course-changes.')->group(function () {
+    Route::get('/', [App\Http\Controllers\CourseChangeController::class, 'index'])->name('index');
+    Route::get('/{courseChange}', [App\Http\Controllers\CourseChangeController::class, 'show'])->name('show');
+    Route::post('/{courseChange}/approve', [App\Http\Controllers\CourseChangeController::class, 'approve'])->name('approve');
+    Route::post('/{courseChange}/reject', [App\Http\Controllers\CourseChangeController::class, 'reject'])->name('reject');
+});
+
 Route::middleware(['auth', 'verified', 'role.any:2,7'])->prefix('enrollment-terms')->name('enrollment-terms.')->group(function () {
     Route::get('/{enrollment}', [EnrollmentTermController::class, 'show'])->name('show');
     Route::post('/{enrollment}/register', [EnrollmentTermController::class, 'register'])->name('register');
     Route::post('/{enrollment}/cancel', [EnrollmentTermController::class, 'cancel'])->name('cancel');
+    // Money changes that are not payments: finance only
+    Route::middleware('role.any:7')->group(function () {
+        Route::post('/{enrollment}/adjust', [EnrollmentTermController::class, 'adjust'])->name('adjust');
+        Route::post('/{enrollment}/refund', [EnrollmentTermController::class, 'refund'])->name('refund');
+    });
 });
 
 // ============================================================================

@@ -171,6 +171,13 @@
                     </a>
                 </li>
                 <li>
+                    <a href="{{ route('student.course-change.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-lg nav-link {{ request()->routeIs('student.course-change.*') ? 'active' : '' }}">
+                        <i class="fas fa-exchange-alt w-5 mr-3"></i>
+                        <span>Change Course</span>
+                    </a>
+                </li>
+                <li>
                     <a href="{{ route('student.results.index') }}"
                        class="flex items-center px-3 py-3 text-sm rounded-lg nav-link {{ request()->routeIs('student.results.*') ? 'active' : '' }}">
                         <i class="fas fa-award w-5 mr-3"></i>

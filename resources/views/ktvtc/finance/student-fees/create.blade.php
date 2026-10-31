@@ -126,9 +126,9 @@
                         <option value="cash" {{ old('payment_method') == 'cash' ? 'selected' : '' }}>Cash</option>
                         <option value="mpesa" {{ old('payment_method') == 'mpesa' ? 'selected' : '' }}>M-Pesa</option>
                         <option value="bank" {{ old('payment_method') == 'bank' ? 'selected' : '' }}>Bank Transfer</option>
-                        <option value="kcb" {{ old('payment_method') == 'kcb' ? 'selected' : '' }}>KCB</option>
                         <option value="other" {{ old('payment_method') == 'other' ? 'selected' : '' }}>Other</option>
                     </select>
+                    <p class="text-xs text-gray-500 mt-1">Payments to the KCB paybill are credited automatically. If one is missing, apply it from KCB Payments.</p>
 
                     @error('payment_method')
                         <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
