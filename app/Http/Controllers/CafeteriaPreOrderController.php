@@ -197,24 +197,11 @@ class CafeteriaPreOrderController extends Controller
                 $account = $order->account;
                 $card = $account?->cardAccount();
                 if ($card) {
-                    $refund = (float) $order->total_amount;
-                    $before = (float) $card->balance;
-                    $card->balance = $before + $refund;
-                    $card->total_spent = max(0, (float) $card->total_spent - $refund);
-                    $card->save();
-
-                    \App\Models\CardTransaction::create([
-                        'card_account_id' => $card->id,
-                        'high_school_student_id' => $account->user_id,
-                        'transaction_type' => 'refund',
-                        'amount' => $refund,
-                        'balance_before' => $before,
-                        'balance_after' => (float) $card->balance,
+                    app(\App\Services\Cards\CardWallet::class)->credit($card, \App\Services\Cards\CardWallet::CANTEEN, (float) $order->total_amount, 'refund', [
                         'reference' => \App\Models\CardTransaction::generateReference('RFND'),
                         'description' => 'Refund for rejected pre-order ' . $order->order_number,
-                        'status' => 'completed',
-                        'processed_at' => now(),
-                    ]);
+                        'metadata' => ['pre_order_id' => $order->id],
+                    ], Auth::id());
                 }
             }
 
@@ -277,6 +264,6 @@ class CafeteriaPreOrderController extends Controller
             return response()->json($data);
         }
 
-        return view('cafeteria.pre-orders.stats', compact('data'));
+        return view('ktvtc.cafeteria.pre-orders.stats', compact('data'));
     }
 }

@@ -64,8 +64,9 @@ class SmsService
             
             // Get student card balance
             $card = $student->cardAccount;
-            $transportBalance = $card ? $card->balance : 0;
-            $canteenBalance = $card ? ($card->canteen_balance ?? 0) : 0;
+            $wallet = app(\App\Services\Cards\CardWallet::class);
+            $transportBalance = $card ? $wallet->balanceOf($card, 'transport') : 0;
+            $canteenBalance = $card ? $wallet->balanceOf($card, 'canteen') : 0;
             
             // Build the SMS message
             $message = $this->generateParentFundingMessage($student, $link, $transportBalance, $canteenBalance);

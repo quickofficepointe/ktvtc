@@ -365,40 +365,33 @@
 
                     <div class="grid grid-cols-1 gap-6">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Member *</label>
-                            <select name="member_id" required
-                                    class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-colors">
-                                <option value="">Select Member</option>
-                                @foreach($members as $member)
-                                    <option value="{{ $member->id }}" {{ old('member_id') == $member->id ? 'selected' : '' }}>
-                                        {{ $member->first_name }} {{ $member->last_name }} ({{ $member->member_id }})
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Book Item *</label>
-                            <select name="item_id" required
-                                    class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-colors">
-                                <option value="">Select Available Book</option>
-                                @foreach($availableItems as $item)
-                                    <option value="{{ $item->id }}" {{ old('item_id') == $item->id ? 'selected' : '' }}>
-                                        {{ $item->book->title }} ({{ $item->barcode }}) - {{ $item->branch->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Borrow Date *</label>
-                            <input type="date" name="borrow_date" value="{{ old('borrow_date', date('Y-m-d')) }}" required
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Student or member number *</label>
+                            <input type="text" name="member_number" value="{{ old('member_number') }}" list="memberNumbers" autocomplete="off" required
+                                   placeholder="e.g. PA/1018/2026"
                                    class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-colors">
+                            <datalist id="memberNumbers">
+                                @foreach($members as $member)
+                                    <option value="{{ $member->member_id }}">{{ $member->first_name }} {{ $member->last_name }}</option>
+                                @endforeach
+                            </datalist>
+                            <p class="text-xs text-gray-500 mt-1">Any student with an active enrollment can borrow; their membership is created automatically.</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Copy barcode *</label>
+                            <input type="text" name="barcode" value="{{ old('barcode') }}" list="availableBarcodes" autocomplete="off" required
+                                   placeholder="Scan or type the barcode"
+                                   class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-colors">
+                            <datalist id="availableBarcodes">
+                                @foreach($availableItems as $item)
+                                    <option value="{{ $item->barcode }}">{{ $item->book->title ?? '' }} - {{ $item->branch->name ?? '' }}</option>
+                                @endforeach
+                            </datalist>
                         </div>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Due Date *</label>
-                            <input type="date" name="due_date" value="{{ old('due_date', date('Y-m-d', strtotime('+14 days'))) }}" required
+                            <input type="date" name="due_date" value="{{ old('due_date', date('Y-m-d', strtotime('+14 days'))) }}" min="{{ date('Y-m-d', strtotime('+1 day')) }}" required
                                    class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-colors">
                         </div>
 
@@ -480,6 +473,14 @@
     function viewTransaction(transactionId) {
         window.location.href = `/library/transactions/${transactionId}`;
     }
+
+    // Coming from "Borrow" on a copy: open the lending form with its barcode filled in
+    @if(request('lend'))
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelector('input[name="barcode"]').value = @json(request('lend'));
+            openCreateModal();
+        });
+    @endif
 
     // Close modals on Escape key
     document.addEventListener('keydown', function(event) {

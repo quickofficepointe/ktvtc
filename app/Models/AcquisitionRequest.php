@@ -36,6 +36,12 @@ class AcquisitionRequest extends Model
         return $this->belongsTo(Member::class, 'requested_by');
     }
 
+    /** The member who asked for the book; empty when library staff raised it. */
+    public function requester(): BelongsTo
+    {
+        return $this->belongsTo(Member::class, 'requested_by');
+    }
+
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);

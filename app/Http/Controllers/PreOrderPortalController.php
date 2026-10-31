@@ -13,6 +13,7 @@ use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\Shop;
 use App\Models\ProductCategory;
+use App\Services\Cards\CardWallet;
 use App\Services\KcbSalesService;
 use App\Services\PreOrderSmsService;
 use Illuminate\Http\Request;
@@ -43,7 +44,7 @@ class PreOrderPortalController extends Controller
         $cardBalance = null;
         if ($account->isHighSchoolStudent()) {
             $card = $account->cardAccount();
-            $cardBalance = $card ? (float) $card->balance : 0;
+            $cardBalance = $card ? app(CardWallet::class)->balanceOf($card, CardWallet::CANTEEN) : 0;
         }
 
         $shops = Shop::where('is_active', true)
@@ -321,13 +322,14 @@ class PreOrderPortalController extends Controller
             return response()->json(['error' => 'Your card is not usable right now. Contact the cafeteria.'], 400);
         }
 
-        if ((float) $card->balance < $total) {
+        $canteenBalance = app(CardWallet::class)->balanceOf($card, CardWallet::CANTEEN);
+        if ($canteenBalance < $total) {
             return response()->json([
-                'error' => 'Insufficient balance. Your card has KES '
-                    . number_format($card->balance, 2)
-                    . ' but this order needs KES ' . number_format($total, 2),
+                'error' => 'Insufficient canteen balance. Your card has KES '
+                    . number_format($canteenBalance, 2)
+                    . ' for the canteen but this order needs KES ' . number_format($total, 2),
                 'insufficient' => true,
-                'card_balance' => (float) $card->balance,
+                'card_balance' => $canteenBalance,
                 'required' => $total,
             ], 400);
         }
@@ -361,30 +363,17 @@ class PreOrderPortalController extends Controller
                 ]);
             }
 
-            // Deduct from card
-            $balanceBefore = (float) $card->balance;
-            $card->balance = $balanceBefore - $total;
-            $card->total_spent = (float) $card->total_spent + $total;
-            $card->last_used_at = now();
-            $card->save();
-
-            // Card ledger entry
-            $cardTxn = CardTransaction::create([
-                'card_account_id' => $card->id,
-                'high_school_student_id' => $account->user_id,
-                'transaction_type' => 'purchase',
-                'amount' => $total,
-                'balance_before' => $balanceBefore,
-                'balance_after' => (float) $card->balance,
+            // Deduct from the canteen wallet (locked; throws if the balance changed meanwhile)
+            $cardTxn = app(CardWallet::class)->debit($card, CardWallet::CANTEEN, $total, 'purchase', [
                 'reference' => CardTransaction::generateReference('PRE'),
                 'description' => 'Pre-order ' . $order->order_number,
-                'status' => 'completed',
-                'processed_at' => now(),
-                'metadata' => json_encode([
+                'location' => 'pre_order_portal',
+                'metadata' => [
                     'pre_order_id' => $order->id,
                     'order_number' => $order->order_number,
                     'channel' => 'pre_order_portal',
-                ]),
+                    'items' => $items,
+                ],
             ]);
 
             $order->update(['card_transaction_id' => $cardTxn->id]);
@@ -400,7 +389,7 @@ class PreOrderPortalController extends Controller
                 'order_number' => $order->order_number,
                 'amount' => $total,
                 'card_id' => $card->id,
-                'new_balance' => (float) $card->balance,
+                'new_balance' => (float) $card->canteen_balance,
             ]);
 
             return response()->json([
@@ -409,9 +398,9 @@ class PreOrderPortalController extends Controller
                 'order_number' => $order->order_number,
                 'order_id' => $order->id,
                 'total_amount' => $total,
-                'new_balance' => (float) $card->balance,
+                'new_balance' => (float) $card->canteen_balance,
                 'message' => 'Order placed! KES ' . number_format($total, 2)
-                    . ' deducted from your card. New balance: KES ' . number_format($card->balance, 2),
+                    . ' deducted from your card. Canteen balance: KES ' . number_format($card->canteen_balance, 2),
                 'redirect' => route('pre-order.orders.show', $order->id),
             ]);
 
@@ -732,23 +721,10 @@ class PreOrderPortalController extends Controller
             if ($order->payment_method === 'card' && $order->isPaid()) {
                 $card = $account->cardAccount();
                 if ($card) {
-                    $refundAmount = (float) $order->total_amount;
-                    $balanceBefore = (float) $card->balance;
-                    $card->balance = $balanceBefore + $refundAmount;
-                    $card->total_spent = max(0, (float) $card->total_spent - $refundAmount);
-                    $card->save();
-
-                    CardTransaction::create([
-                        'card_account_id' => $card->id,
-                        'high_school_student_id' => $account->user_id,
-                        'transaction_type' => 'refund',
-                        'amount' => $refundAmount,
-                        'balance_before' => $balanceBefore,
-                        'balance_after' => (float) $card->balance,
+                    app(CardWallet::class)->credit($card, CardWallet::CANTEEN, (float) $order->total_amount, 'refund', [
                         'reference' => CardTransaction::generateReference('RFND'),
                         'description' => 'Refund for cancelled pre-order ' . $order->order_number,
-                        'status' => 'completed',
-                        'processed_at' => now(),
+                        'metadata' => ['pre_order_id' => $order->id],
                     ]);
                 }
             }
@@ -804,7 +780,7 @@ class PreOrderPortalController extends Controller
         $cardBalance = null;
         if ($account->isHighSchoolStudent()) {
             $card = $account->cardAccount();
-            $cardBalance = $card ? (float) $card->balance : 0;
+            $cardBalance = $card ? app(CardWallet::class)->balanceOf($card, CardWallet::CANTEEN) : 0;
         }
 
         return [

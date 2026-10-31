@@ -115,6 +115,7 @@
                     <option value="reserved">Reserved</option>
                     <option value="maintenance">Maintenance</option>
                     <option value="lost">Lost</option>
+                    <option value="missing">Missing (stock-take)</option>
                 </select>
             </div>
             <div>
@@ -261,10 +262,11 @@
                                         'borrowed' => 'bg-blue-100 text-blue-800',
                                         'reserved' => 'bg-purple-100 text-purple-800',
                                         'maintenance' => 'bg-yellow-100 text-yellow-800',
-                                        'lost' => 'bg-red-100 text-red-800'
+                                        'lost' => 'bg-red-100 text-red-800',
+                                        'missing' => 'bg-gray-200 text-gray-700',
                                     ];
                                 @endphp
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium {{ $statusColors[$item->status] }}">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium {{ $statusColors[$item->status] ?? 'bg-gray-100 text-gray-700' }}">
                                     <span class="w-2 h-2 rounded-full mr-2
                                         {{ $item->status === 'available' ? 'bg-green-400' :
                                            ($item->status === 'borrowed' ? 'bg-blue-400' :
@@ -275,21 +277,25 @@
                                 </span>
                                 @if($item->status === 'borrowed')
                                     <p class="text-xs text-gray-500 mt-1">
-                                        Due: {{ optional($item->currentTransaction)->due_date->format('M d') ?? 'N/A' }}
+                                        Due: {{ $item->currentTransaction?->due_date?->format('M d') ?? 'N/A' }}
                                     </p>
                                 @endif
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center space-x-2">
-                                    <button onclick="openEditModal({{ $item->id }})"
-                                        class="inline-flex items-center px-3 py-2 border border-amber-300 shadow-sm text-sm leading-4 font-medium rounded-md text-amber-700 bg-white hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors">
-                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                        </svg>
-                                        Edit
-                                    </button>
+                                    @if(!in_array($item->status, ['borrowed', 'reserved']))
+                                        <form method="POST" action="{{ route('library.items.status', $item) }}" class="flex items-center gap-1">
+                                            @csrf
+                                            <select name="status" class="border border-gray-300 rounded-md text-xs px-2 py-1.5">
+                                                @foreach(['available' => 'On shelf', 'maintenance' => 'Repair', 'missing' => 'Missing', 'lost' => 'Lost'] as $value => $label)
+                                                    <option value="{{ $value }}" @selected($item->status === $value)>{{ $label }}</option>
+                                                @endforeach
+                                            </select>
+                                            <button class="px-2 py-1.5 border border-amber-300 rounded-md text-xs text-amber-700 hover:bg-amber-50">Save</button>
+                                        </form>
+                                    @endif
                                     @if($item->status === 'available')
-                                        <button onclick="borrowItem({{ $item->id }})"
+                                        <button onclick="borrowItem('{{ $item->barcode }}')"
                                             class="inline-flex items-center px-3 py-2 border border-green-300 shadow-sm text-sm leading-4 font-medium rounded-md text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
                                             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
@@ -423,6 +429,7 @@
                                     <option value="available" {{ old('status', 'available') == 'available' ? 'selected' : '' }}>Available</option>
                                     <option value="maintenance" {{ old('status') == 'maintenance' ? 'selected' : '' }}>Maintenance</option>
                                     <option value="lost" {{ old('status') == 'lost' ? 'selected' : '' }}>Lost</option>
+                                    <option value="missing" {{ old('status') == 'missing' ? 'selected' : '' }}>Missing</option>
                                 </select>
                             </div>
                         </div>
@@ -503,7 +510,7 @@
     }
 
     function borrowItem(itemId) {
-        window.location.href = `/library/transactions/create?item_id=${itemId}`;
+        window.location.href = `{{ route('library.transactions.index') }}?lend=${encodeURIComponent(itemId)}`;
     }
 
     // Close modals on Escape key

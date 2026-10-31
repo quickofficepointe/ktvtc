@@ -14,6 +14,16 @@
                 <span>Back to List</span>
             </a>
 
+            @if($application->enrollment_id)
+                <a href="{{ route('admin.enrollments.show', $application->enrollment_id) }}" class="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
+                    <i class="fas fa-user-check"></i><span>Admitted · view enrollment</span>
+                </a>
+            @elseif($application->status === 'accepted')
+                <a href="{{ route('admin.applications.admit.form', $application->id) }}" class="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
+                    <i class="fas fa-user-plus"></i><span>Admit as student</span>
+                </a>
+            @endif
+
             <!-- Status Dropdown -->
             <div class="relative inline-block text-left">
                 <button type="button"

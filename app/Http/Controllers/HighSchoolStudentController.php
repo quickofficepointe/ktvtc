@@ -246,7 +246,7 @@ class HighSchoolStudentController extends Controller
 
             $student->delete();
 
-            return redirect()->route('finance.hs-students.index')
+            return redirect()->route('hs-students.index')
                 ->with('success', 'Student deleted successfully');
 
         } catch (\Exception $e) {
@@ -276,7 +276,7 @@ class HighSchoolStudentController extends Controller
             $import = new HighSchoolStudentsImport();
             Excel::import($import, $request->file('file'));
 
-            return redirect()->route('finance.hs-students.index')
+            return redirect()->route('hs-students.index')
                 ->with('success', $import->getRowCount() . ' students imported successfully');
 
         } catch (\Exception $e) {

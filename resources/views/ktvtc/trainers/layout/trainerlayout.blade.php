@@ -124,6 +124,18 @@
                     </a>
                 </li>
                 <li>
+                    <a href="{{ route('trainers.results.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('trainers.results.*') ? 'active' : '' }}">
+                        <i class="fas fa-pen-alt mr-3"></i> Marks &amp; Results
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('trainers.feedback') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ request()->routeIs('trainers.feedback') ? 'active' : '' }}">
+                        <i class="fas fa-star mr-3"></i> My Feedback
+                    </a>
+                </li>
+                <li>
                     <a href="{{ route('trainers.attachments.index') }}"
                        class="flex items-center px-3 py-3 text-sm rounded-md nav-link {{ $isAttach ? 'active' : '' }}">
                         <i class="fas fa-briefcase mr-3"></i> Attachments

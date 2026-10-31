@@ -273,32 +273,7 @@
                             <td class="px-6 py-4 align-top">
                                 <div class="flex flex-col gap-2">
                                     <div class="flex gap-2">
-                                        <button onclick="openEditModal(
-                                            '{{ $attendance->attendance_id }}',
-                                            '{{ $attendance->attendance_date->format('Y-m-d') }}',
-                                            '{{ $attendance->start_time }}',
-                                            '{{ $attendance->end_time }}',
-                                            '{{ $attendance->session_name }}',
-                                            '{{ $attendance->attendable_type }}',
-                                            '{{ $attendance->attendable_id }}',
-                                            '{{ $attendance->subject_id }}',
-                                            '{{ $attendance->course_id }}',
-                                            '{{ $attendance->mobile_school_id }}',
-                                            '{{ $attendance->venue }}',
-                                            '{{ $attendance->room }}',
-                                            '{{ $attendance->latitude }}',
-                                            '{{ $attendance->longitude }}',
-                                            '{{ $attendance->recording_method }}',
-                                            '{{ $attendance->qr_code_data }}',
-                                            '{{ $attendance->is_geofenced }}',
-                                            '{{ $attendance->is_active }}',
-                                            '{{ $attendance->is_locked }}',
-                                            '{{ $attendance->allow_late_marking }}',
-                                            '{{ $attendance->late_threshold_minutes }}',
-                                            '{{ $attendance->total_expected }}',
-                                            `{{ addslashes($attendance->topic_covered) }}`,
-                                            `{{ addslashes($attendance->remarks) }}`
-                                        )" class="px-3 py-1 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100">Edit</button>
+                                        <a href="{{ route('mschool.attendances.edit', $attendance->attendance_id) }}" class="px-3 py-1 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100">Edit</a>
                                         <button onclick="confirmDelete('{{ route('mschool.attendances.destroy', $attendance->attendance_id) }}')" class="px-3 py-1 text-xs rounded bg-red-50 text-red-600 hover:bg-red-100">Delete</button>
                                     </div>
                                     <div class="flex gap-2">
@@ -426,12 +401,23 @@
                             <h4 class="text-lg font-semibold text-gray-900 border-b pb-2">Course & Subject</h4>
 
                             <div>
-                                <label for="course_id" class="block text-sm font-medium text-gray-700 mb-1">Course</label>
-                                <select id="course_id" name="course_id"
+                                <label for="course_id" class="block text-sm font-medium text-gray-700 mb-1">Course *</label>
+                                <select id="course_id" name="course_id" required
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
                                     <option value="">Select Course</option>
                                     @foreach($courses as $course)
                                         <option value="{{ $course->course_id }}">{{ $course->course_name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div>
+                                <label for="mobile_school_id" class="block text-sm font-medium text-gray-700 mb-1">Mobile school</label>
+                                <select id="mobile_school_id" name="mobile_school_id"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
+                                    <option value="">All schools on this course</option>
+                                    @foreach($mobileSchools as $school)
+                                        <option value="{{ $school->id }}">{{ $school->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -555,11 +541,7 @@
     </div>
 </div>
 
-<!-- Edit Attendance Modal -->
-<div id="editModal" class="fixed inset-0 z-50 hidden overflow-y-auto">
-    <!-- Similar structure to create modal but for editing -->
-    <!-- Content would be populated via JavaScript -->
-</div>
+
 
 <script>
 function openCreateModal() {
@@ -570,11 +552,6 @@ function openCreateModal() {
 function closeCreateModal() {
     document.getElementById('createModal').classList.add('hidden');
     document.body.classList.remove('overflow-hidden');
-}
-
-function openEditModal(attendanceId, date, startTime, endTime, sessionName, attendableType, attendableId, subjectId, courseId, mobileSchoolId, venue, room, latitude, longitude, recordingMethod, qrCodeData, isGeofenced, isActive, isLocked, allowLateMarking, lateThresholdMinutes, totalExpected, topicCovered, remarks) {
-    // Populate edit form with data and show modal
-    // Implementation would be similar to create modal but with existing values
 }
 
 function confirmDelete(url) {

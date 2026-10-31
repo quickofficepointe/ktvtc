@@ -64,7 +64,7 @@ class SupplierController extends Controller
             return view('ktvtc.cafeteria.suppliers.modals.create');
         }
 
-        return redirect()->route('suppliers.index');
+        return redirect()->route('cafeteria.suppliers.index');
     }
 
     public function store(Request $request)
@@ -106,7 +106,7 @@ class SupplierController extends Controller
             ]);
         }
 
-        return redirect()->route('suppliers.index')->with('success', 'Supplier created successfully');
+        return redirect()->route('cafeteria.suppliers.index')->with('success', 'Supplier created successfully');
     }
 
     public function show($id)
@@ -128,7 +128,7 @@ class SupplierController extends Controller
             return view('ktvtc.cafeteria.suppliers.modals.edit', compact('supplier'));
         }
 
-        return redirect()->route('suppliers.index');
+        return redirect()->route('cafeteria.suppliers.index');
     }
 
     public function update(Request $request, $id)
@@ -171,7 +171,7 @@ class SupplierController extends Controller
             ]);
         }
 
-        return redirect()->route('suppliers.index')->with('success', 'Supplier updated successfully');
+        return redirect()->route('cafeteria.suppliers.index')->with('success', 'Supplier updated successfully');
     }
 
     public function destroy($id)
@@ -194,7 +194,7 @@ class SupplierController extends Controller
             return response()->json(['message' => 'Supplier deleted successfully']);
         }
 
-        return redirect()->route('suppliers.index')->with('success', 'Supplier deleted successfully');
+        return redirect()->route('cafeteria.suppliers.index')->with('success', 'Supplier deleted successfully');
     }
 
     public function restore($id)
@@ -206,6 +206,6 @@ class SupplierController extends Controller
             return response()->json(['message' => 'Supplier restored successfully']);
         }
 
-        return redirect()->route('suppliers.index')->with('success', 'Supplier restored successfully');
+        return redirect()->route('cafeteria.suppliers.index')->with('success', 'Supplier restored successfully');
     }
 }

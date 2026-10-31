@@ -26,89 +26,13 @@ use Carbon\CarbonPeriod;
 class CafeteriaController extends Controller
 {
     /**
-     * Enhanced dashboard with comprehensive analytics
+     * Cafeteria overview: today's takings, 30-day sales, best sellers and low stock.
      */
-    public function dashboard()
+    public function dashboard(\App\Services\Dashboards\RoleDashboards $dashboards)
     {
-        Log::info('=== ENHANCED CAFETERIA DASHBOARD ===');
-
-        $user = auth()->user();
-        $shopId = $user->shop_id ?? 1;
-        $today = now()->format('Y-m-d');
-        $currentMonth = now()->format('Y-m');
-
-        // Today's Overview
-        $todayStats = $this->getTodayStats($shopId, $today);
-
-        // Week Overview
-        $weekStats = $this->getWeekStats($shopId);
-
-        // Month Overview
-        $monthStats = $this->getMonthStats($shopId, $currentMonth);
-
-        // Year Overview
-        $yearStats = $this->getYearStats($shopId, now()->year);
-
-        // Product Performance
-        $topProducts = $this->getTopProducts($shopId, 10);
-        $worstProducts = $this->getWorstProducts($shopId, 10);
-
-        // Category Performance
-        $categoryPerformance = $this->getCategoryPerformance($shopId);
-
-        // Customer Analysis
-        $topCustomers = $this->getTopCustomers($shopId, 10);
-        $customerFrequency = $this->getCustomerFrequency($shopId);
-
-        // Inventory Status
-        $inventoryStats = $this->getInventoryStats($shopId);
-
-        // Sales Trends
-        $hourlyTrend = $this->getHourlySalesTrend($shopId, $today);
-        $dailyTrend = $this->getDailySalesTrend($shopId, 30);
-        $monthlyTrend = $this->getMonthlySalesTrend($shopId, 12);
-
-        // Payment Methods
-        $paymentDistribution = $this->getPaymentDistribution($shopId, 30);
-
-        // Staff Performance
-        $staffPerformance = $this->getStaffPerformance($shopId, 30);
-
-        // Recent Activity
-        $recentSales = $this->getRecentSales($shopId, 10);
-        $recentPurchases = $this->getRecentPurchases($shopId, 10);
-        $recentAlerts = $this->getRecentStockAlerts($shopId, 10);
-
-        // Performance Metrics
-        $performanceMetrics = $this->calculatePerformanceMetrics($shopId);
-
-        Log::info('Dashboard analytics loaded', [
-            'shop_id' => $shopId,
-            'today_sales' => $todayStats['total_sales']
-        ]);
-
-        return view('ktvtc.cafeteria.dashboard', compact(
-            'todayStats',
-            'weekStats',
-            'monthStats',
-            'yearStats',
-            'topProducts',
-            'worstProducts',
-            'categoryPerformance',
-            'topCustomers',
-            'customerFrequency',
-            'inventoryStats',
-            'hourlyTrend',
-            'dailyTrend',
-            'monthlyTrend',
-            'paymentDistribution',
-            'staffPerformance',
-            'recentSales',
-            'recentPurchases',
-            'recentAlerts',
-            'performanceMetrics'
-        ));
+        return view('ktvtc.cafeteria.dashboard', $dashboards->cafeteria());
     }
+
 
     /**
      * Get today's detailed statistics - ONLY COUNT PAID/COMPLETED SALES

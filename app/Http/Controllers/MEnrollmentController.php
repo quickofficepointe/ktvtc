@@ -115,7 +115,7 @@ class MEnrollmentController extends Controller
 
             DB::commit();
 
-            return redirect()->route('enrollments.index')
+            return redirect()->route('mschool.enrollments.index')
                 ->with('success', 'Enrollment created successfully!');
 
         } catch (\Exception $e) {
@@ -196,7 +196,7 @@ class MEnrollmentController extends Controller
 
             DB::commit();
 
-            return redirect()->route('enrollments.index')
+            return redirect()->route('mschool.enrollments.index')
                 ->with('success', 'Enrollment updated successfully!');
 
         } catch (\Exception $e) {
@@ -219,7 +219,7 @@ class MEnrollmentController extends Controller
 
             // Check if enrollment has certificate issued
             if ($enrollment->certificate_number) {
-                return redirect()->route('enrollments.index')
+                return redirect()->route('mschool.enrollments.index')
                     ->with('error', 'Cannot delete enrollment. A certificate has been issued. Please revoke the certificate first.');
             }
 
@@ -227,12 +227,12 @@ class MEnrollmentController extends Controller
 
             DB::commit();
 
-            return redirect()->route('enrollments.index')
+            return redirect()->route('mschool.enrollments.index')
                 ->with('success', 'Enrollment deleted successfully!');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->route('enrollments.index')
+            return redirect()->route('mschool.enrollments.index')
                 ->with('error', 'Failed to delete enrollment: ' . $e->getMessage());
         }
     }

@@ -66,7 +66,7 @@
         <div class="finance-card p-5">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="font-bold text-gray-800">Recent Funding Requests</h3>
-                <a href="{{ route('finance.funding.index') }}" class="text-sm text-primary hover:underline">View All →</a>
+                <a href="{{ route('funding.index') }}" class="text-sm text-primary hover:underline">View All →</a>
             </div>
             <div class="space-y-3 max-h-80 overflow-y-auto">
                 @forelse($recentFunding ?? [] as $funding)
@@ -95,19 +95,19 @@
         <div class="finance-card p-5">
             <h3 class="font-bold text-gray-800 mb-4">Quick Actions</h3>
             <div class="grid grid-cols-2 gap-3">
-                <a href="{{ route('finance.hs-students.create') }}" class="p-4 bg-green-50 rounded-lg hover:bg-green-100 transition text-center">
+                <a href="{{ route('hs-students.create') }}" class="p-4 bg-green-50 rounded-lg hover:bg-green-100 transition text-center">
                     <i class="fas fa-user-plus text-green-600 text-2xl mb-2 block"></i>
                     <span class="text-sm font-medium text-gray-700">Add Student</span>
                 </a>
-                <a href="{{ route('finance.hs-students.import') }}" class="p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition text-center">
+                <a href="{{ route('hs-students.import') }}" class="p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition text-center">
                     <i class="fas fa-file-import text-blue-600 text-2xl mb-2 block"></i>
                     <span class="text-sm font-medium text-gray-700">Import Students</span>
                 </a>
-                <a href="{{ route('finance.cards.index') }}" class="p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition text-center">
+                <a href="{{ route('cards.index') }}" class="p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition text-center">
                     <i class="fas fa-credit-card text-purple-600 text-2xl mb-2 block"></i>
                     <span class="text-sm font-medium text-gray-700">Manage Cards</span>
                 </a>
-                <a href="{{ route('finance.card-reports.index') }}" class="p-4 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition text-center">
+                <a href="{{ route('card-reports.index') }}" class="p-4 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition text-center">
                     <i class="fas fa-chart-bar text-yellow-600 text-2xl mb-2 block"></i>
                     <span class="text-sm font-medium text-gray-700">View Reports</span>
                 </a>

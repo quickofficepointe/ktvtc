@@ -7,7 +7,9 @@ use App\Models\HighSchoolStudent;
 use App\Models\CardAccount;
 use App\Models\CardTransaction;
 use App\Models\CardFundingRequest;
+use App\Models\WithdrawalFeeTier;
 use App\Services\CardFundingService;
+use App\Services\Cards\CardWallet;
 use App\Services\KcbSalesService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -71,7 +73,12 @@ class ParentFundingController extends Controller
             ->orderBy('created_at', 'desc')
             ->first();
 
+        // Splits an old combined balance into transport/canteen before showing it
+        app(CardWallet::class)->balanceOf($card, CardWallet::CANTEEN);
+        $feeTiers = WithdrawalFeeTier::orderBy('min_amount')->get(['min_amount', 'max_amount', 'fee']);
+
         return view('parent.funding-portal', compact(
+            'feeTiers',
             'student',
             'card',
             'recentTransactions',
@@ -137,7 +144,9 @@ class ParentFundingController extends Controller
             'success' => true,
             'message' => 'Payment request sent! Check your phone for M-Pesa prompt.',
             'checkout_request_id' => $result['checkout_request_id'],
-            'amount' => $request->amount,
+            'amount' => $result['amount'],          // what the parent is prompted for
+            'base_amount' => $result['base_amount'],
+            'withdrawal_fee' => $result['withdrawal_fee'],
             'funding_type' => 'Transport',
             'transaction_id' => $result['transaction']->id ?? null
         ]);
@@ -254,8 +263,8 @@ class ParentFundingController extends Controller
                 'student_name' => $student->full_name,
                 'admission_number' => $student->admission_number,
                 'class' => $student->class,
-                'transport_balance' => $student->cardAccount->balance,
-                'canteen_balance' => $student->cardAccount->canteen_balance ?? 0,
+                'transport_balance' => app(CardWallet::class)->balanceOf($student->cardAccount, CardWallet::TRANSPORT),
+                'canteen_balance' => app(CardWallet::class)->balanceOf($student->cardAccount, CardWallet::CANTEEN),
                 'total_funded' => $student->cardAccount->total_funded,
                 'total_spent' => $student->cardAccount->total_spent,
                 'card_status' => $student->cardAccount->is_active ? 'active' : 'inactive',

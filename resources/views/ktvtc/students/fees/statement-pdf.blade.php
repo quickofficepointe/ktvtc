@@ -251,7 +251,7 @@
             <div class="logo">
                 <h1>KENSWED COLLEGE</h1>
                 <p>Technical & Vocational Training</p>
-                <p>P.O. Box 1234-00100, Nairobi, Kenya | Tel: +254 790 148 509 | Email: info@ktvtc.ac.ke</p>
+                <p>Finance office: {{ config('kcb.finance_phone') }} | Email: info@ktvtc.ac.ke</p>
             </div>
             <div class="title">
                 FEE STATEMENT
@@ -406,12 +406,12 @@
                 To clear your outstanding balance of <strong>KES {{ number_format($totalBalance, 2) }}</strong>, please use the following payment methods:
             </p>
             <ul style="font-size: 12px; color: #856404; margin-top: 10px; margin-left: 20px;">
-                <li><strong>KCB M-Pesa Paybill:</strong> 7664166</li>
-                <li><strong>Account Number:</strong> {{ $student->student_number ?? 'Your Student Number' }}</li>
-                <li><strong>Bank Deposit:</strong> KCB Bank - Account Name: Kenswed College, Account Number: 1234567890</li>
+                <li><strong>M-Pesa Paybill:</strong> {{ config('kcb.paybill') }}</li>
+                <li><strong>Account Number:</strong> {{ config('kcb.tills.school_fees') }}#{{ $student->student_number ?? 'your student number' }}</li>
+                <li>Payments are applied to your account automatically within minutes.</li>
             </ul>
             <p style="font-size: 11px; color: #856404; margin-top: 10px;">
-                For inquiries, please contact the Finance Office at +254 790 148 509 or email finance@ktvtc.ac.ke
+                For inquiries, please contact the Finance Office at {{ config('kcb.finance_phone') }} or email finance@ktvtc.ac.ke
             </p>
         </div>
         @else

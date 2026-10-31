@@ -291,12 +291,12 @@ public function update(Request $request, MExamResult $examResult)
 
             DB::commit();
 
-            return redirect()->route('exam-results.index')
+            return redirect()->route('mschool.exam-results.index')
                 ->with('success', 'Exam result deleted successfully!');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->route('exam-results.index')
+            return redirect()->route('mschool.exam-results.index')
                 ->with('error', 'Failed to delete exam result: ' . $e->getMessage());
         }
     }
@@ -467,11 +467,11 @@ public function update(Request $request, MExamResult $examResult)
                 'updated_by' => Auth::id()
             ]);
 
-            return redirect()->route('exam-results.index')
+            return redirect()->route('mschool.exam-results.index')
                 ->with('success', 'Student marked as absent successfully!');
 
         } catch (\Exception $e) {
-            return redirect()->route('exam-results.index')
+            return redirect()->route('mschool.exam-results.index')
                 ->with('error', 'Failed to mark student as absent: ' . $e->getMessage());
         }
     }

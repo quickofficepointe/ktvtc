@@ -62,6 +62,7 @@
         /* Sidebar Styles - fully responsive */
         .sidebar {
             background: linear-gradient(180deg, #E63946 0%, #C1121F 100%);
+            color: #fff; /* links inherited the dark body text */
             position: fixed;
             top: 64px;
             bottom: 0;
@@ -140,6 +141,7 @@
         }
 
         .nav-link {
+            color: #fff;
             transition: all 0.15s ease;
             border-radius: 8px;
             position: relative;
@@ -307,11 +309,8 @@
                 </button>
                 <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 sm:w-52 bg-white rounded-xl shadow-xl z-50 border border-gray-100 overflow-hidden">
                     <div class="py-1.5">
-                        <a href="#" class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100">
+                        <a href="{{ route('profile.edit') }}" class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100">
                             <i class="fas fa-user w-4 mr-3 text-gray-400 text-center"></i> My Profile
-                        </a>
-                        <a href="{{ route('cafeteria.settings.index') }}" class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100">
-                            <i class="fas fa-cog w-4 mr-3 text-gray-400 text-center"></i> Settings
                         </a>
                         <div class="border-t border-gray-100 my-1"></div>
                         <form method="POST" action="{{ route('logout') }}">
@@ -469,16 +468,6 @@
             </li>
 
             <!-- Settings -->
-            <li class="mt-4">
-                <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider">System</p>
-            </li>
-            <li>
-                <a href="{{ route('cafeteria.settings.index') }}"
-                   class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('cafeteria.settings.*') ? 'active' : '' }}">
-                    <i class="fas fa-cog w-5 mr-3 text-center"></i>
-                    <span>Settings</span>
-                </a>
-            </li>
         </ul>
     </div>
 </aside>

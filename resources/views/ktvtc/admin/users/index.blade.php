@@ -255,19 +255,9 @@
                                 8  => 'bg-gray-100 text-gray-800',
                                 9  => 'bg-teal-100 text-teal-800',
                                 10 => 'bg-emerald-100 text-emerald-800',
+                                11 => 'bg-indigo-100 text-indigo-800',
                             ];
-                            $roleNames = [
-                                1  => 'Main School',
-                                2  => 'Admin',
-                                3  => 'Scholarship',
-                                4  => 'Library',
-                                5  => 'Student',
-                                6  => 'Cafeteria',
-                                7  => 'Finance',
-                                8  => 'Trainers',
-                                9  => 'Website',
-                                10 => 'ILO',
-                            ];
+                            $roleNames = \App\Models\User::getRoles();
                         @endphp
                         <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $roleColors[$user->role] ?? 'bg-gray-100 text-gray-800' }}">
                             {{ $roleNames[$user->role] ?? 'Unknown' }}
@@ -570,21 +560,10 @@
     let currentApprovingUserId = null;
     let currentResetUserId = null;
 
-    const roleNames = {
-        1:  'Main School',
-        2:  'Admin',
-        3:  'Scholarship',
-        4:  'Library',
-        5:  'Student',
-        6:  'Cafeteria',
-        7:  'Finance',
-        8:  'Trainers',
-        9:  'Website',
-        10: 'ILO',
-    };
+    const roleNames = @json(\App\Models\User::getRoles());
 
     const roleDescriptions = {
-        1:  'Main School dashboard — Manage courses, students, certificates, and academic operations',
+        1:  'Mobile School dashboard — Manage mobile school courses, students, attendance and certificates',
         2:  'Administrator dashboard — Full system access, user management, and settings',
         3:  'Scholarship dashboard — Manage scholarship applications and awards',
         4:  'Library dashboard — Manage books, ebooks, members, and library operations',
@@ -594,6 +573,7 @@
         8:  'Trainers dashboard — Manage training programs and participant registrations',
         9:  'Website dashboard — Manage content, pages, blogs, and website settings',
         10: 'Industrial Liaison Office — Manage host companies, attachment opportunities, applications, and student placements',
+        11: 'Academics office — Trainers, course units, marks, results publishing, evaluations and exam-body registrations',
     };
 
     // ============================================

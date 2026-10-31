@@ -151,13 +151,9 @@
                     <div class="flex flex-wrap gap-3 pt-4 border-t border-gray-200">
                         @auth
                             @if($book->available_copies > 0)
-                                <a href="{{ route('library.reserve', $book->id) }}"
-                                   class="bg-[#B91C1C] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#991B1B] transition-colors inline-flex items-center">
-                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                                    </svg>
-                                    Reserve This Book
-                                </a>
+                                <span class="bg-[#B91C1C] text-white px-6 py-3 rounded-lg font-semibold inline-flex items-center">
+                                    Available: ask at the library desk to reserve it
+                                </span>
                             @else
                                 <button disabled
                                         class="bg-gray-400 text-white px-6 py-3 rounded-lg font-semibold cursor-not-allowed inline-flex items-center">

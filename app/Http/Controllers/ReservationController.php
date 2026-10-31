@@ -6,6 +6,8 @@ use App\Models\Reservation;
 use App\Models\Member;
 use App\Models\Book;
 use App\Models\Branch;
+use App\Services\Library\LendingException;
+use App\Services\Library\LendingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -16,24 +18,24 @@ class ReservationController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Reservation::with(['member', 'book', 'branch'])
+        $query = Reservation::with(['member', 'book', 'branch', 'heldItem'])
             ->orderBy('created_at', 'desc');
 
-        if ($request->has('status')) {
+        if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        if ($request->has('member_id')) {
+        if ($request->filled('member_id')) {
             $query->where('member_id', $request->member_id);
         }
 
-        if ($request->has('branch_id')) {
+        if ($request->filled('branch_id')) {
             $query->where('branch_id', $request->branch_id);
         }
 
         $reservations = $query->paginate(20);
         $members = Member::active()->get();
-        $books = Book::available()->get();
+        $books = Book::orderBy('title')->get();
         $branches = Branch::active()->get();
 
         // Statistics
@@ -58,40 +60,24 @@ class ReservationController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Put a member on the waiting list for a book that is out.
      */
-    public function store(Request $request)
+    public function store(Request $request, LendingService $lending)
     {
         $validated = $request->validate([
             'member_id' => 'required|exists:members,id',
             'book_id' => 'required|exists:books,id',
-            'branch_id' => 'required|exists:branches,id',
-            'reservation_date' => 'required|date',
-            'expiry_date' => 'required|date|after:reservation_date',
             'notes' => 'nullable|string',
-            'status' => 'required|in:active,fulfilled,cancelled,expired'
         ]);
 
-        // Calculate queue position
-        $queuePosition = Reservation::where('book_id', $validated['book_id'])
-            ->where('branch_id', $validated['branch_id'])
-            ->where('status', 'active')
-            ->count() + 1;
+        try {
+            $reservation = $lending->reserve(Member::findOrFail($validated['member_id']), (int) $validated['book_id'], Auth::id(), $validated['notes'] ?? null);
+        } catch (LendingException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
 
-        $reservation = Reservation::create([
-            'member_id' => $validated['member_id'],
-            'book_id' => $validated['book_id'],
-            'branch_id' => $validated['branch_id'],
-            'reservation_date' => $validated['reservation_date'],
-            'expiry_date' => $validated['expiry_date'],
-            'queue_position' => $queuePosition,
-            'notes' => $validated['notes'],
-            'status' => $validated['status'],
-            'created_by' => Auth::id()
-        ]);
-
-        return redirect()->route('reservations.index')
-            ->with('success', 'Reservation created successfully.');
+        return redirect()->route('library.reservations.index')
+            ->with('success', "Added to the waiting list at position {$reservation->queue_position}.");
     }
 
     /**
@@ -109,7 +95,7 @@ class ReservationController extends Controller
 
         $reservation->update($validated);
 
-        return redirect()->route('reservations.index')
+        return redirect()->route('library.reservations.index')
             ->with('success', 'Reservation updated successfully.');
     }
 
@@ -120,46 +106,35 @@ class ReservationController extends Controller
     {
         $reservation->delete();
 
-        return redirect()->route('reservations.index')
+        return redirect()->route('library.reservations.index')
             ->with('success', 'Reservation deleted successfully.');
     }
 
     /**
-     * Fulfill a reservation
+     * The reader came for the copy held for them: lend it.
      */
-    public function fulfill(Reservation $reservation)
+    public function fulfill(Reservation $reservation, LendingService $lending)
     {
-        $reservation->update([
-            'status' => 'fulfilled',
-            'fulfilled_at' => now(),
-            'fulfilled_by' => Auth::id()
-        ]);
-
-        // Update queue positions for remaining reservations
-        $remainingReservations = Reservation::where('book_id', $reservation->book_id)
-            ->where('branch_id', $reservation->branch_id)
-            ->where('status', 'active')
-            ->orderBy('queue_position')
-            ->get();
-
-        foreach ($remainingReservations as $index => $res) {
-            $res->update(['queue_position' => $index + 1]);
+        if ($reservation->status !== 'active' || !$reservation->heldItem) {
+            return back()->with('error', 'No copy is being held for this reservation yet; it is held automatically when one is returned.');
         }
 
-        return redirect()->back()->with('success', 'Reservation fulfilled successfully.');
+        try {
+            $loan = $lending->issue($reservation->member, $reservation->heldItem, null, Auth::id(), 'Collected from the waiting list');
+        } catch (LendingException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', "Lent copy {$reservation->heldItem->barcode}, due {$loan->due_date->format('d M Y')}.");
     }
 
     /**
-     * Cancel a reservation
+     * Cancel a reservation; a held copy passes to the next reader.
      */
-    public function cancel(Reservation $reservation)
+    public function cancel(Reservation $reservation, LendingService $lending)
     {
-        $reservation->update([
-            'status' => 'cancelled',
-            'cancelled_at' => now(),
-            'cancelled_by' => Auth::id()
-        ]);
+        $lending->cancelReservation($reservation);
 
-        return redirect()->back()->with('success', 'Reservation cancelled successfully.');
+        return back()->with('success', 'Reservation cancelled.');
     }
 }

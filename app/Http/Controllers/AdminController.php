@@ -28,115 +28,17 @@ class AdminController extends Controller
     // DASHBOARD
     // ============================================================
 
-    public function dashboard()
+    /**
+     * Admissions and academics overview (campus staff see their own campus).
+     */
+    public function dashboard(\App\Services\Dashboards\RoleDashboards $dashboards)
     {
         $user = auth()->user();
+        $campusId = $user->role != 2 ? $user->campus_id : null;
 
-        $termQuery = AcademicTerm::query()
-            ->when($user->role != 2, function ($q) use ($user) {
-                return $q->where(function ($sub) use ($user) {
-                    $sub->where('campus_id', $user->campus_id)
-                        ->orWhereNull('campus_id');
-                });
-            });
-
-        $totalTerms       = (clone $termQuery)->count();
-        $activeTerms      = (clone $termQuery)->where('is_active', true)->count();
-        $currentTerms     = (clone $termQuery)->where('is_current', true)->count();
-        $registrationOpen = (clone $termQuery)->where('is_registration_open', true)->count();
-
-        $studentQuery = Student::query()
-            ->when($user->role != 2, function ($q) use ($user) {
-                return $q->where('campus_id', $user->campus_id);
-            });
-
-        $totalStudents     = (clone $studentQuery)->count();
-        $activeStudents    = (clone $studentQuery)->where('status', 'active')->count();
-        $graduatedStudents = (clone $studentQuery)->where('status', 'graduated')->count();
-        $inactiveStudents  = (clone $studentQuery)
-            ->whereIn('status', ['dropped', 'suspended', 'inactive'])
-            ->count();
-
-        $total = max($totalStudents, 1);
-        $activePercentage    = round(($activeStudents / $total) * 100);
-        $graduatedPercentage = round(($graduatedStudents / $total) * 100);
-        $inactivePercentage  = round(($inactiveStudents / $total) * 100);
-
-        $enrollmentQuery = Enrollment::query()
-            ->when($user->role != 2, function ($q) use ($user) {
-                return $q->where('campus_id', $user->campus_id);
-            });
-
-        $totalEnrollments      = (clone $enrollmentQuery)->count();
-        $activeEnrollments     = (clone $enrollmentQuery)->where('status', 'active')->count();
-        $inProgressEnrollments = (clone $enrollmentQuery)->where('status', 'in_progress')->count();
-        $completedEnrollments  = (clone $enrollmentQuery)->where('status', 'completed')->count();
-
-        $studentsWithoutEnrollments = Student::whereDoesntHave('enrollments')->count();
-        $pendingApplications        = Application::where('status', 'pending')->count();
-
-        $campuses = $user->role == 2
-            ? Campus::orderBy('name')->get()
-            : Campus::where('id', $user->campus_id)->orderBy('name')->get();
-
-        $recentEnrollments = (clone $enrollmentQuery)
-            ->with(['student', 'course', 'term'])
-            ->latest()
-            ->limit(5)
-            ->get();
-
-        $recentApplications = Application::with('course')
-            ->orderBy('created_at', 'desc')
-            ->limit(5)
-            ->get();
-
-        $chartLabels         = [];
-        $enrollmentChartData = [];
-        $studentGrowthData   = [];
-
-        for ($i = 5; $i >= 0; $i--) {
-            $month = now()->subMonths($i);
-            $chartLabels[] = $month->format('M');
-
-            $enrollmentChartData[] = Enrollment::whereYear('created_at', $month->year)
-                ->whereMonth('created_at', $month->month)
-                ->count();
-
-            $studentGrowthData[] = Student::whereYear('created_at', $month->year)
-                ->whereMonth('created_at', $month->month)
-                ->count();
-        }
-
-        return view('ktvtc.admin.dashboard', compact(
-            'totalTerms',
-            'activeTerms',
-            'currentTerms',
-            'registrationOpen',
-            'totalStudents',
-            'activeStudents',
-            'graduatedStudents',
-            'inactiveStudents',
-            'activePercentage',
-            'graduatedPercentage',
-            'inactivePercentage',
-            'totalEnrollments',
-            'activeEnrollments',
-            'inProgressEnrollments',
-            'completedEnrollments',
-            'studentsWithoutEnrollments',
-            'pendingApplications',
-            'recentApplications',
-            'campuses',
-            'recentEnrollments',
-            'chartLabels',
-            'enrollmentChartData',
-            'studentGrowthData'
-        ));
+        return view('ktvtc.admin.dashboard', $dashboards->admin($campusId));
     }
 
-    // ============================================================
-    // USERS — LIST
-    // ============================================================
 
     public function users(Request $request)
     {
@@ -223,18 +125,8 @@ class AdminController extends Controller
         $pendingUsers = User::where('is_approved', false)->count();
         $adminUsers   = User::where('role', 2)->count();
 
-        $roleNames = [
-            1  => 'Main School',
-            2  => 'Admin',
-            3  => 'Scholarship',
-            4  => 'Library',
-            5  => 'Student',
-            6  => 'Cafeteria',
-            7  => 'Finance',
-            8  => 'Trainers',
-            9  => 'Website',
-            10 => 'ILO',
-        ];
+        // Admin can create every staff role except super admin
+        $roleNames = \Illuminate\Support\Arr::except(User::getRoles(), [User::ROLE_SUPER_ADMIN]);
 
         return view('ktvtc.admin.users.index', compact(
             'users',
@@ -326,7 +218,8 @@ class AdminController extends Controller
             return response()->json($payload);
         }
 
-        return view('ktvtc.admin.users.show', compact('user'));
+        // Details and editing live in modals on the users list.
+        return redirect()->route('admin.users.index', ['search' => $user->email]);
     }
 
     public function editUser($id)
@@ -337,7 +230,8 @@ class AdminController extends Controller
             return response()->json($user);
         }
 
-        return view('ktvtc.admin.users.edit', compact('user'));
+        // Details and editing live in modals on the users list.
+        return redirect()->route('admin.users.index', ['search' => $user->email]);
     }
 
     public function updateUser(Request $request, $id)
@@ -348,7 +242,7 @@ class AdminController extends Controller
             'name'         => 'required|string|max:255',
             'email'        => 'required|email|unique:users,email,' . $id,
             'phone_number' => 'nullable|string',
-            'role'         => 'required|integer',
+            'role'         => 'required|integer|min:1|max:11',
             'bio'          => 'nullable|string',
         ]);
 
@@ -392,22 +286,28 @@ class AdminController extends Controller
             'name'         => 'required|string|max:255',
             'email'        => 'required|email|unique:users',
             'phone_number' => 'nullable|string',
-            'role'         => 'required|integer',
+            // Admins can't create Super Admins (role 0)
+            'role'         => 'required|integer|min:1|max:11',
             'bio'          => 'nullable|string',
         ]);
 
-        User::create([
+        // Every account used to get the same password ("defaultpassword"); give each its own
+        $password = \Illuminate\Support\Str::password(10, symbols: false);
+
+        $user = User::create([
             'name'         => $request->name,
             'email'        => $request->email,
             'phone_number' => $request->phone_number,
             'role'         => $request->role,
             'bio'          => $request->bio,
-            'password'     => bcrypt('defaultpassword'),
+            'password'     => bcrypt($password),
             'is_approved'  => true,
         ]);
+        // Staff-created accounts don't go through email verification
+        $user->markEmailAsVerified();
 
         return redirect()->route('admin.users.index')
-            ->with('success', 'User created successfully.');
+            ->with('success', "User created. Temporary password for {$user->email}: {$password} (shown once; ask them to change it).");
     }
 
     public function bulkUserActions(Request $request)

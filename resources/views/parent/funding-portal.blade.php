@@ -168,7 +168,7 @@
                     <div>
                         <p class="text-blue-100 text-sm">Transport Balance</p>
                         <p class="text-3xl font-bold mt-1" id="transportBalance">
-                            KES {{ number_format($card->balance ?? 0, 2) }}
+                            KES {{ number_format($card->transport_balance ?? 0, 2) }}
                         </p>
                         <p class="text-blue-200 text-xs mt-1">
                             <i class="fas fa-history mr-1"></i>
@@ -182,11 +182,11 @@
                 <div class="mt-4">
                     <div class="w-full bg-blue-900/30 rounded-full h-2">
                         <div class="bg-white rounded-full h-2 transition-all duration-1000" 
-                             style="width: {{ min(($card->balance ?? 0) / 5000 * 100, 100) }}%">
+                             style="width: {{ min(($card->transport_balance ?? 0) / 5000 * 100, 100) }}%">
                         </div>
                     </div>
                     <p class="text-blue-200 text-xs mt-1">
-                        {{ ($card->balance ?? 0) > 0 ? 'Available for transport' : '⚠️ Low balance' }}
+                        {{ ($card->transport_balance ?? 0) > 0 ? 'Available for transport' : '⚠️ Low balance' }}
                     </p>
                 </div>
             </div>
@@ -311,6 +311,7 @@
                                max="50000"
                                required>
                         <p class="text-xs text-gray-500 mt-1">Minimum: KES 10, Maximum: KES 50,000</p>
+                        <div id="transportFeeNote" class="hidden mt-2 rounded-lg bg-blue-50 text-blue-900 text-sm p-3"></div>
                     </div>
                     
                     <div>
@@ -445,7 +446,29 @@
     </footer>
 
     <script>
+        // Safaricom withdrawal charge added to transport top-ups (cash fare is withdrawn later)
+        const feeTiers = @json($feeTiers);
+        function withdrawalFee(amount) {
+            if (!amount || amount <= 0) return 0;
+            let tier = feeTiers.find(t => amount >= parseFloat(t.min_amount) && amount <= parseFloat(t.max_amount));
+            if (!tier && feeTiers.length && amount > parseFloat(feeTiers[feeTiers.length - 1].max_amount)) tier = feeTiers[feeTiers.length - 1];
+            return tier ? parseFloat(tier.fee) : 0;
+        }
+        function updateTransportFeeNote() {
+            const input = document.getElementById('transportAmount');
+            const note = document.getElementById('transportFeeNote');
+            const amount = parseFloat(input.value);
+            const fee = withdrawalFee(amount);
+            if (!amount || amount < 10) { note.classList.add('hidden'); return; }
+            note.innerHTML = `You will be prompted for <strong>KES ${(amount + fee).toLocaleString()}</strong>: `
+                + `KES ${amount.toLocaleString()} fare + KES ${fee.toLocaleString()} M-Pesa withdrawal charge. `
+                + `The charge covers withdrawing the fare in cash for your child.`;
+            note.classList.remove('hidden');
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('transportAmount').addEventListener('input', updateTransportFeeNote);
+
             // Amount quick-select buttons
             document.querySelectorAll('.amount-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
@@ -453,6 +476,7 @@
                     const parentForm = this.closest('form');
                     const amountInput = parentForm.querySelector('input[name="amount"]');
                     amountInput.value = amount;
+                    if (amountInput.id === 'transportAmount') updateTransportFeeNote();
                     
                     // Highlight selected
                     const siblings = this.parentElement.querySelectorAll('.amount-btn');

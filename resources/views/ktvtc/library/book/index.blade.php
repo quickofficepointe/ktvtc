@@ -362,15 +362,10 @@
 
                         <!-- Inventory -->
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Total Copies *</label>
-                            <input type="number" name="total_copies" value="{{ old('total_copies', 1) }}" required min="1"
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Number of copies *</label>
+                            <input type="number" name="total_copies" value="{{ old('total_copies', 1) }}" required min="1" max="200"
                                    class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-colors">
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Available Copies *</label>
-                            <input type="number" name="available_copies" value="{{ old('available_copies', 1) }}" required min="0"
-                                   class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-colors">
+                            <p class="text-xs text-gray-500 mt-1">Each copy gets its own barcode (B&lt;book&gt;-01, -02 ...). Print and stick them on the books.</p>
                         </div>
 
                         <!-- Cover Image -->

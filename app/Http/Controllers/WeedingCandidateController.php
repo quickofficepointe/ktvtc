@@ -82,7 +82,7 @@ class WeedingCandidateController extends Controller
             'created_by' => Auth::id()
         ]);
 
-        return redirect()->route('weeding-candidates.index')
+        return redirect()->route('library.weeding-candidates.index')
             ->with('success', 'Weeding candidate added successfully.');
     }
 
@@ -107,7 +107,7 @@ class WeedingCandidateController extends Controller
             'review_date' => now()
         ]);
 
-        return redirect()->route('weeding-candidates.index')
+        return redirect()->route('library.weeding-candidates.index')
             ->with('success', 'Weeding candidate updated successfully.');
     }
 
@@ -118,7 +118,7 @@ class WeedingCandidateController extends Controller
     {
         $weedingCandidate->delete();
 
-        return redirect()->route('weeding-candidates.index')
+        return redirect()->route('library.weeding-candidates.index')
             ->with('success', 'Weeding candidate deleted successfully.');
     }
 
@@ -160,7 +160,7 @@ class WeedingCandidateController extends Controller
             'review_date' => now()
         ]);
 
-        return redirect()->route('weeding-candidates.index')
+        return redirect()->route('library.weeding-candidates.index')
             ->with('success', 'Weeding candidate ' . $status . ' successfully.');
     }
 

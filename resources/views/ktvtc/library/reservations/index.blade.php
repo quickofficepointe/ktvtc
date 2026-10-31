@@ -229,14 +229,20 @@
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex items-center space-x-2">
-                                    @if($reservation->status === 'active')
+                                    @if($reservation->status === 'active' && !$reservation->heldItem)
+                                        <span class="text-xs text-gray-500">Waiting for a copy</span>
+                                    @endif
+                                    @if($reservation->status === 'active' && $reservation->heldItem)
+                                        <span class="text-xs text-green-700">Copy {{ $reservation->heldItem->barcode }} held until {{ $reservation->held_until?->format('d M') }}</span>
                                         <button onclick="fulfillReservation({{ $reservation->id }})"
                                             class="inline-flex items-center px-3 py-2 border border-green-300 shadow-sm text-sm leading-4 font-medium rounded-md text-green-700 bg-white hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
                                             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                             </svg>
-                                            Fulfill
+                                            Lend now
                                         </button>
+                                    @endif
+                                    @if($reservation->status === 'active')
                                         <button onclick="cancelReservation({{ $reservation->id }})"
                                             class="inline-flex items-center px-3 py-2 border border-red-300 shadow-sm text-sm leading-4 font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
                                             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -350,30 +356,7 @@
                             </select>
                         </div>
 
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Branch *</label>
-                            <select name="branch_id" required
-                                    class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-colors">
-                                <option value="">Select Branch</option>
-                                @foreach($branches as $branch)
-                                    <option value="{{ $branch->id }}" {{ old('branch_id') == $branch->id ? 'selected' : '' }}>
-                                        {{ $branch->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Reservation Date *</label>
-                            <input type="date" name="reservation_date" value="{{ old('reservation_date', date('Y-m-d')) }}" required
-                                   class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-colors">
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Expiry Date *</label>
-                            <input type="date" name="expiry_date" value="{{ old('expiry_date', date('Y-m-d', strtotime('+7 days'))) }}" required
-                                   class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-colors">
-                        </div>
+                        <p class="text-sm text-gray-500">The reader joins the end of the waiting list. When a copy comes back it is held for the first reader for 3 days.</p>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
@@ -421,7 +404,7 @@
     }
 
     function fulfillReservation(reservationId) {
-        if(confirm('Mark this reservation as fulfilled?')) {
+        if(confirm('Lend the held copy to this reader now?')) {
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = `/library/reservations/${reservationId}/fulfill`;

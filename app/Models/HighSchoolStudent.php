@@ -145,7 +145,7 @@ class HighSchoolStudent extends Model
         if (!$this->cardAccount) {
             return 0;
         }
-        return $this->cardAccount->canteen_balance ?? $this->cardAccount->balance;
+        return app(\App\Services\Cards\CardWallet::class)->balanceOf($this->cardAccount, 'canteen');
     }
 
     /**

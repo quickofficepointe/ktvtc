@@ -62,7 +62,7 @@ class CafeteriaDailyProduction extends Model
 
     public function rawMaterialUsages(): HasMany
     {
-        return $this->hasMany(DailyRawMaterialUsage::class);
+        return $this->hasMany(DailyRawMaterialUsage::class, 'daily_production_id');
     }
 
     public function creator(): BelongsTo

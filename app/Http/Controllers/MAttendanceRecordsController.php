@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\MAttendanceRecords;
+use App\Models\MAttendanceRecord;
 use Illuminate\Http\Request;
 
 class MAttendanceRecordsController extends Controller
@@ -34,7 +34,7 @@ class MAttendanceRecordsController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(MAttendanceRecords $mAttendanceRecords)
+    public function show(MAttendanceRecord $mAttendanceRecords)
     {
         //
     }
@@ -42,7 +42,7 @@ class MAttendanceRecordsController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(MAttendanceRecords $mAttendanceRecords)
+    public function edit(MAttendanceRecord $mAttendanceRecords)
     {
         //
     }
@@ -50,7 +50,7 @@ class MAttendanceRecordsController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, MAttendanceRecords $mAttendanceRecords)
+    public function update(Request $request, MAttendanceRecord $mAttendanceRecords)
     {
         //
     }
@@ -58,7 +58,7 @@ class MAttendanceRecordsController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(MAttendanceRecords $mAttendanceRecords)
+    public function destroy(MAttendanceRecord $mAttendanceRecords)
     {
         //
     }

@@ -40,7 +40,7 @@ class UsageStatistic extends Model
 
     public function getUtilizationRateAttribute(): float
     {
-        if ($this->active_members === 0) {
+        if ((float) $this->active_members <= 0) {
             return 0;
         }
 
@@ -49,7 +49,7 @@ class UsageStatistic extends Model
 
     public function getFineCollectionRateAttribute(): float
     {
-        if ($this->total_fines === 0) {
+        if ((float) $this->total_fines <= 0) {
             return 0;
         }
 

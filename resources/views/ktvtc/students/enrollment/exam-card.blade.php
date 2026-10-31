@@ -257,10 +257,6 @@
                     TECHNICAL &amp; VOCATIONAL<br>
                     TRAINING COLLEGE
                 </div>
-                <div class="address">
-                    P.O. Box 59440 - 00200<br>
-                    Nairobi, Kenya
-                </div>
                 <div class="stamp">
                     Issued: {{ $issued_at->format('d M Y') }}
                 </div>
@@ -281,10 +277,6 @@
             <div class="stamp-box">
                 <strong>KTVTC</strong> · OFFICIAL STAMP<br>
                 <span style="font-size: 9px;">Issued {{ $issued_at->format('d M Y') }}</span>
-            </div>
-
-            <div class="issue-date">
-                {{ $college['address'] }}
             </div>
         </div>
     </div>

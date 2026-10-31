@@ -76,7 +76,7 @@ class MStudentController extends Controller
 
             DB::commit();
 
-            return redirect()->route('students.index')
+            return redirect()->route('mschool.students.index')
                 ->with('success', 'Student created successfully!');
 
         } catch (\Exception $e) {
@@ -136,7 +136,7 @@ class MStudentController extends Controller
 
             DB::commit();
 
-            return redirect()->route('students.index')
+            return redirect()->route('mschool.students.index')
                 ->with('success', 'Student updated successfully!');
 
         } catch (\Exception $e) {
@@ -159,7 +159,7 @@ class MStudentController extends Controller
 
             // Check if student has enrollments
             if ($student->enrollments()->exists()) {
-                return redirect()->route('students.index')
+                return redirect()->route('mschool.students.index')
                     ->with('error', 'Cannot delete student. It has associated enrollments. Please delete the enrollments first.');
             }
 
@@ -172,12 +172,12 @@ class MStudentController extends Controller
 
             DB::commit();
 
-            return redirect()->route('students.index')
+            return redirect()->route('mschool.students.index')
                 ->with('success', 'Student deleted successfully!');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->route('students.index')
+            return redirect()->route('mschool.students.index')
                 ->with('error', 'Failed to delete student: ' . $e->getMessage());
         }
     }

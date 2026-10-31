@@ -22,7 +22,7 @@
                 <ol class="flex items-center space-x-2 text-sm">
                     <li><a href="{{ route('home') }}" class="hover:underline">Home</a></li>
                     <li><span class="text-white">/</span></li>
-                    <li><a href="{{ route('galleries.index') }}" class="hover:underline">Gallery</a></li>
+                    <li><a href="{{ route('gallerie.index') }}" class="hover:underline">Gallery</a></li>
                     <li><span class="text-white">/</span></li>
                     <li class="text-white font-semibold">{{ Str::limit($gallery->title, 40) }}</li>
                 </ol>
@@ -50,7 +50,7 @@
                         Created: {{ $gallery->created_at->format('F j, Y') }}
                     </span>
                 </div>
-                <a href="{{ route('galleries.index') }}"
+                <a href="{{ route('gallerie.index') }}"
                    class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-semibold">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>

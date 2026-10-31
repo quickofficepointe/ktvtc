@@ -8,6 +8,7 @@ use App\Models\CardAccount;
 use App\Models\CardTransaction;
 use App\Models\CardAuditLog;
 use App\Models\HighSchoolKcbTransaction;
+use App\Models\WithdrawalFeeTier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -67,7 +68,12 @@ class CardFundingService
                 ];
             }
 
-            // 4. Generate invoice number
+            // 4. Transport top-ups carry the Safaricom withdrawal charge on top, so the
+            //    wallet can pay for cash fare withdrawals later (500 -> prompt 528).
+            $withdrawalFee = $fundingType === 'T' ? WithdrawalFeeTier::feeFor((float) $amount) : 0.0;
+            $promptAmount  = round((float) $amount + $withdrawalFee, 2);
+
+            // 5. Generate invoice number
             $typePrefix = $fundingType === 'T' ? 'T' : 'C';
             $invoiceNumber = '8118445#' . $typePrefix . $student->admission_number;
             $typeLabel = $fundingType === 'T' ? 'Transport' : 'Canteen';
@@ -79,7 +85,7 @@ class CardFundingService
             // 6. Initiate STK Push
             $stkResponse = $this->kcbSalesService->initiateStkPush(
                 $formattedPhone,
-                $amount,
+                $promptAmount,
                 $invoiceNumber,
                 $callbackUrl,
                 $description
@@ -102,7 +108,7 @@ class CardFundingService
                 'merchant_request_id' => $stkResponse['MerchantRequestID'] ?? null,
                 'checkout_request_id' => $stkResponse['CheckoutRequestID'] ?? null,
                 'phone_number' => $formattedPhone,
-                'amount' => $amount,
+                'amount' => $promptAmount,
                 'invoice_number' => $invoiceNumber,
                 'transaction_type' => 'card_funding',
                 'status' => 'initiated',
@@ -116,7 +122,9 @@ class CardFundingService
                     'card_number' => $card->card_number,
                     'funding_type' => $fundingType,
                     'type_label' => $typeLabel,
-                    'amount' => $amount,
+                    'amount' => $promptAmount,
+                    'base_amount' => (float) $amount,
+                    'withdrawal_fee' => $withdrawalFee,
                     'phone_number' => $formattedPhone,
                 ]),
             ]);
@@ -152,7 +160,9 @@ class CardFundingService
                 'merchant_request_id' => $transaction->merchant_request_id,
                 'checkout_request_id' => $transaction->checkout_request_id,
                 'invoice_number' => $invoiceNumber,
-                'amount' => $amount,
+                'amount' => $promptAmount,
+                'base_amount' => (float) $amount,
+                'withdrawal_fee' => $withdrawalFee,
                 'funding_type' => $fundingType,
                 'type_label' => $typeLabel,
                 'message' => 'Payment request sent. Check your phone to complete payment.',
@@ -197,160 +207,6 @@ class CardFundingService
     }
 
     /**
-     * Complete card funding after successful M-Pesa payment
-     */
-    public function completeFunding(
-        $checkoutRequestId,
-        $paymentData,
-        $additionalData = []
-    ) {
-        try {
-            DB::beginTransaction();
-
-            // Find the transaction
-            $transaction = HighSchoolKcbTransaction::where('checkout_request_id', $checkoutRequestId)
-                ->where('transaction_type', 'card_funding')
-                ->first();
-
-            if (!$transaction) {
-                Log::error('Transaction not found for completion', [
-                    'checkout_request_id' => $checkoutRequestId
-                ]);
-                return ['success' => false, 'message' => 'Transaction not found'];
-            }
-
-            if ($transaction->status === 'completed') {
-                return ['success' => true, 'message' => 'Transaction already completed'];
-            }
-
-            // Get the card
-            $card = CardAccount::find($transaction->card_account_id);
-            if (!$card) {
-                Log::error('Card not found for funding completion', [
-                    'card_id' => $transaction->card_account_id
-                ]);
-                DB::rollBack();
-                return ['success' => false, 'message' => 'Card not found'];
-            }
-
-            // Get the student
-            $student = HighSchoolStudent::find($transaction->high_school_student_id);
-            if (!$student) {
-                Log::error('Student not found for funding completion', [
-                    'student_id' => $transaction->high_school_student_id
-                ]);
-                DB::rollBack();
-                return ['success' => false, 'message' => 'Student not found'];
-            }
-
-            $amount = $transaction->amount;
-            $mpesaReceipt = $paymentData['mpesa_receipt'] ?? $additionalData['mpesa_receipt'] ?? 'MANUAL-' . time();
-
-            // Check for duplicate transaction
-            $existingTransaction = CardTransaction::where('mpesa_receipt', $mpesaReceipt)
-                ->orWhere('reference', $transaction->invoice_number)
-                ->first();
-
-            if ($existingTransaction) {
-                Log::warning('Duplicate card funding detected', [
-                    'mpesa_receipt' => $mpesaReceipt,
-                    'existing_transaction_id' => $existingTransaction->id
-                ]);
-
-                $transaction->update([
-                    'status' => 'completed',
-                    'mpesa_receipt_number' => $mpesaReceipt,
-                    'result_code' => 0,
-                    'result_description' => 'Duplicate transaction - already processed',
-                    'completed_at' => now(),
-                ]);
-
-                DB::commit();
-                return ['success' => true, 'message' => 'Duplicate transaction already processed'];
-            }
-
-            // Fund the card
-            $card->balance += $amount;
-            $card->total_funded += $amount;
-            $card->last_funded_at = now();
-            $card->last_funding_amount = $amount;
-            $card->last_funding_source = $transaction->request_data['type_label'] ?? 'Funding';
-            $card->save();
-
-            // Create card transaction
-            $cardTransaction = CardTransaction::create([
-                'card_account_id' => $card->id,
-                'high_school_student_id' => $student->id,
-                'transaction_type' => 'funding',
-                'amount' => $amount,
-                'balance_before' => $card->balance - $amount,
-                'balance_after' => $card->balance,
-                'description' => "Card funding via M-Pesa - Receipt: {$mpesaReceipt}",
-                'mpesa_receipt' => $mpesaReceipt,
-                'reference' => $transaction->invoice_number,
-                'status' => 'completed',
-                'processed_at' => now(),
-                'metadata' => json_encode([
-                    'transaction_id' => $transaction->id,
-                    'checkout_request_id' => $transaction->checkout_request_id,
-                    'funding_type' => $transaction->request_data['funding_type'] ?? 'T',
-                    'type_label' => $transaction->request_data['type_label'] ?? 'Funding',
-                    'phone_number' => $transaction->phone_number,
-                ])
-            ]);
-
-            // Update transaction
-            $transaction->update([
-                'status' => 'completed',
-                'mpesa_receipt_number' => $mpesaReceipt,
-                'result_code' => 0,
-                'result_description' => 'Payment successful',
-                'completed_at' => now(),
-                'callback_data' => json_encode($paymentData),
-            ]);
-
-            // Log audit
-            CardAuditLog::log(
-                $card->id,
-                'funding_completed',
-                "Card funded successfully: KES {$amount} via M-Pesa. Receipt: {$mpesaReceipt}",
-                null,
-                $card->card_number,
-                [
-                    'amount' => $amount,
-                    'mpesa_receipt' => $mpesaReceipt,
-                    'transaction_id' => $transaction->id,
-                    'card_transaction_id' => $cardTransaction->id,
-                    'new_balance' => $card->balance,
-                ]
-            );
-
-            DB::commit();
-
-            // Send notifications
-            $this->sendFundingNotifications($student, $card, $amount, $mpesaReceipt, $transaction->request_data['type_label'] ?? 'Funding');
-
-            Log::info('Card funding completed successfully', [
-                'student_id' => $student->id,
-                'card_id' => $card->id,
-                'amount' => $amount,
-                'receipt' => $mpesaReceipt,
-                'new_balance' => $card->balance,
-            ]);
-
-            return ['success' => true, 'message' => 'Funding completed successfully'];
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Card funding completion failed: ' . $e->getMessage(), [
-                'checkout_request_id' => $checkoutRequestId,
-                'trace' => $e->getTraceAsString()
-            ]);
-            return ['success' => false, 'message' => 'Failed to complete funding: ' . $e->getMessage()];
-        }
-    }
-
-    /**
      * Check funding status
      */
     public function checkFundingStatus($checkoutRequestId)
@@ -385,7 +241,7 @@ class CardFundingService
     {
         switch ($status) {
             case 'completed':
-                return 'Card funded successfully!';
+                return 'Payment received. The card balance updates as soon as the bank confirms.';
             case 'failed':
                 return 'Funding failed: ' . ($description ?? 'Unknown error');
             case 'initiated':
@@ -393,29 +249,6 @@ class CardFundingService
                 return 'Waiting for payment confirmation...';
             default:
                 return 'Checking payment status...';
-        }
-    }
-
-    /**
-     * Send funding notifications
-     */
-    private function sendFundingNotifications($student, $card, $amount, $receipt, $type)
-    {
-        try {
-            // Send confirmation to parent
-            if ($student->parent_phone) {
-                $this->smsService->sendFundingConfirmation($student, $amount, $type, $receipt, $card->balance);
-            }
-
-            // Check low balance alert
-            if ($card->balance > 0 && $card->balance < $card->low_balance_threshold) {
-                $this->cardService->triggerLowBalanceAlert($card);
-            }
-
-        } catch (\Exception $e) {
-            Log::error('Failed to send funding notifications: ' . $e->getMessage(), [
-                'student_id' => $student->id
-            ]);
         }
     }
 

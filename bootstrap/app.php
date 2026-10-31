@@ -28,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
               'preorder.auth' => \App\Http\Middleware\EnsurePreOrderAuthenticated::class,
 'preorder.guest' => \App\Http\Middleware\EnsurePreOrderGuest::class,
    'role.ilo'         => \App\Http\Middleware\CheckIloRole::class,
+            'role.any'         => \App\Http\Middleware\CheckAnyRole::class,
         ]);
 
         // Modify the VerifyCsrfToken middleware to exclude payment callbacks
@@ -61,6 +62,9 @@ return Application::configure(basePath: dirname(__DIR__))
             // KCB Status Check - Card Funding
             '/api/kcb/card/funding/status',
             'api/kcb/card/funding/status',
+
+            // KCB STK Callback - Student portal school fees
+            'api/kcb/fees/callback',
  // ✅ NEW: Pre-Order KCB callback
     'pre-order/api/kcb/callback',
     '/pre-order/api/kcb/callback',

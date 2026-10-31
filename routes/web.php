@@ -9,7 +9,6 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AnalyticController;
 use App\Http\Controllers\ParentFundingController;
 use App\Http\Controllers\AttachmentController;
-use App\Http\Controllers\CardFundingIpnController;
 use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\QRScannerController;
 use App\Http\Controllers\ApplicationPaymentController;
@@ -43,7 +42,6 @@ use App\Http\Controllers\ExamRegistrationController;
 use App\Http\Controllers\StudentAttachmentController;
 use App\Http\Controllers\FeePaymentController;
 use App\Http\Controllers\FinanceController;
-use App\Http\Controllers\FeeStructureController;
 use App\Http\Controllers\FineRuleController;
 use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\GoodsReceivedNoteController;
@@ -101,6 +99,24 @@ use App\Http\Controllers\CardFundingRequestController;
 use App\Http\Controllers\CardQrController;
 use App\Http\Controllers\CardReportController;
 use App\Http\Controllers\KcbIpnController;
+use App\Http\Controllers\KcbPaymentQueueController;
+use App\Http\Controllers\TransportFareController;
+use App\Http\Controllers\CafeteriaAnalyticsController;
+use App\Http\Controllers\TermFeeController;
+use App\Http\Controllers\EnrollmentTermController;
+use App\Http\Controllers\AcademicsController;
+use App\Http\Controllers\AcademicTrainersController;
+use App\Http\Controllers\TrainerResultsController;
+use App\Http\Controllers\StudentResultsController;
+use App\Http\Controllers\StudentPortalAccessController;
+use App\Http\Controllers\FeeReminderController;
+use App\Http\Controllers\StudentLibraryController;
+use App\Http\Controllers\StudentEvaluationController;
+use App\Http\Controllers\EvaluationAdminController;
+use App\Http\Controllers\StudentDuplicatesController;
+use App\Http\Controllers\ApplicationAdmissionController;
+use App\Http\Controllers\StudentFeesController;
+use App\Http\Controllers\StudentSelfEnrollmentController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CafeteriaPreOrderController;
 use App\Http\Controllers\PreOrderAuthController;
@@ -174,12 +190,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::post('/profile/update', [ProfileController::class, 'update'])->name('profile.update');
 });
-Route::get('/certifications', [CertificationController::class, 'publicIndex'])->name('certifications.public');
 
-Route::get('/home', function () {
+Route::middleware('auth')->get('/home', function () {
     $user = Auth::user();
-    if (!$user->phone_number || !$user->bio || !$user->profile_picture) {
+    // Students go straight to their portal; a photo and bio are optional for them
+    $isStudent = (int) $user->role === \App\Models\User::ROLE_STUDENT;
+    if (!$isStudent && (!$user->phone_number || !$user->bio || !$user->profile_picture)) {
         return redirect()->route('profile.edit');
+    }
+    // Unapproved staff used to be sent to the student area, which sent them back here (endless loop)
+    if (!$user->is_approved && (int) $user->role !== \App\Models\User::ROLE_STUDENT) {
+        return redirect()->route('profile.edit')->with('warning', 'Your account is waiting for admin approval.');
     }
     if (!$user->is_approved) {
         return redirect()->route('student.dashboard');
@@ -196,6 +217,7 @@ Route::get('/home', function () {
     case 8:  return redirect()->route('trainers.dashboard');
     case 9:  return redirect()->route('website.dashboard');
     case 10: return redirect()->route('ilo.dashboard');
+    case 11: return redirect()->route('academics.dashboard');
     default: return redirect()->route('student.dashboard');
 }
 })->name('home');
@@ -215,6 +237,7 @@ Route::middleware(['auth', 'verified', 'super.admin.access'])
         Route::get('/', [SuperAdminController::class, 'users'])->name('index');
         Route::get('/create', [SuperAdminController::class, 'createUser'])->name('create');
         Route::post('/', [SuperAdminController::class, 'storeUser'])->name('store');
+        Route::get('/export', [SuperAdminController::class, 'exportUsers'])->name('export');
         Route::get('/{user}', [SuperAdminController::class, 'showUser'])->name('show');
         Route::get('/{user}/edit', [SuperAdminController::class, 'editUser'])->name('edit');
         Route::put('/{user}', [SuperAdminController::class, 'updateUser'])->name('update');
@@ -226,19 +249,11 @@ Route::middleware(['auth', 'verified', 'super.admin.access'])
         Route::post('/{user}/impersonate', [SuperAdminController::class, 'impersonate'])->name('impersonate');
         Route::get('/{user}/activity', [SuperAdminController::class, 'userActivity'])->name('activity');
         Route::post('/bulk-actions', [SuperAdminController::class, 'bulkUserActions'])->name('bulk-actions');
-        Route::get('/export', [SuperAdminController::class, 'exportUsers'])->name('export');
     });
 
     // Role Management
     Route::prefix('roles')->name('roles.')->group(function () {
         Route::get('/', [SuperAdminController::class, 'roles'])->name('index');
-        Route::post('/', [SuperAdminController::class, 'storeRole'])->name('store');
-        Route::get('/{role}/edit', [SuperAdminController::class, 'editRole'])->name('edit');
-        Route::put('/{role}', [SuperAdminController::class, 'updateRole'])->name('update');
-        Route::delete('/{role}', [SuperAdminController::class, 'destroyRole'])->name('destroy');
-        Route::get('/{role}/permissions', [SuperAdminController::class, 'rolePermissions'])->name('permissions');
-        Route::post('/{role}/permissions', [SuperAdminController::class, 'updatePermissions'])->name('update-permissions');
-        Route::post('/{role}/assign', [SuperAdminController::class, 'assignRole'])->name('assign');
     });
 
     // Campus Management
@@ -256,70 +271,90 @@ Route::middleware(['auth', 'verified', 'super.admin.access'])
         Route::put('/settings', [SuperAdminController::class, 'updateSystemSettings'])->name('update-settings');
         Route::get('/database', [SuperAdminController::class, 'database'])->name('database');
         Route::post('/database/backup', [SuperAdminController::class, 'createBackup'])->name('backup');
-        Route::post('/database/restore', [SuperAdminController::class, 'restoreBackup'])->name('restore');
-        Route::post('/database/optimize', [SuperAdminController::class, 'optimizeDatabase'])->name('optimize');
-        Route::get('/database/migrations', [SuperAdminController::class, 'migrations'])->name('migrations');
-        Route::post('/database/migrate', [SuperAdminController::class, 'runMigration'])->name('migrate');
         Route::get('/logs', [SuperAdminController::class, 'systemLogs'])->name('logs');
-        Route::get('/logs/{type}', [SuperAdminController::class, 'viewLog'])->name('view-log');
         Route::delete('/logs/clear', [SuperAdminController::class, 'clearLogs'])->name('clear-logs');
         Route::get('/info', [SuperAdminController::class, 'systemInfo'])->name('info');
-        Route::get('/phpinfo', [SuperAdminController::class, 'phpInfo'])->name('phpinfo');
         Route::get('/monitor', [SuperAdminController::class, 'serverMonitor'])->name('monitor');
         Route::get('/monitor/stats', [SuperAdminController::class, 'serverStats'])->name('monitor.stats');
-        Route::post('/maintenance/enable', [SuperAdminController::class, 'enableMaintenance'])->name('maintenance.enable');
-        Route::post('/maintenance/disable', [SuperAdminController::class, 'disableMaintenance'])->name('maintenance.disable');
-        Route::post('/cache/clear', [SuperAdminController::class, 'clearCache'])->name('cache.clear');
-        Route::post('/cache/optimize', [SuperAdminController::class, 'optimizeCache'])->name('cache.optimize');
     });
 
-    // Module Management
-    Route::prefix('modules')->name('modules.')->group(function () {
-        Route::get('/', [SuperAdminController::class, 'modules'])->name('index');
-        Route::get('/{module}/stats', [SuperAdminController::class, 'moduleStats'])->name('stats');
-        Route::get('/{module}/config', [SuperAdminController::class, 'moduleConfig'])->name('config');
-        Route::put('/{module}/config', [SuperAdminController::class, 'updateModuleConfig'])->name('update-config');
-        Route::post('/{module}/toggle', [SuperAdminController::class, 'toggleModule'])->name('toggle');
-    });
 
     // Reports & Audit
     Route::prefix('reports')->name('reports.')->group(function () {
         Route::get('/audit', [SuperAdminController::class, 'auditTrail'])->name('audit');
-        Route::get('/audit/export', [SuperAdminController::class, 'exportAudit'])->name('audit.export');
         Route::get('/activity', [SuperAdminController::class, 'activityReport'])->name('activity');
-        Route::get('/activity/user/{user}', [SuperAdminController::class, 'userActivityReport'])->name('activity.user');
-        Route::get('/security', [SuperAdminController::class, 'securityReport'])->name('security');
-        Route::get('/security/login-attempts', [SuperAdminController::class, 'loginAttempts'])->name('security.login-attempts');
     });
 
-    // System Tools
-    Route::prefix('utilities')->name('utilities.')->group(function () {
-        Route::get('/bulk-operations', [SuperAdminController::class, 'bulkOperations'])->name('bulk-operations');
-        Route::post('/bulk-operations/execute', [SuperAdminController::class, 'executeBulkOperation'])->name('execute-bulk-operation');
-        Route::get('/cleanup', [SuperAdminController::class, 'dataCleanup'])->name('cleanup');
-        Route::post('/cleanup/execute', [SuperAdminController::class, 'executeCleanup'])->name('cleanup.execute');
-        Route::get('/import-export', [SuperAdminController::class, 'importExport'])->name('import-export');
-        Route::get('/tools', [SuperAdminController::class, 'systemTools'])->name('tools');
-        Route::post('/tools/run', [SuperAdminController::class, 'runTool'])->name('tools.run');
-    });
 
     // API Endpoints
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/notifications', [SuperAdminController::class, 'getNotifications'])->name('notifications');
         Route::post('/notifications/mark-read', [SuperAdminController::class, 'markNotificationsRead'])->name('notifications.mark-read');
-        Route::get('/stats/real-time', [SuperAdminController::class, 'realTimeStats'])->name('stats.real-time');
         Route::get('/alerts', [SuperAdminController::class, 'getAlerts'])->name('alerts');
         Route::get('/users/search', [SuperAdminController::class, 'searchUsers'])->name('users.search');
         Route::get('/system/health', [SuperAdminController::class, 'systemHealth'])->name('system.health');
-        Route::get('/system/checks', [SuperAdminController::class, 'systemChecks'])->name('system.checks');
     });
 
-    // Emergency Access
-    Route::prefix('emergency')->name('emergency.')->group(function () {
-        Route::get('/access/{module}', [SuperAdminController::class, 'emergencyAccess'])->name('access');
-        Route::post('/force-action', [SuperAdminController::class, 'forceAction'])->name('force-action');
-        Route::get('/recovery', [SuperAdminController::class, 'recovery'])->name('recovery');
-        Route::post('/recovery/execute', [SuperAdminController::class, 'executeRecovery'])->name('recovery.execute');
+});
+
+// ============================================================================
+// ACADEMICS OFFICE (role 11): trainers, units, marks, results, evaluations,
+// exam-body registrations. Admin (role 2) can view these pages read-only.
+// ============================================================================
+Route::middleware(['auth', 'verified', 'role.any:11,2'])
+    ->prefix('academics')
+    ->name('academics.')
+    ->group(function () {
+
+    // Pages (academics + admin read-only)
+    Route::get('/dashboard', [AcademicsController::class, 'dashboard'])->name('dashboard');
+    Route::get('/', [AcademicsController::class, 'index'])->name('index');
+    Route::get('/courses/{course}', [AcademicsController::class, 'course'])->name('course');
+    Route::get('/results', [AcademicsController::class, 'results'])->name('results');
+    Route::get('/review', [AcademicsController::class, 'review'])->name('review');
+    Route::get('/review/{unit}', [AcademicsController::class, 'reviewUnit'])->name('review.unit');
+    Route::get('/scales', [AcademicsController::class, 'scales'])->name('scales');
+    Route::get('/trainers', [AcademicTrainersController::class, 'index'])->name('trainers.index');
+    Route::get('/trainers/{trainer}', [AcademicTrainersController::class, 'show'])->name('trainers.show');
+    Route::get('/evaluations', [EvaluationAdminController::class, 'report'])->name('evaluations');
+    Route::get('/evaluations/questions', [EvaluationAdminController::class, 'questions'])->name('evaluations.questions');
+
+    Route::prefix('exam-registrations')->name('exam-registrations.')->group(function () {
+        Route::get('/', [ExamRegistrationController::class, 'index'])->name('index');
+        Route::get('/reports/summary', [ExamRegistrationController::class, 'summaryReport'])->name('reports.summary');
+        Route::get('/export', [ExamRegistrationController::class, 'export'])->name('export');
+        Route::get('/create', [ExamRegistrationController::class, 'create'])->name('create')->middleware('role.any:11');
+        Route::get('/{examRegistration}', [ExamRegistrationController::class, 'show'])->name('show');
+        Route::get('/{examRegistration}/print-slip', [ExamRegistrationController::class, 'printSlip'])->name('print-slip');
+        Route::get('/{examRegistration}/edit', [ExamRegistrationController::class, 'edit'])->name('edit')->middleware('role.any:11');
+    });
+
+    // Changes: academics office only
+    Route::middleware('role.any:11')->group(function () {
+        Route::put('/courses/{course}', [AcademicsController::class, 'updateCourse'])->name('course.update');
+        Route::post('/courses/{course}/units', [AcademicsController::class, 'storeUnit'])->name('units.store');
+        Route::put('/units/{unit}', [AcademicsController::class, 'updateUnit'])->name('units.update');
+        Route::delete('/units/{unit}', [AcademicsController::class, 'destroyUnit'])->name('units.destroy');
+        Route::post('/review/{unit}', [AcademicsController::class, 'decide'])->name('review.decide');
+        Route::post('/results/{result}/unpublish', [AcademicsController::class, 'unpublish'])->name('results.unpublish');
+        Route::put('/scales/{scale}', [AcademicsController::class, 'updateScale'])->name('scales.update');
+
+        Route::post('/trainers', [AcademicTrainersController::class, 'store'])->name('trainers.store');
+        Route::put('/trainers/{trainer}', [AcademicTrainersController::class, 'update'])->name('trainers.update');
+        Route::post('/trainers/{trainer}/units', [AcademicTrainersController::class, 'assignUnits'])->name('trainers.units');
+        Route::post('/trainers/{trainer}/send-login', [AcademicTrainersController::class, 'sendLogin'])->name('trainers.send-login');
+
+        Route::post('/evaluations/questions', [EvaluationAdminController::class, 'storeQuestion'])->name('evaluations.questions.store');
+        Route::put('/evaluations/questions/{question}', [EvaluationAdminController::class, 'updateQuestion'])->name('evaluations.questions.update');
+
+        Route::prefix('exam-registrations')->name('exam-registrations.')->group(function () {
+            Route::post('/', [ExamRegistrationController::class, 'store'])->name('store');
+            Route::put('/{examRegistration}', [ExamRegistrationController::class, 'update'])->name('update');
+            Route::delete('/{examRegistration}', [ExamRegistrationController::class, 'destroy'])->name('destroy');
+            Route::post('/{examRegistration}/mark-registered', [ExamRegistrationController::class, 'markRegistered'])->name('mark-registered');
+            Route::post('/{examRegistration}/enter-results', [ExamRegistrationController::class, 'enterResults'])->name('enter-results');
+            Route::post('/bulk/status', [ExamRegistrationController::class, 'bulkUpdateStatus'])->name('bulk.status');
+        });
     });
 });
 
@@ -405,16 +440,11 @@ Route::middleware(['auth', 'verified', 'role.mschool'])
 
     Route::prefix('certificates')->name('certificates.')->group(function () {
         Route::get('/', [MCertificateController::class, 'index'])->name('index');
-        Route::post('/', [MCertificateController::class, 'store'])->name('store');
-        Route::put('/{certificate}', [MCertificateController::class, 'update'])->name('update');
-        Route::delete('/{certificate}', [MCertificateController::class, 'destroy'])->name('destroy');
         Route::get('/assignable-students', [MCertificateController::class, 'getAssignableStudents'])->name('assignable-students');
         Route::post('/assign', [MCertificateController::class, 'assignCertificates'])->name('assign');
         Route::get('/issued-certificates', [MCertificateController::class, 'getIssuedCertificates'])->name('issued-certificates');
         Route::get('/{id}/preview', [MCertificateController::class, 'preview'])->name('preview');
         Route::get('/{id}/download', [MCertificateController::class, 'download'])->name('download');
-        Route::post('/{certificate}/revoke', [MCertificateController::class, 'revoke'])->name('revoke');
-        Route::post('/{certificate}/restore', [MCertificateController::class, 'restore'])->name('restore');
     });
 
     Route::resource('attendances', MAttendanceController::class);
@@ -423,6 +453,7 @@ Route::middleware(['auth', 'verified', 'role.mschool'])
     Route::post('/attendances/{attendance}/generate-qrcode', [MAttendanceController::class, 'generateQrCode'])->name('attendances.generate-qrcode');
     Route::post('/attendances/{attendance}/update-statistics', [MAttendanceController::class, 'updateStatistics'])->name('attendances.update-statistics');
     Route::get('/attendances/{attendance}/records', [MAttendanceController::class, 'records'])->name('attendances.records');
+    Route::post('/attendances/{attendance}/mark', [MAttendanceController::class, 'mark'])->name('attendances.mark');
 });
 
 // ============================================================================
@@ -443,9 +474,7 @@ Route::middleware(['auth', 'verified', 'role.admin'])
         Route::get('/{id}/edit', [AdminController::class, 'editUser'])->name('edit');
         Route::put('/{id}', [AdminController::class, 'updateUser'])->name('update');
         Route::post('/bulk-actions', [AdminController::class, 'bulkUserActions'])->name('bulk-actions');
-        Route::put('/{id}/role', [AdminController::class, 'updateRole'])->name('updateRole');
         Route::put('/{id}/status', [AdminController::class, 'updateStatus'])->name('updateStatus');
-        Route::delete('/{id}', [AdminController::class, 'destroy'])->name('destroy');
         Route::put('/{id}/approve', [AdminController::class, 'approve'])->name('approve');
         Route::put('/{id}/reset-password', [AdminController::class, 'resetPassword'])->name('reset-password');
         Route::post('/bulk-reset-passwords', [AdminController::class, 'bulkResetPasswords'])->name('bulk-reset-passwords');
@@ -472,11 +501,14 @@ Route::prefix('academic-terms')->name('academic-terms.')->group(function () {
         Route::post('/{academicTerm}/set-current', [AcademicTermController::class, 'setCurrent'])->name('set-current');
         Route::post('/{academicTerm}/toggle-registration', [AcademicTermController::class, 'toggleRegistration'])->name('toggle-registration');
     });
+
     // Applications Management
     Route::prefix('applications')->name('applications.')->group(function () {
         Route::get('/', [ApplicationController::class, 'list'])->name('index');
         Route::get('/{id}', [ApplicationController::class, 'show'])->name('show');
         Route::put('/{id}/status', [ApplicationController::class, 'updateStatus'])->name('updateStatus');
+        Route::get('/{application}/admit', [ApplicationAdmissionController::class, 'form'])->name('admit.form');
+        Route::post('/{application}/admit', [ApplicationAdmissionController::class, 'admit'])->name('admit');
     });
 
     // Event Applications
@@ -484,6 +516,7 @@ Route::prefix('academic-terms')->name('academic-terms.')->group(function () {
         Route::get('/', [EventApplicationController::class, 'adminindex'])->name('index');
         Route::get('/{application}', [EventApplicationController::class, 'adminshow'])->name('show');
         Route::put('/{application}/status', [EventApplicationController::class, 'updateStatus'])->name('updateStatus');
+        Route::delete('/{application}', [EventApplicationController::class, 'destroy'])->name('destroy');
     });
 
     // Subscriptions Management
@@ -506,13 +539,8 @@ Route::prefix('academic-terms')->name('academic-terms.')->group(function () {
         Route::get('/revenue-trends', [AnalyticController::class, 'revenueTrends'])->name('revenue-trends');
         Route::get('/export', [AnalyticController::class, 'export'])->name('export');
 
-        Route::prefix('export')->name('export.')->group(function () {
-            Route::get('/enrollment', [AnalyticController::class, 'exportEnrollment'])->name('enrollment');
-            Route::get('/revenue', [AnalyticController::class, 'exportRevenue'])->name('revenue');
-        });
 
         Route::prefix('stats')->name('stats.')->group(function () {
-            Route::get('/enrollment', [AnalyticController::class, 'enrollmentStats'])->name('enrollment');
             Route::get('/students', [AnalyticController::class, 'studentStats'])->name('students');
             Route::get('/revenue', [AnalyticController::class, 'revenueStats'])->name('revenue');
         });
@@ -520,26 +548,19 @@ Route::prefix('academic-terms')->name('academic-terms.')->group(function () {
 
     // Student Management (No Fee/Payment routes here)
     Route::prefix('students')->name('students.')->group(function () {
+        // Fixed paths first, wildcard /{student} routes last (otherwise e.g. /export is taken for a student id)
         Route::get('/', [StudentController::class, 'index'])->name('index');
         Route::get('/create', [StudentController::class, 'create'])->name('create');
+        Route::get('/duplicates', [StudentDuplicatesController::class, 'index'])->name('duplicates');
+        Route::post('/duplicates/merge', [StudentDuplicatesController::class, 'merge'])->name('duplicates.merge');
         Route::post('/', [StudentController::class, 'store'])->name('store');
-        Route::get('/{student}', [StudentController::class, 'show'])->name('show');
-        Route::get('/{student}/edit', [StudentController::class, 'edit'])->name('edit');
-        Route::put('/{student}', [StudentController::class, 'update'])->name('update');
-        Route::delete('/{student}', [StudentController::class, 'destroy'])->name('destroy');
-        Route::post('/{student}/fix-student-number', [StudentController::class, 'fixStudentNumber'])->name('fix-student-number');
         Route::post('/bulk-sync-numbers', [StudentController::class, 'bulkSyncStudentNumbers'])->name('bulk-sync-numbers');
-        Route::post('/{student}/sync-password', [StudentController::class, 'syncPassword'])->name('sync-password');
-        Route::post('/{student}/activate', [StudentController::class, 'activate'])->name('activate');
-        Route::post('/{student}/suspend', [StudentController::class, 'suspend'])->name('suspend');
-        Route::post('/{student}/archive', [StudentController::class, 'archive'])->name('archive');
-        Route::get('/{student}/details', [StudentController::class, 'details'])->name('details');
-        Route::get('/{student}/details/edit', [StudentController::class, 'editDetails'])->name('details.edit');
-        Route::put('/{student}/details', [StudentController::class, 'updateDetails'])->name('details.update');
-        Route::post('/bulk/activate', [StudentController::class, 'bulkActivate'])->name('bulk.activate');
         Route::post('/bulk/suspend', [StudentController::class, 'bulkSuspend'])->name('bulk.suspend');
         Route::post('/bulk/archive', [StudentController::class, 'bulkArchive'])->name('bulk.archive');
+        Route::post('/bulk/activate', [StudentController::class, 'bulkActivate'])->name('bulk.activate');
         Route::post('/bulk/delete', [StudentController::class, 'bulkDelete'])->name('bulk.delete');
+        Route::post('/bulk/send-logins', [StudentPortalAccessController::class, 'bulkSend'])->name('bulk.send-logins');
+        Route::post('/{student}/send-login', [StudentPortalAccessController::class, 'send'])->name('send-login');
         Route::get('/export', [StudentController::class, 'export'])->name('export');
         Route::get('/import', [StudentController::class, 'importView'])->name('import.view');
         Route::post('/import', [StudentController::class, 'importProcess'])->name('import.process');
@@ -548,6 +569,18 @@ Route::prefix('academic-terms')->name('academic-terms.')->group(function () {
         Route::get('/reports/demographics', [StudentController::class, 'demographicsReport'])->name('reports.demographics');
         Route::get('/api/search', [StudentController::class, 'search'])->name('api.search');
         Route::get('/api/for-select', [StudentController::class, 'getForSelect'])->name('api.for-select');
+        Route::get('/{student}', [StudentController::class, 'show'])->name('show');
+        Route::get('/{student}/edit', [StudentController::class, 'edit'])->name('edit');
+        Route::put('/{student}', [StudentController::class, 'update'])->name('update');
+        Route::delete('/{student}', [StudentController::class, 'destroy'])->name('destroy');
+        Route::post('/{student}/fix-student-number', [StudentController::class, 'fixStudentNumber'])->name('fix-student-number');
+        Route::post('/{student}/sync-password', [StudentController::class, 'syncPassword'])->name('sync-password');
+        Route::post('/{student}/activate', [StudentController::class, 'activate'])->name('activate');
+        Route::post('/{student}/suspend', [StudentController::class, 'suspend'])->name('suspend');
+        Route::post('/{student}/archive', [StudentController::class, 'archive'])->name('archive');
+        Route::get('/{student}/details', [StudentController::class, 'details'])->name('details');
+        Route::get('/{student}/details/edit', [StudentController::class, 'editDetails'])->name('details.edit');
+        Route::put('/{student}/details', [StudentController::class, 'updateDetails'])->name('details.update');
         Route::get('/{student}/api/enrollments', [StudentController::class, 'getEnrollments'])->name('api.enrollments');
     });
 
@@ -556,19 +589,19 @@ Route::prefix('academic-terms')->name('academic-terms.')->group(function () {
         Route::get('/', [EnrollmentController::class, 'index'])->name('index');
         Route::get('/create', [EnrollmentController::class, 'create'])->name('create');
         Route::post('/', [EnrollmentController::class, 'store'])->name('store');
+        Route::get('/export', [EnrollmentController::class, 'export'])->name('export');
         Route::get('/{enrollment}', [EnrollmentController::class, 'show'])->name('show');
         Route::get('/{enrollment}/edit', [EnrollmentController::class, 'edit'])->name('edit');
         Route::put('/{enrollment}', [EnrollmentController::class, 'update'])->name('update');
         Route::delete('/{enrollment}', [EnrollmentController::class, 'destroy'])->name('destroy');
+        Route::post('/bulk/activate', [EnrollmentController::class, 'bulkActivate'])->name('bulk.activate');
         Route::post('/{enrollment}/activate', [EnrollmentController::class, 'activate'])->name('activate');
         Route::post('/{enrollment}/suspend', [EnrollmentController::class, 'suspend'])->name('suspend');
+        Route::post('/bulk/complete', [EnrollmentController::class, 'bulkComplete'])->name('bulk.complete');
         Route::post('/{enrollment}/complete', [EnrollmentController::class, 'complete'])->name('complete');
         Route::post('/{enrollment}/defer', [EnrollmentController::class, 'defer'])->name('defer');
         Route::post('/{enrollment}/register-exam', [EnrollmentController::class, 'registerExam'])->name('register-exam');
-        Route::post('/bulk/activate', [EnrollmentController::class, 'bulkActivate'])->name('bulk.activate');
-        Route::post('/bulk/complete', [EnrollmentController::class, 'bulkComplete'])->name('bulk.complete');
         Route::post('/bulk/delete', [EnrollmentController::class, 'bulkDelete'])->name('bulk.delete');
-        Route::get('/export', [EnrollmentController::class, 'export'])->name('export');
         Route::get('/reports/enrollment', [EnrollmentController::class, 'enrollmentReport'])->name('reports.enrollment');
         Route::get('/api/by-student', [EnrollmentController::class, 'getByStudent'])->name('api.by-student');
         Route::get('/api/stats', [EnrollmentController::class, 'getStats'])->name('api.stats');
@@ -583,42 +616,10 @@ Route::prefix('academic-terms')->name('academic-terms.')->group(function () {
         Route::get('/api/fee-lock-status', [EnrollmentController::class, 'getFeeLockStatus'])->name('api.fee-lock-status');
     });
 
-    // Exam Registrations
-    Route::prefix('exam-registrations')->name('exam-registrations.')->group(function () {
-        Route::get('/', [ExamRegistrationController::class, 'index'])->name('index');
-        Route::get('/create', [ExamRegistrationController::class, 'create'])->name('create');
-        Route::post('/', [ExamRegistrationController::class, 'store'])->name('store');
-        Route::get('/{examRegistration}', [ExamRegistrationController::class, 'show'])->name('show');
-        Route::get('/{examRegistration}/edit', [ExamRegistrationController::class, 'edit'])->name('edit');
-        Route::put('/{examRegistration}', [ExamRegistrationController::class, 'update'])->name('update');
-        Route::delete('/{examRegistration}', [ExamRegistrationController::class, 'destroy'])->name('destroy');
-        Route::post('/{examRegistration}/mark-registered', [ExamRegistrationController::class, 'markRegistered'])->name('mark-registered');
-        Route::post('/{examRegistration}/enter-results', [ExamRegistrationController::class, 'enterResults'])->name('enter-results');
-        Route::get('/{examRegistration}/print-slip', [ExamRegistrationController::class, 'printSlip'])->name('print-slip');
-
-        Route::prefix('bulk')->name('bulk.')->group(function () {
-            Route::post('/status', [ExamRegistrationController::class, 'bulkUpdateStatus'])->name('status');
-            Route::post('/generate-slips', [ExamRegistrationController::class, 'bulkGenerateSlips'])->name('generate-slips');
-        });
-
-        Route::get('/reports/summary', [ExamRegistrationController::class, 'summaryReport'])->name('reports.summary');
-        Route::get('/export', [ExamRegistrationController::class, 'export'])->name('export');
-        Route::get('/api/by-enrollment', [ExamRegistrationController::class, 'getByEnrollment'])->name('api.by-enrollment');
-        Route::get('/api/pending', [ExamRegistrationController::class, 'getPending'])->name('api.pending');
-    });
 
     // Settings
     Route::prefix('settings')->name('settings.')->group(function () {
-        Route::get('/general', [SettingController::class, 'general'])->name('general');
-        Route::put('/general', [SettingController::class, 'updateGeneral'])->name('general.update');
 
-        Route::prefix('backup')->name('backup.')->group(function () {
-            Route::get('/', [SettingController::class, 'backup'])->name('index');
-            Route::post('/create', [SettingController::class, 'createBackup'])->name('create');
-            Route::post('/restore', [SettingController::class, 'restoreBackup'])->name('restore');
-            Route::get('/download/{file}', [SettingController::class, 'downloadBackup'])->name('download');
-            Route::delete('/{file}', [SettingController::class, 'deleteBackup'])->name('delete');
-        });
     });
 });
 
@@ -698,7 +699,6 @@ Route::middleware(['auth', 'verified', 'role.library'])
     // Branches
     Route::get('/branches', [BranchController::class, 'index'])->name('branches.index');
     Route::post('/branches', [BranchController::class, 'store'])->name('branches.store');
-    Route::get('/branches/{branch}', [BranchController::class, 'show'])->name('branches.show');
     Route::put('/branches/{branch}', [BranchController::class, 'update'])->name('branches.update');
     Route::delete('/branches/{branch}', [BranchController::class, 'destroy'])->name('branches.destroy');
 
@@ -711,14 +711,15 @@ Route::middleware(['auth', 'verified', 'role.library'])
     // Items
     Route::get('/items', [ItemController::class, 'index'])->name('items.index');
     Route::post('/items', [ItemController::class, 'store'])->name('items.store');
-    Route::get('/items/{item}', [ItemController::class, 'show'])->name('items.show');
     Route::put('/items/{item}', [ItemController::class, 'update'])->name('items.update');
+    Route::post('/items/{item}/status', [ItemController::class, 'setStatus'])->name('items.status');
     Route::delete('/items/{item}', [ItemController::class, 'destroy'])->name('items.destroy');
 
     // Members
     Route::get('/members', [MemberController::class, 'index'])->name('members.index');
     Route::post('/members', [MemberController::class, 'store'])->name('members.store');
     Route::get('/members/{member}', [MemberController::class, 'show'])->name('members.show');
+    Route::post('/members/{member}/pay-fine', [MemberController::class, 'payFine'])->name('members.pay-fine');
     Route::put('/members/{member}', [MemberController::class, 'update'])->name('members.update');
     Route::delete('/members/{member}', [MemberController::class, 'destroy'])->name('members.destroy');
 
@@ -727,12 +728,10 @@ Route::middleware(['auth', 'verified', 'role.library'])
     Route::post('/notifications', [NotificationController::class, 'store'])->name('notifications.store');
     Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead'])->name('notifications.mark-all-read');
     Route::post('/notifications/{notification}/mark-read', [NotificationController::class, 'markRead'])->name('notifications.mark-read');
-    Route::get('/notifications/{notification}', [NotificationController::class, 'show'])->name('notifications.show');
 
     // Reading Histories
     Route::get('/reading-histories', [ReadingHistoryController::class, 'index'])->name('reading-histories.index');
     Route::post('/reading-histories', [ReadingHistoryController::class, 'store'])->name('reading-histories.store');
-    Route::get('/reading-histories/{readingHistory}', [ReadingHistoryController::class, 'show'])->name('reading-histories.show');
     Route::put('/reading-histories/{readingHistory}', [ReadingHistoryController::class, 'update'])->name('reading-histories.update');
     Route::delete('/reading-histories/{readingHistory}', [ReadingHistoryController::class, 'destroy'])->name('reading-histories.destroy');
 
@@ -741,7 +740,6 @@ Route::middleware(['auth', 'verified', 'role.library'])
     Route::post('/reservations', [ReservationController::class, 'store'])->name('reservations.store');
     Route::post('/reservations/{reservation}/fulfill', [ReservationController::class, 'fulfill'])->name('reservations.fulfill');
     Route::post('/reservations/{reservation}/cancel', [ReservationController::class, 'cancel'])->name('reservations.cancel');
-    Route::get('/reservations/{reservation}', [ReservationController::class, 'show'])->name('reservations.show');
 
     // Transactions
     Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
@@ -780,7 +778,6 @@ Route::middleware(['auth', 'verified', 'role.student'])
         Route::get('/', [App\Http\Controllers\StudentFeesController::class, 'index'])->name('index');
         Route::get('/pay/{enrollment}', [App\Http\Controllers\StudentFeesController::class, 'pay'])->name('pay');
         Route::post('/initiate/{enrollment}', [App\Http\Controllers\StudentFeesController::class, 'initiatePayment'])->name('initiate');
-        Route::post('/payment/callback', [App\Http\Controllers\StudentFeesController::class, 'paymentCallback'])->name('payment.callback');
         Route::get('/status/{transactionId}', [App\Http\Controllers\StudentFeesController::class, 'checkStatus'])->name('status');
         Route::get('/statement/download', [App\Http\Controllers\StudentFeesController::class, 'downloadStatement'])->name('statement.download');
     });
@@ -806,7 +803,23 @@ Route::prefix('attachment')->name('attachment.')->group(function () {
     Route::prefix('enrollment')->name('enrollment.')->group(function () {
         Route::get('/', [App\Http\Controllers\StudentSelfEnrollmentController::class, 'index'])->name('index');
         Route::post('/', [App\Http\Controllers\StudentSelfEnrollmentController::class, 'store'])->name('store');
-   Route::get('/exam-card/{enrollment}', [StudentSelfEnrollmentController::class, 'examCard'])->name('exam-card');
+        Route::get('/exam-card/{registration}', [StudentSelfEnrollmentController::class, 'examCard'])->name('exam-card');
+    });
+
+    Route::prefix('library')->name('library.')->group(function () {
+        Route::get('/', [StudentLibraryController::class, 'index'])->name('index');
+        Route::post('/reserve/{book}', [StudentLibraryController::class, 'reserve'])->name('reserve');
+        Route::post('/reservations/{reservation}/cancel', [StudentLibraryController::class, 'cancel'])->name('cancel');
+    });
+
+    Route::prefix('results')->name('results.')->group(function () {
+        Route::get('/', [StudentResultsController::class, 'index'])->name('index');
+        Route::get('/transcript', [StudentResultsController::class, 'transcript'])->name('transcript');
+    });
+
+    Route::prefix('evaluations')->name('evaluations.')->group(function () {
+        Route::get('/{registration}', [StudentEvaluationController::class, 'show'])->name('show');
+        Route::post('/{registration}/{unit}', [StudentEvaluationController::class, 'store'])->name('store');
    
         });
 });
@@ -881,7 +894,6 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])
 
     Route::get('/dashboard', [CafeteriaController::class, 'dashboard'])->name('dashboard');
     Route::get('/stats', [CafeteriaController::class, 'getStats'])->name('stats');
-    Route::get('/recent-activity', [CafeteriaController::class, 'recentActivity'])->name('recent-activity');
 // ── Pre-Orders from Staff / Students ──
     Route::prefix('pre-orders')->name('pre-orders.')->group(function () {
         Route::get('/', [CafeteriaPreOrderController::class, 'index'])->name('index');
@@ -895,18 +907,12 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])
     // Products
     Route::prefix('products')->name('products.')->group(function () {
         Route::get('/', [ProductController::class, 'index'])->name('index');
-        Route::get('/create', [ProductController::class, 'create'])->name('create');
         Route::post('/', [ProductController::class, 'store'])->name('store');
+        Route::get('/low-stock', [ProductController::class, 'lowStock'])->name('low-stock');
         Route::get('/{product}', [ProductController::class, 'show'])->name('show');
-        Route::get('/{product}/edit', [ProductController::class, 'edit'])->name('edit');
         Route::put('/{product}', [ProductController::class, 'update'])->name('update');
         Route::delete('/{product}', [ProductController::class, 'destroy'])->name('destroy');
         Route::post('/{product}/update-stock', [ProductController::class, 'updateStock'])->name('update-stock');
-        Route::get('/{product}/stock-history', [ProductController::class, 'stockHistory'])->name('stock-history');
-        Route::get('/export', [ProductController::class, 'export'])->name('export');
-        Route::post('/import', [ProductController::class, 'import'])->name('import');
-        Route::get('/low-stock', [ProductController::class, 'lowStock'])->name('low-stock');
-        Route::get('/expiring-soon', [ProductController::class, 'expiringSoon'])->name('expiring-soon');
     });
 
     // Categories
@@ -917,7 +923,6 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])
         Route::put('/{category}', [ProductCategoryController::class, 'update'])->name('update');
         Route::patch('/{category}/toggle-status', [ProductCategoryController::class, 'toggleStatus'])->name('toggle-status');
         Route::delete('/{category}', [ProductCategoryController::class, 'destroy'])->name('destroy');
-        Route::get('/{category}/products', [ProductCategoryController::class, 'products'])->name('products');
     });
 
     // Suppliers
@@ -930,83 +935,51 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])
         Route::put('/{supplier}', [SupplierController::class, 'update'])->name('update');
         Route::delete('/{supplier}', [SupplierController::class, 'destroy'])->name('destroy');
         Route::post('/{supplier}/restore', [SupplierController::class, 'restore'])->name('restore');
-        Route::get('/{supplier}/purchase-orders', [SupplierController::class, 'purchaseOrders'])->name('purchase-orders');
-        Route::get('/{supplier}/transactions', [SupplierController::class, 'transactions'])->name('transactions');
-        Route::get('/export', [SupplierController::class, 'export'])->name('export');
     });
 
     // Purchase Orders
     Route::prefix('purchase-orders')->name('purchase-orders.')->group(function () {
         Route::get('/', [PurchaseOrderController::class, 'index'])->name('index');
         Route::get('/get-products', [PurchaseOrderController::class, 'getProducts'])->name('get-products');
-        Route::get('/create', [PurchaseOrderController::class, 'create'])->name('create');
         Route::post('/', [PurchaseOrderController::class, 'store'])->name('store');
+        Route::get('/pending-approval', [PurchaseOrderController::class, 'pendingApproval'])->name('pending-approval');
+        Route::get('/overdue', [PurchaseOrderController::class, 'overdue'])->name('overdue');
         Route::get('/{purchaseOrder}', [PurchaseOrderController::class, 'show'])->name('show');
-        Route::get('/{purchaseOrder}/edit', [PurchaseOrderController::class, 'edit'])->name('edit');
         Route::put('/{purchaseOrder}', [PurchaseOrderController::class, 'update'])->name('update');
         Route::delete('/{purchaseOrder}', [PurchaseOrderController::class, 'destroy'])->name('destroy');
         Route::post('/{purchaseOrder}/update-items', [PurchaseOrderController::class, 'updateItems'])->name('update-items');
         Route::post('/{purchaseOrder}/update-status', [PurchaseOrderController::class, 'updateStatus'])->name('update-status');
-        Route::post('/{purchaseOrder}/approve', [PurchaseOrderController::class, 'approve'])->name('approve');
-        Route::post('/{purchaseOrder}/cancel', [PurchaseOrderController::class, 'cancel'])->name('cancel');
-        Route::get('/{purchaseOrder}/print', [PurchaseOrderController::class, 'print'])->name('print');
-        Route::get('/{purchaseOrder}/email', [PurchaseOrderController::class, 'email'])->name('email');
-        Route::get('/export', [PurchaseOrderController::class, 'export'])->name('export');
-        Route::get('/pending-approval', [PurchaseOrderController::class, 'pendingApproval'])->name('pending-approval');
-        Route::get('/overdue', [PurchaseOrderController::class, 'overdue'])->name('overdue');
     });
 
     // Goods Received Notes
     Route::prefix('grn')->name('grn.')->group(function () {
         Route::get('/', [GoodsReceivedNoteController::class, 'index'])->name('index');
-        Route::get('/create', [GoodsReceivedNoteController::class, 'create'])->name('create');
         Route::post('/', [GoodsReceivedNoteController::class, 'store'])->name('store');
         Route::get('/{grn}', [GoodsReceivedNoteController::class, 'show'])->name('show');
-        Route::get('/{grn}/edit', [GoodsReceivedNoteController::class, 'edit'])->name('edit');
         Route::put('/{grn}', [GoodsReceivedNoteController::class, 'update'])->name('update');
         Route::delete('/{grn}', [GoodsReceivedNoteController::class, 'destroy'])->name('destroy');
         Route::post('/{grn}/update-status', [GoodsReceivedNoteController::class, 'updateStatus'])->name('update-status');
         Route::post('/{grn}/quality-check', [GoodsReceivedNoteController::class, 'qualityCheck'])->name('quality-check');
         Route::post('/{grn}/approve', [GoodsReceivedNoteController::class, 'approve'])->name('approve');
-        Route::get('/{grn}/print', [GoodsReceivedNoteController::class, 'print'])->name('print');
-        Route::get('/today', [GoodsReceivedNoteController::class, 'today'])->name('today');
-        Route::get('/pending-quality', [GoodsReceivedNoteController::class, 'pendingQuality'])->name('pending-quality');
-        Route::get('/by-purchase-order/{purchaseOrder}', [GoodsReceivedNoteController::class, 'byPurchaseOrder'])->name('by-purchase-order');
     });
 
     // Direct Purchases
     Route::prefix('direct-purchases')->name('direct-purchases.')->group(function () {
         Route::get('/', [DirectPurchaseController::class, 'index'])->name('index');
-        Route::get('/create', [DirectPurchaseController::class, 'create'])->name('create');
         Route::post('/', [DirectPurchaseController::class, 'store'])->name('store');
+        Route::get('/today', [DirectPurchaseController::class, 'today'])->name('today');
         Route::get('/{directPurchase}', [DirectPurchaseController::class, 'show'])->name('show');
-        Route::get('/{directPurchase}/edit', [DirectPurchaseController::class, 'edit'])->name('edit');
         Route::put('/{directPurchase}', [DirectPurchaseController::class, 'update'])->name('update');
         Route::delete('/{directPurchase}', [DirectPurchaseController::class, 'destroy'])->name('destroy');
         Route::post('/{directPurchase}/update-payment', [DirectPurchaseController::class, 'updatePayment'])->name('update-payment');
-        Route::get('/{directPurchase}/print', [DirectPurchaseController::class, 'print'])->name('print');
-        Route::get('/today', [DirectPurchaseController::class, 'today'])->name('today');
         Route::get('/by-supplier/{supplier}', [DirectPurchaseController::class, 'bySupplier'])->name('by-supplier');
     });
 
     // Sales
     Route::prefix('sales')->name('sales.')->group(function () {
         Route::get('/', [SaleController::class, 'pos'])->name('index');
-        Route::get('/create', [SaleController::class, 'create'])->name('create');
         Route::post('/', [SaleController::class, 'store'])->name('store');
-        Route::get('/{sale}/edit', [SaleController::class, 'edit'])->name('edit');
-        Route::put('/{sale}', [SaleController::class, 'update'])->name('update');
-        Route::delete('/{sale}', [SaleController::class, 'destroy'])->name('destroy');
-        Route::post('/{sale}/update-status', [SaleController::class, 'updateStatus'])->name('update-status');
-        Route::post('/{sale}/add-payment', [SaleController::class, 'addPayment'])->name('add-payment');
-        Route::post('/{sale}/cancel', [SaleController::class, 'cancel'])->name('cancel');
-        Route::get('/today', [SaleController::class, 'today'])->name('today');
         Route::get('/pending-payment', [SaleController::class, 'pendingPayment'])->name('pending-payment');
-        Route::get('/cancelled', [SaleController::class, 'cancelled'])->name('cancelled');
-        Route::get('/daily-report', [SaleController::class, 'dailySalesReport'])->name('daily-report');
-        Route::get('/monthly-report', [SaleController::class, 'monthlyReport'])->name('monthly-report');
-        Route::get('/export', [SaleController::class, 'export'])->name('export');
-        Route::get('/{sale}/print', [SaleController::class, 'print'])->name('print');
         Route::get('/{sale}/print-receipt', [SaleController::class, 'printReceipt'])->name('print-receipt');
         Route::get('/{sale}/email-receipt', [SaleController::class, 'emailReceipt'])->name('email-receipt');
         Route::get('/pos', [SaleController::class, 'pos'])->name('pos');
@@ -1022,8 +995,6 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])
         Route::post('/adjustment', [InventoryStocksController::class, 'storeAdjustment'])->name('adjustment.store');
         Route::post('/transfer', [InventoryStocksController::class, 'storeTransfer'])->name('transfer.store');
         Route::post('/movement/delete/{movement}', [InventoryStocksController::class, 'deleteMovement'])->name('movement.delete');
-        Route::get('/movements/data', [InventoryStocksController::class, 'getMovementsData'])->name('movements.data');
-        Route::get('/stocks/data', [InventoryStocksController::class, 'getStocksData'])->name('stocks.data');
     });
 
     // Stock Adjustments
@@ -1031,41 +1002,23 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])
         Route::get('/', [StockAdjustmentController::class, 'index'])->name('index');
         Route::get('/create', [StockAdjustmentController::class, 'create'])->name('create');
         Route::post('/', [StockAdjustmentController::class, 'store'])->name('store');
-        Route::get('/{adjustment}', [StockAdjustmentController::class, 'show'])->name('show');
-        Route::get('/{adjustment}/edit', [StockAdjustmentController::class, 'edit'])->name('edit');
-        Route::put('/{adjustment}', [StockAdjustmentController::class, 'update'])->name('update');
-        Route::delete('/{adjustment}', [StockAdjustmentController::class, 'destroy'])->name('destroy');
-        Route::post('/{adjustment}/approve', [StockAdjustmentController::class, 'approve'])->name('approve');
-        Route::post('/{adjustment}/process', [StockAdjustmentController::class, 'process'])->name('process');
-        Route::post('/{adjustment}/reject', [StockAdjustmentController::class, 'reject'])->name('reject');
-        Route::get('/{adjustment}/print', [StockAdjustmentController::class, 'print'])->name('print');
-        Route::get('/pending-approval', [StockAdjustmentController::class, 'pendingApproval'])->name('pending-approval');
-        Route::get('/today', [StockAdjustmentController::class, 'today'])->name('today');
-        Route::get('/by-type/{type}', [StockAdjustmentController::class, 'byType'])->name('by-type');
-        Route::get('/export', [StockAdjustmentController::class, 'export'])->name('export');
+        Route::get('/{stockAdjustment}', [StockAdjustmentController::class, 'show'])->name('show');
+        Route::get('/{stockAdjustment}/edit', [StockAdjustmentController::class, 'edit'])->name('edit');
+        Route::put('/{stockAdjustment}', [StockAdjustmentController::class, 'update'])->name('update');
+        Route::delete('/{stockAdjustment}', [StockAdjustmentController::class, 'destroy'])->name('destroy');
     });
 
     // Stock Alerts
     Route::prefix('stock-alerts')->name('stock-alerts.')->group(function () {
         Route::get('/', [StockAlertController::class, 'index'])->name('index');
-        Route::get('/active', [StockAlertController::class, 'active'])->name('active');
-        Route::get('/resolved', [StockAlertController::class, 'resolved'])->name('resolved');
-        Route::get('/{alert}', [StockAlertController::class, 'show'])->name('show');
-        Route::post('/{alert}/resolve', [StockAlertController::class, 'resolve'])->name('resolve');
-        Route::post('/{alert}/reopen', [StockAlertController::class, 'reopen'])->name('reopen');
-        Route::delete('/{alert}', [StockAlertController::class, 'destroy'])->name('destroy');
-        Route::get('/check-low-stock', [StockAlertController::class, 'checkLowStock'])->name('check-low-stock');
-        Route::get('/check-expiring', [StockAlertController::class, 'checkExpiring'])->name('check-expiring');
+        Route::get('/{stockAlert}', [StockAlertController::class, 'show'])->name('show');
+        Route::delete('/{stockAlert}', [StockAlertController::class, 'destroy'])->name('destroy');
     });
 
     // Shops
     Route::prefix('shops')->name('shops.')->group(function () {
         Route::get('/', [ShopController::class, 'index'])->name('index');
         Route::post('/shopstore', [ShopController::class, 'store'])->name('store');
-        Route::get('/{shop}', [ShopController::class, 'show'])->name('show');
-        Route::get('/{shop}/inventory', [ShopController::class, 'inventory'])->name('inventory');
-        Route::get('/{shop}/sales', [ShopController::class, 'sales'])->name('sales');
-        Route::get('/{shop}/performance', [ShopController::class, 'performance'])->name('performance');
         Route::put('/{shop}', [ShopController::class, 'update'])->name('update');
         Route::delete('/{shop}', [ShopController::class, 'destroy'])->name('destroy');
     });
@@ -1073,41 +1026,21 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])
     // Business Sections
     Route::get('/business-sections', [BusinessSectionController::class, 'index'])->name('business-sections.index');
     Route::post('/business-sections', [BusinessSectionController::class, 'store'])->name('business-sections.store');
-    Route::get('/business-sections/{section}', [BusinessSectionController::class, 'show'])->name('business-sections.show');
     Route::put('/business-sections/{section}', [BusinessSectionController::class, 'update'])->name('business-sections.update');
     Route::delete('/business-sections/{section}', [BusinessSectionController::class, 'destroy'])->name('business-sections.destroy');
-    Route::get('/api/business-sections', [BusinessSectionController::class, 'getSections'])->name('api.business-sections.index');
 
     // Daily Productions
     Route::prefix('daily-productions')->name('daily-productions.')->group(function () {
         Route::get('/', [CafeteriaDailyProductionController::class, 'index'])->name('index');
         Route::post('/', [CafeteriaDailyProductionController::class, 'store'])->name('store');
+        Route::get('/statistics', [CafeteriaDailyProductionController::class, 'statistics'])->name('statistics');
         Route::get('/{id}', [CafeteriaDailyProductionController::class, 'show'])->name('show');
         Route::post('/{id}', [CafeteriaDailyProductionController::class, 'update'])->name('update');
         Route::delete('/{id}', [CafeteriaDailyProductionController::class, 'destroy'])->name('destroy');
         Route::post('/{id}/verify', [CafeteriaDailyProductionController::class, 'verify'])->name('verify');
         Route::post('/{id}/update-sales', [CafeteriaDailyProductionController::class, 'updateSales'])->name('update-sales');
-        Route::get('/statistics', [CafeteriaDailyProductionController::class, 'statistics'])->name('statistics');
     });
 
-    // Settings
-    Route::prefix('settings')->name('settings.')->group(function () {
-        Route::get('/', [CafeteriaController::class, 'settings'])->name('index');
-        Route::put('/general', [CafeteriaController::class, 'updateGeneralSettings'])->name('general.update');
-        Route::put('/inventory', [CafeteriaController::class, 'updateInventorySettings'])->name('inventory.update');
-        Route::put('/sales', [CafeteriaController::class, 'updateSalesSettings'])->name('sales.update');
-        Route::put('/notifications', [CafeteriaController::class, 'updateNotificationSettings'])->name('notifications.update');
-        Route::put('/integrations', [CafeteriaController::class, 'updateIntegrationSettings'])->name('integrations.update');
-        Route::get('/printers', [CafeteriaController::class, 'printers'])->name('printers.index');
-        Route::post('/printers', [CafeteriaController::class, 'addPrinter'])->name('printers.store');
-        Route::put('/printers/{printer}', [CafeteriaController::class, 'updatePrinter'])->name('printers.update');
-        Route::delete('/printers/{printer}', [CafeteriaController::class, 'deletePrinter'])->name('printers.delete');
-        Route::post('/printers/test/{printer}', [CafeteriaController::class, 'testPrinter'])->name('printers.test');
-        Route::get('/taxes', [CafeteriaController::class, 'taxes'])->name('taxes.index');
-        Route::post('/taxes', [CafeteriaController::class, 'addTax'])->name('taxes.store');
-        Route::put('/taxes/{tax}', [CafeteriaController::class, 'updateTax'])->name('taxes.update');
-        Route::delete('/taxes/{tax}', [CafeteriaController::class, 'deleteTax'])->name('taxes.delete');
-    });
 
     // Reports
     Route::prefix('reports')->name('reports.')->group(function () {
@@ -1118,78 +1051,36 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])
         Route::get('/purchase/supplier', [ReportController::class, 'supplierPurchaseReport'])->name('purchase.supplier');
         Route::get('/inventory/stock-levels', [ReportController::class, 'inventoryStockLevelsReport'])->name('inventory.stock-levels');
         Route::get('/inventory/movement', [ReportController::class, 'inventoryMovementReport'])->name('inventory.movement');
-        Route::get('/inventory/turnover', [ReportController::class, 'inventoryTurnoverReport'])->name('inventory.turnover');
         Route::get('/financial/profit-loss', [ReportController::class, 'profitLossReport'])->name('financial.profit-loss');
         Route::get('/financial/revenue', [ReportController::class, 'revenueReport'])->name('financial.revenue');
         Route::get('/financial/expenses', [ReportController::class, 'expensesReport'])->name('financial.expenses');
+        Route::get('/export/all', [ReportController::class, 'exportAllReports'])->name('export.all');
         Route::get('/export/{type}', [ReportController::class, 'exportReport'])->name('export');
         Route::get('/dashboard', [ReportController::class, 'dashboard'])->name('dashboard');
         Route::get('/quick-stats', [ReportController::class, 'quickStats'])->name('quick-stats');
         Route::post('/schedule', [ReportController::class, 'scheduleReport'])->name('schedule');
-        Route::get('/export/all', [ReportController::class, 'exportAllReports'])->name('export.all');
     });
 
     // API Endpoints
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/products', [ProductController::class, 'apiIndex'])->name('products.index');
         Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
-        Route::get('/products/{product}/stock', [ProductController::class, 'stock'])->name('products.stock');
-        Route::get('/products/low-stock', [ProductController::class, 'apiLowStock'])->name('products.low-stock');
-        Route::get('/inventory/stats', [InventoryStocksController::class, 'stats'])->name('inventory.stats');
-        Route::get('/inventory/movements/stats', [InventoryStocksController::class, 'movementStats'])->name('inventory.movements.stats');
-        Route::get('/sales/stats', [SaleController::class, 'stats'])->name('sales.stats');
         Route::get('/sales/today-stats', [SaleController::class, 'todayStats'])->name('sales.today-stats');
-        Route::get('/suppliers', [SupplierController::class, 'apiIndex'])->name('suppliers.index');
         Route::get('/shops', [ShopController::class, 'apiIndex'])->name('shops.index');
         Route::get('/categories', [ProductCategoryController::class, 'apiIndex'])->name('categories.index');
         Route::get('/business-sections', [BusinessSectionController::class, 'apiIndex'])->name('business-sections.index');
     });
 
     // Quick Actions
-    Route::post('/quick/reorder/{product}', [ProductController::class, 'quickReorder'])->name('quick.reorder');
-    Route::post('/quick/adjust-stock', [InventoryStocksController::class, 'quickAdjustStock'])->name('quick.adjust-stock');
-    Route::post('/quick/transfer-stock', [InventoryStocksController::class, 'quickTransferStock'])->name('quick.transfer-stock');
 
     // Bulk Actions
-    Route::post('/bulk/update-product-prices', [ProductController::class, 'bulkUpdatePrices'])->name('bulk.update-product-prices');
-    Route::post('/bulk/update-stock-levels', [InventoryStocksController::class, 'bulkUpdateStockLevels'])->name('bulk.update-stock-levels');
-    Route::post('/bulk/approve-purchase-orders', [PurchaseOrderController::class, 'bulkApprove'])->name('bulk.approve-purchase-orders');
-    Route::post('/bulk/process-grn', [GoodsReceivedNoteController::class, 'bulkProcess'])->name('bulk.process-grn');
 
     // Print & Export
-    Route::get('/print/labels/{product}', [ProductController::class, 'printLabels'])->name('print.labels');
-    Route::get('/print/price-tags/{product}', [ProductController::class, 'printPriceTags'])->name('print.price-tags');
-    Route::get('/print/barcode/{product}', [ProductController::class, 'printBarcode'])->name('print.barcode');
-    Route::post('/export/data', [CafeteriaController::class, 'exportData'])->name('export.data');
-    Route::post('/import/data', [CafeteriaController::class, 'importData'])->name('import.data');
 
     // Backup & Restore
-    Route::get('/backup', [CafeteriaController::class, 'backup'])->name('backup');
-    Route::post('/backup/create', [CafeteriaController::class, 'createBackup'])->name('backup.create');
-    Route::post('/backup/restore', [CafeteriaController::class, 'restoreBackup'])->name('backup.restore');
-    Route::get('/backup/download/{file}', [CafeteriaController::class, 'downloadBackup'])->name('backup.download');
-    Route::delete('/backup/{file}', [CafeteriaController::class, 'deleteBackup'])->name('backup.delete');
 
     // Notifications
-    Route::get('/notifications', [CafeteriaController::class, 'notifications'])->name('notifications');
-    Route::post('/notifications/mark-all-read', [CafeteriaController::class, 'markAllNotificationsRead'])->name('notifications.mark-all-read');
-    Route::post('/notifications/{notification}/mark-read', [CafeteriaController::class, 'markNotificationRead'])->name('notifications.mark-read');
-    Route::delete('/notifications/{notification}', [CafeteriaController::class, 'deleteNotification'])->name('notifications.delete');
 
-    // User Management
-    Route::prefix('users')->name('users.')->group(function () {
-        Route::get('/', [CafeteriaController::class, 'users'])->name('index');
-        Route::get('/create', [CafeteriaController::class, 'createUser'])->name('create');
-        Route::post('/', [CafeteriaController::class, 'storeUser'])->name('store');
-        Route::get('/{user}', [CafeteriaController::class, 'showUser'])->name('show');
-        Route::get('/{user}/edit', [CafeteriaController::class, 'editUser'])->name('edit');
-        Route::put('/{user}', [CafeteriaController::class, 'updateUser'])->name('update');
-        Route::delete('/{user}', [CafeteriaController::class, 'deleteUser'])->name('delete');
-        Route::post('/{user}/toggle-status', [CafeteriaController::class, 'toggleUserStatus'])->name('toggle-status');
-        Route::post('/{user}/reset-password', [CafeteriaController::class, 'resetUserPassword'])->name('reset-password');
-        Route::get('/roles', [CafeteriaController::class, 'roles'])->name('roles');
-        Route::post('/roles', [CafeteriaController::class, 'storeRole'])->name('roles.store');
-    });
 
 Route::prefix('scanner')->name('scanner.')->group(function () {
     Route::get('/', [QRScannerController::class, 'index'])->name('index');
@@ -1215,7 +1106,6 @@ Route::middleware(['auth', 'verified', 'role.finance'])
     // ==================== STUDENT FINANCIAL VIEWS ====================
     Route::prefix('students')->name('students.')->group(function () {
         Route::get('/search', [FinanceController::class, 'searchStudents'])->name('search');
-        Route::get('/list', [FinanceController::class, 'studentList'])->name('list');
         Route::get('/{student}/financial', [FinanceController::class, 'studentFinancials'])->name('financial');
         Route::get('/{student}/transactions', [FinanceController::class, 'studentTransactions'])->name('transactions');
         Route::get('/{student}/balance', [FinanceController::class, 'studentBalance'])->name('balance');
@@ -1228,17 +1118,20 @@ Route::middleware(['auth', 'verified', 'role.finance'])
         Route::get('/', [FinanceController::class, 'studentFees'])->name('index');
         Route::get('/create', [FinanceController::class, 'createStudentFee'])->name('create');
         Route::post('/', [FinanceController::class, 'storeStudentFee'])->name('store');
+        Route::get('/eligible-for-reminder', [FinanceController::class, 'getEligibleForReminder'])->name('eligible-for-reminder');
+        Route::get('/export', [FinanceController::class, 'exportStudentFees'])->name('export');
         Route::get('/{payment}', [FinanceController::class, 'showStudentFee'])->name('show');
         Route::get('/{payment}/receipt', [FinanceController::class, 'studentFeeReceipt'])->name('receipt');
+        Route::post('/bulk/verify', [FinanceController::class, 'bulkVerifyFees'])->name('bulk.verify');
         Route::post('/{payment}/verify', [FinanceController::class, 'verifyStudentFee'])->name('verify');
         Route::post('/{payment}/reverse', [FinanceController::class, 'reverseStudentFee'])->name('reverse');
+        Route::post('/bulk/reconcile', [FinanceController::class, 'bulkReconcileFees'])->name('bulk.reconcile');
         Route::post('/{payment}/reconcile', [FinanceController::class, 'reconcileStudentFee'])->name('reconcile');
 
         // Fee Reminders
         Route::post('/send-reminders', [FinanceController::class, 'sendFeeReminders'])->name('send-reminders');
         Route::post('/send-reminder/{enrollment}', [FinanceController::class, 'sendSingleFeeReminder'])->name('send-single-reminder');
         Route::post('/bulk-balance-reminders', [FinanceController::class, 'sendBulkBalanceReminders'])->name('bulk-balance-reminders');
-        Route::get('/eligible-for-reminder', [FinanceController::class, 'getEligibleForReminder'])->name('eligible-for-reminder');
 
         // Reports
         Route::prefix('reports')->name('reports.')->group(function () {
@@ -1248,9 +1141,6 @@ Route::middleware(['auth', 'verified', 'role.finance'])
         });
 
         // Export & Bulk
-        Route::get('/export', [FinanceController::class, 'exportStudentFees'])->name('export');
-        Route::post('/bulk/verify', [FinanceController::class, 'bulkVerifyFees'])->name('bulk.verify');
-        Route::post('/bulk/reconcile', [FinanceController::class, 'bulkReconcileFees'])->name('bulk.reconcile');
     });
 
     // ==================== PAYMENT TRANSACTIONS ====================
@@ -1285,30 +1175,16 @@ Route::middleware(['auth', 'verified', 'role.finance'])
         Route::get('/cashflow', [FinanceController::class, 'cashflowReport'])->name('cashflow');
         Route::get('/revenue-trends', [FinanceController::class, 'revenueTrends'])->name('revenue-trends');
         Route::get('/export/{type}', [FinanceController::class, 'exportFinancialReport'])->name('export-financial');
-        Route::get('/enrollment-financial', [FinanceController::class, 'enrollmentFinancialReport'])->name('enrollment-financial');
     });
-Route::prefix('fee-structure')->name('fee-structure.')->group(function () {
-    Route::get('/', [FeeStructureController::class, 'index'])->name('index');
-    Route::get('/stats', [FeeStructureController::class, 'stats'])->name('stats');
-    Route::get('/export', [FeeStructureController::class, 'export'])->name('export');
-
-    // Create a fee structure for a course (uses {course} because we haven't created the fee row yet)
-    Route::get('/create/{course}', [FeeStructureController::class, 'create'])->name('create');
-    Route::post('/', [FeeStructureController::class, 'store'])->name('store');
-
-    // Per-course view: shows every term's fee side by side
-    Route::get('/course/{course}', [FeeStructureController::class, 'courseTerms'])->name('course-terms');
-
-    // Edit one fee structure row (course × term)
-    Route::get('/{feeStructure}/edit', [FeeStructureController::class, 'edit'])->name('edit');
-    Route::put('/{feeStructure}', [FeeStructureController::class, 'update'])->name('update');
-    Route::delete('/{feeStructure}', [FeeStructureController::class, 'destroy'])->name('destroy');
-    Route::get('/{feeStructure}', [FeeStructureController::class, 'show'])->name('show');
-
-    // Approve/reject
-    Route::post('/{feeStructure}/approve', [FeeStructureController::class, 'approve'])->name('approve');
-    Route::post('/{feeStructure}/reject', [FeeStructureController::class, 'reject'])->name('reject');
-});
+    // ==================== TERM FEES (terms per course + fee breakdown per term) ====================
+    Route::prefix('fee-structure')->name('fee-structure.')->group(function () {
+        Route::get('/', [TermFeeController::class, 'index'])->name('index');
+        Route::get('/export', [TermFeeController::class, 'export'])->name('export');
+        Route::get('/course/{course}', [TermFeeController::class, 'course'])->name('course');
+        Route::put('/course/{course}/structure', [TermFeeController::class, 'updateStructure'])->name('structure');
+        Route::post('/course/{course}/fees', [TermFeeController::class, 'storeFee'])->name('fee.store');
+        Route::delete('/fees/{fee}', [TermFeeController::class, 'destroyFee'])->name('fee.destroy');
+    });
 
     // ==================== FINANCE SETTINGS ====================
     Route::prefix('settings')->name('settings.')->group(function () {
@@ -1347,7 +1223,52 @@ Route::prefix('fee-structure')->name('fee-structure.')->group(function () {
         [HighSchoolStudentController::class, 'getCardIds'])
         ->name('hs-students.get-card-ids');
 
+    // ==================== KCB PAYMENTS (every IPN received + unallocated queue) ====================
+    Route::prefix('fee-reminders')->name('fee-reminders.')->group(function () {
+        Route::get('/', [FeeReminderController::class, 'index'])->name('index');
+        Route::post('/send', [FeeReminderController::class, 'bulkSend'])->name('bulk');
+        Route::post('/confirm', [FeeReminderController::class, 'confirm'])->name('confirm');
+        Route::post('/{enrollment}/send', [FeeReminderController::class, 'send'])->name('send');
+    });
+
+    Route::prefix('kcb-payments')->name('kcb-payments.')->group(function () {
+        Route::get('/', [KcbPaymentQueueController::class, 'index'])->name('index');
+        Route::get('/{ipn}', [KcbPaymentQueueController::class, 'show'])->name('show');
+        Route::post('/{ipn}/assign-student', [KcbPaymentQueueController::class, 'assignStudent'])->name('assign-student');
+        Route::post('/{ipn}/assign-card', [KcbPaymentQueueController::class, 'assignCard'])->name('assign-card');
+        Route::post('/{ipn}/ignore', [KcbPaymentQueueController::class, 'ignore'])->name('ignore');
+    });
+
+    // ==================== TRANSPORT FARE (cash given against the transport wallet) ====================
+    Route::prefix('transport')->name('transport.')->group(function () {
+        Route::get('/', [TransportFareController::class, 'index'])->name('index');
+        Route::get('/give', [TransportFareController::class, 'give'])->name('give');
+        Route::post('/give', [TransportFareController::class, 'store'])->name('store');
+        Route::get('/batch', [TransportFareController::class, 'batch'])->name('batch');
+        Route::post('/batch', [TransportFareController::class, 'batchStore'])->name('batch.store');
+        Route::post('/{disbursement}/reverse', [TransportFareController::class, 'reverse'])->name('reverse');
+        Route::get('/fees', [TransportFareController::class, 'fees'])->name('fees');
+        Route::put('/fees', [TransportFareController::class, 'updateFees'])->name('fees.update');
+    });
+
+    // ==================== CAFETERIA ANALYSIS ====================
+    Route::get('/cafeteria-analytics', [CafeteriaAnalyticsController::class, 'index'])->name('cafeteria-analytics');
+
 }); // <-- THIS CLOSES THE FINANCE ROUTE GROUP
+
+// ============================================================================
+// STUDENT TERMS on an enrollment: admin (2) and finance (7)
+// ============================================================================
+Route::middleware(['auth', 'verified', 'role.any:2,7'])->prefix('enrollment-terms')->name('enrollment-terms.')->group(function () {
+    Route::get('/{enrollment}', [EnrollmentTermController::class, 'show'])->name('show');
+    Route::post('/{enrollment}/register', [EnrollmentTermController::class, 'register'])->name('register');
+    Route::post('/{enrollment}/cancel', [EnrollmentTermController::class, 'cancel'])->name('cancel');
+});
+
+// ============================================================================
+// HIGH SCHOOL CARDS: finance staff only (these move card money)
+// ============================================================================
+Route::middleware(['auth', 'verified', 'role.finance'])->group(function () {
 
 // ============================================================================
 // HIGH SCHOOL CARD SYSTEM
@@ -1356,16 +1277,16 @@ Route::prefix('hs-students')->name('hs-students.')->group(function () {
     Route::get('/', [HighSchoolStudentController::class, 'index'])->name('index');
     Route::get('/create', [HighSchoolStudentController::class, 'create'])->name('create');
     Route::post('/', [HighSchoolStudentController::class, 'store'])->name('store');
-    Route::get('/{student}', [HighSchoolStudentController::class, 'show'])->name('show');
-    Route::get('/{student}/edit', [HighSchoolStudentController::class, 'edit'])->name('edit');
-    Route::put('/{student}', [HighSchoolStudentController::class, 'update'])->name('update');
-    Route::delete('/{student}', [HighSchoolStudentController::class, 'destroy'])->name('destroy');
     Route::get('/import', [HighSchoolStudentController::class, 'importView'])->name('import');
     Route::post('/import', [HighSchoolStudentController::class, 'importProcess'])->name('import.process');
     Route::get('/export', [HighSchoolStudentController::class, 'export'])->name('export');
     Route::get('/template', [HighSchoolStudentController::class, 'downloadTemplate'])->name('template');
     Route::post('/bulk/activate', [HighSchoolStudentController::class, 'bulkActivate'])->name('bulk.activate');
     Route::post('/bulk/deactivate', [HighSchoolStudentController::class, 'bulkDeactivate'])->name('bulk.deactivate');
+    Route::get('/{student}', [HighSchoolStudentController::class, 'show'])->name('show');
+    Route::get('/{student}/edit', [HighSchoolStudentController::class, 'edit'])->name('edit');
+    Route::put('/{student}', [HighSchoolStudentController::class, 'update'])->name('update');
+    Route::delete('/{student}', [HighSchoolStudentController::class, 'destroy'])->name('destroy');
     Route::post('/{student}/update-photo', [HighSchoolStudentController::class, 'updatePhoto'])->name('update-photo');
 });
 
@@ -1398,6 +1319,7 @@ Route::get('/bulk-pdf', [CardBulkPdfController::class, 'download'])->name('bulk-
     Route::post('/{cardAccount}/block', [CardAccountController::class, 'block'])->name('block');
     Route::post('/{cardAccount}/unblock', [CardAccountController::class, 'unblock'])->name('unblock');
     Route::post('/{cardAccount}/adjust-balance', [CardAccountController::class, 'adjustBalance'])->name('adjust-balance');
+    Route::post('/{cardAccount}/transfer-wallet', [CardAccountController::class, 'transferWallet'])->name('transfer-wallet');
     Route::get('/{cardAccount}/balance', [CardAccountController::class, 'getBalance'])->name('balance');
     Route::post('/{cardAccount}/generate-qr', [CardQrController::class, 'generate'])->name('generate-qr');
     Route::get('/{cardAccount}/print-qr', [CardQrController::class, 'print'])->name('print-qr');
@@ -1411,14 +1333,11 @@ Route::get('/bulk-pdf', [CardBulkPdfController::class, 'download'])->name('bulk-
 // ============================================================================
 Route::prefix('funding')->name('funding.')->group(function () {
     Route::get('/', [CardFundingRequestController::class, 'index'])->name('index');
+    Route::get('/export', [CardFundingRequestController::class, 'export'])->name('export');
     Route::get('/{cardFundingRequest}', [CardFundingRequestController::class, 'show'])->name('show');
     Route::post('/{cardFundingRequest}/complete', [CardFundingRequestController::class, 'complete'])->name('complete');
     Route::post('/{cardFundingRequest}/fail', [CardFundingRequestController::class, 'fail'])->name('fail');
     Route::post('/{cardFundingRequest}/retry', [CardFundingRequestController::class, 'retry'])->name('retry');
-    Route::get('/pending', [CardFundingRequestController::class, 'pending'])->name('pending');
-    Route::get('/failed', [CardFundingRequestController::class, 'failed'])->name('failed');
-    Route::get('/completed', [CardFundingRequestController::class, 'completed'])->name('completed');
-    Route::get('/export', [CardFundingRequestController::class, 'export'])->name('export');
 });
 
 // ============================================================================
@@ -1449,23 +1368,25 @@ Route::prefix('card-api')->name('card-api.')->group(function () {
 });
 
 // ============================================================================
-// QR SCANNER API ROUTES
-// ============================================================================
-Route::prefix('api/qr')->name('api.qr.')->group(function () {
-    Route::post('/scan', [QRScannerController::class, 'scan'])->name('scan');
-    Route::post('/process', [QRScannerController::class, 'process'])->name('process');
-    Route::get('/get-code', [QRScannerController::class, 'getQrCode'])->name('get-code');
-    Route::post('/decode', [QRScannerController::class, 'decodeQR'])->name('decode'); // ✅ ADD THIS
-});
-
-// ============================================================================
 // QR MANAGEMENT
 // ============================================================================
 Route::prefix('card-qr')->name('card-qr.')->group(function () {
-    Route::post('/{card}/regenerate', [CardQrController::class, 'regenerate'])->name('regenerate');
     Route::post('/bulk/regenerate', [CardQrController::class, 'bulkRegenerate'])->name('bulk.regenerate');
-    Route::get('/{card}/show', [CardQrController::class, 'showQr'])->name('show');
-    Route::get('/{card}/download', [CardQrController::class, 'download'])->name('download');
+    Route::post('/{cardAccount}/regenerate', [CardQrController::class, 'regenerate'])->name('regenerate');
+    Route::get('/{cardAccount}/show', [CardQrController::class, 'showQr'])->name('show');
+    Route::get('/{cardAccount}/download', [CardQrController::class, 'download'])->name('download');
+});
+
+}); // <-- closes the finance-only HIGH SCHOOL CARDS group
+
+// ============================================================================
+// QR SCANNER API ROUTES: cafeteria scanner (role 6) and finance (role 7)
+// ============================================================================
+Route::middleware(['auth', 'verified', 'role.any:6,7'])->prefix('api/qr')->name('api.qr.')->group(function () {
+    Route::post('/scan', [QRScannerController::class, 'scan'])->name('scan');
+    Route::post('/process', [QRScannerController::class, 'process'])->name('process');
+    Route::get('/get-code', [QRScannerController::class, 'getQrCode'])->name('get-code');
+    Route::post('/decode', [QRScannerController::class, 'decodeQR'])->name('decode');
 });
 // ============================================================================
 // TRAINERS ROUTES
@@ -1483,6 +1404,12 @@ Route::middleware(['auth', 'verified', 'role.trainers'])
 
     Route::get('/students', [TrainersController::class, 'students'])
         ->name('students.index');
+
+    // Marks entry for the trainer's own units
+    Route::get('/results', [TrainerResultsController::class, 'index'])->name('results.index');
+    Route::get('/results/{unit}', [TrainerResultsController::class, 'unit'])->name('results.unit');
+    Route::post('/results/{unit}', [TrainerResultsController::class, 'save'])->name('results.save');
+    Route::get('/feedback', [EvaluationAdminController::class, 'myFeedback'])->name('feedback');
 
     // Attachments — served by AttachmentController (trainer side)
     Route::prefix('attachments')->name('attachments.')->group(function () {
@@ -1518,7 +1445,6 @@ Route::middleware(['auth', 'verified', 'role.website'])
     ->group(function () {
 
     Route::get('/dashboard', [WebsiteController::class, 'dashboard'])->name('dashboard');
-    Route::get('/analytics/visitors', [WebsiteController::class, 'getVisitorAnalytics'])->name('analytics.visitors');
 
     Route::prefix('campuses')->name('campuses.')->group(function () {
         Route::get('/', [CampusController::class, 'index'])->name('index');
@@ -1597,7 +1523,6 @@ Route::middleware(['auth', 'verified', 'role.website'])
 
     // Messages
     Route::get('messages', [MessageController::class, 'index'])->name('messages.index');
-    Route::put('messages/{id}/mark-read', [MessageController::class, 'markRead'])->name('messages.mark-read');
     Route::delete('messages/{id}', [MessageController::class, 'destroy'])->name('messages.destroy');
 
     // Departments
@@ -1617,13 +1542,9 @@ Route::prefix('courses')->name('courses.')->group(function () {
     Route::get('/{course}/trainers',              [CourseController::class, 'trainers'])      ->name('trainers.index');
     Route::post('/{course}/trainers',             [CourseController::class, 'assignTrainer']) ->name('trainers.assign');
     Route::put('/{course}/trainers/{trainer}',    [CourseController::class, 'updateTrainer']) ->name('trainers.update');
-    Route::delete('/{course}/trainers/{trainer}', [CourseController::class, 'removeTrainer']) ->name('trainers.remove');
+    Route::delete('/{course}/trainers/{user}', [CourseController::class, 'removeTrainer']) ->name('trainers.remove');
 });
     // Course Intakes
-    Route::get('course-intakes', [CourseIntakesController::class, 'index'])->name('course-intakes.index');
-    Route::post('course-intakes', [CourseIntakesController::class, 'store'])->name('course-intakes.store');
-    Route::put('course-intakes/{course_intake}', [CourseIntakesController::class, 'update'])->name('course-intakes.update');
-    Route::delete('course-intakes/{course_intake}', [CourseIntakesController::class, 'destroy'])->name('course-intakes.destroy');
 
     // FAQs
     Route::get('faqs', [FaqController::class, 'index'])->name('faqs.index');
@@ -1634,8 +1555,6 @@ Route::prefix('courses')->name('courses.')->group(function () {
     // About Pages
     Route::get('about-pages', [AboutPageController::class, 'index'])->name('about-pages.index');
     Route::post('about-pages', [AboutPageController::class, 'store'])->name('about-pages.store');
-    Route::put('about-pages/{id}', [AboutPageController::class, 'update'])->name('about-pages.update');
-    Route::delete('about-pages/{id}', [AboutPageController::class, 'destroy'])->name('about-pages.destroy');
 
     // About Images
     Route::post('about-images', [AboutPageController::class, 'storeImage'])->name('about-images.store');
@@ -1646,20 +1565,20 @@ Route::prefix('courses')->name('courses.')->group(function () {
     Route::get('blog-categories', [BlogCategoryController::class, 'index'])->name('blog-categories.index');
     Route::post('blog-categories', [BlogCategoryController::class, 'store'])->name('blog-categories.store');
     Route::put('blog-categories/{id}', [BlogCategoryController::class, 'update'])->name('blog-categories.update');
-    Route::delete('blog-categories/{id}', [BlogCategoryController::class, 'destroy'])->name('blog-categories.destroy');
+    Route::delete('blog-categories/{blogCategory}', [BlogCategoryController::class, 'destroy'])->name('blog-categories.destroy');
 
     // Events
     Route::get('/events', [EventController::class, 'index'])->name('events.index');
     Route::post('/events', [EventController::class, 'store'])->name('events.store');
-    Route::put('/events/{id}', [EventController::class, 'update'])->name('events.update');
-    Route::delete('/events/{id}', [EventController::class, 'destroy'])->name('events.destroy');
+    Route::put('/events/{event}', [EventController::class, 'update'])->name('events.update');
+    Route::delete('/events/{event}', [EventController::class, 'destroy'])->name('events.destroy');
 
     // Blogs
     Route::get('blogs', [BlogController::class, 'index'])->name('blogs.index');
     Route::get('blogs/{id}', [BlogController::class, 'show'])->name('blogs.show');
     Route::post('blogs', [BlogController::class, 'store'])->name('blogs.store');
     Route::put('blogs/{blog}', [BlogController::class, 'update'])->name('blogs.update');
-    Route::delete('blogs/{id}', [BlogController::class, 'destroy'])->name('blogs.destroy');
+    Route::delete('blogs/{blog}', [BlogController::class, 'destroy'])->name('blogs.destroy');
 });
 
 // ============================================================================
@@ -1719,15 +1638,6 @@ Route::get('/events/{event:slug}', [EventController::class, 'show'])->name('even
 Route::prefix('event-applications')->group(function () {
     Route::get('/create/{event}', [EventApplicationController::class, 'create'])->name('event-applications.create');
     Route::post('/store/{event}', [EventApplicationController::class, 'store'])->name('event-applications.store');
-
-    Route::middleware(['auth'])->group(function () {
-        Route::get('/', [EventApplicationController::class, 'index'])->name('event-applications.index');
-        Route::get('/{application}', [EventApplicationController::class, 'show'])->name('event-applications.show');
-        Route::get('/{application}/edit', [EventApplicationController::class, 'edit'])->name('event-applications.edit');
-        Route::put('/{application}', [EventApplicationController::class, 'update'])->name('event-applications.update');
-        Route::delete('/{application}', [EventApplicationController::class, 'destroy'])->name('event-applications.destroy');
-        Route::patch('/{application}/status', [EventApplicationController::class, 'updateStatus'])->name('event-applications.update-status');
-    });
 });
 
 // Event Payment Routes
@@ -1736,21 +1646,23 @@ Route::post('/events/payment/callback', [EventPaymentController::class, 'payment
 Route::post('/events/payment/status', [EventPaymentController::class, 'checkPaymentStatus'])->name('event.payment.status');
 Route::get('/events/application/success', [EventApplicationController::class, 'success'])->name('event.application.success');
 
-// Cafeteria Public Routes
+// Cafeteria stats
 Route::get('/cafeteria/api/stats', [CafeteriaController::class, 'getStats'])
     ->name('cafeteria.api.stats')
-    ->middleware(['auth', 'verified', 'check.cafeteria.role']);
+    ->middleware(['auth', 'verified', 'role.cafeteria']);
 
-// POS Routes
-Route::get('/sales/pos', [SaleController::class, 'pos'])->name('sales.pos');
-Route::get('/sales/api/pos-products', [SaleController::class, 'apiPosProducts'])->name('sales.api.pos-products');
-Route::get('/sales/search-customers', [SaleController::class, 'apiSearchCustomers'])->name('sales.search.customers');
-Route::get('/sales/today-stats', [SaleController::class, 'apiTodayStats'])->name('sales.today.stats');
-Route::post('/sales/initiate-mpesa', [SaleController::class, 'initiateMpesa'])->name('sales.initiate.mpesa');
-Route::post('/sales/check-mpesa-status', [SaleController::class, 'checkMpesaStatus'])->name('sales.check.mpesa.status');
-Route::post('/sales', [SaleController::class, 'store'])->name('sales.store');
-Route::get('/sales/{id}/print-receipt', [SaleController::class, 'printReceipt'])->name('sales.print.receipt');
-Route::get('/sales/{id}/email-receipt', [SaleController::class, 'emailReceipt'])->name('sales.email.receipt');
+// POS Routes: cafeteria staff only (these create sales and trigger M-Pesa prompts)
+Route::middleware(['auth', 'verified', 'role.cafeteria'])->group(function () {
+    Route::get('/sales/pos', [SaleController::class, 'pos'])->name('sales.pos');
+    Route::get('/sales/api/pos-products', [SaleController::class, 'apiPosProducts'])->name('sales.api.pos-products');
+    Route::get('/sales/search-customers', [SaleController::class, 'apiSearchCustomers'])->name('sales.search.customers');
+    Route::get('/sales/today-stats', [SaleController::class, 'apiTodayStats'])->name('sales.today.stats');
+    Route::post('/sales/initiate-mpesa', [SaleController::class, 'initiateMpesa'])->name('sales.initiate.mpesa');
+    Route::post('/sales/check-mpesa-status', [SaleController::class, 'checkMpesaStatus'])->name('sales.check.mpesa.status');
+    Route::post('/sales', [SaleController::class, 'store'])->name('sales.store');
+    Route::get('/sales/{id}/print-receipt', [SaleController::class, 'printReceipt'])->name('sales.print.receipt');
+    Route::get('/sales/{id}/email-receipt', [SaleController::class, 'emailReceipt'])->name('sales.email.receipt');
+});
 
 Route::post('/api/kcb/sales/callback', [SaleController::class, 'handleKcbCallback'])
     ->name('sales.payment.callback')
@@ -1780,14 +1692,14 @@ Route::get('/library/ebook/{ebook}/download', [LibraryController::class, 'downlo
 Route::get('/library/donate', [LibraryController::class, 'donationForm'])->name('library.donation-form');
 Route::post('/library/donate', [LibraryController::class, 'submitDonation'])->name('library.donation.submit');
 
-// KCB IPN Routes
-Route::prefix('api/kcb/ipn')->name('kcb.ipn.')->group(function () {
-    Route::post('/payment-notification', [KcbIpnController::class, 'handlePaymentNotification'])->name('payment-notification');
-    Route::get('/status/{transactionId}', [KcbIpnController::class, 'checkStatus'])->name('status');
-});
-Route::post('/api/kcb/card/ipn', [CardFundingIpnController::class, 'handlePaymentNotification'])
-    ->name('kcb.card.ipn')
-    ->withoutMiddleware(['web', 'csrf']);
+// KCB IPN: both registered URLs go to the same handler, which routes by till number.
+// Only the IPN credits money (fees or cards); see App\Services\Payments\KcbIpnRouter.
+Route::post('/api/kcb/ipn/payment-notification', [KcbIpnController::class, 'handle'])->name('kcb.ipn.payment-notification');
+Route::post('/api/kcb/card/ipn', [KcbIpnController::class, 'handle'])->name('kcb.card.ipn');
+
+// Student portal school-fee STK callback (status only). Public: KCB's server can't log in.
+Route::post('/api/kcb/fees/callback', [StudentFeesController::class, 'paymentCallback'])->name('kcb.fees.callback');
+
 // 4. Card Funding STK Callback
 Route::post('/api/kcb/card/funding/callback', [CardFundingRequestController::class, 'handleCallback'])
     ->name('card.funding.callback')
@@ -1818,96 +1730,4 @@ Route::prefix('parent')->name('parent.')->group(function () {
 
     // Payment callback (already exists)
     // Route::post('/api/kcb/sales/callback', [SaleController::class, 'handleKcbCallback']);
-});
-use Illuminate\Support\Facades\DB;
-
-// ⚠️ ONE-OFF FIX — DELETE THIS ROUTE AFTER RUNNING
-Route::get('/_dev/fix-dup-credits', function () {
-    if (request('key') !== 'CHANGE_ME_SECRET_KEY') {
-        abort(403);
-    }
-
-    $pairs = DB::table('card_transactions as ipn')
-        ->join('card_transactions as cb', function ($j) {
-            $j->on('ipn.card_account_id', '=', 'cb.card_account_id')
-              ->on('ipn.amount', '=', 'cb.amount')
-              ->where('ipn.mpesa_receipt', 'LIKE', 'FT%')
-              ->where('cb.mpesa_receipt', 'NOT LIKE', 'FT%')
-              ->whereRaw('ABS(TIMESTAMPDIFF(SECOND, cb.created_at, ipn.created_at)) <= 90');
-        })
-        ->where('ipn.status', 'completed')
-        ->where('cb.status', 'completed')
-        ->where('ipn.transaction_type', 'funding')
-        ->where('cb.transaction_type', 'funding')
-        ->select('ipn.id as ipn_id', 'cb.id as cb_id', 'ipn.card_account_id', 'ipn.amount')
-        ->get();
-
-    $fixed = [];
-    $skipped = [];
-
-    foreach ($pairs as $p) {
-        $ipn = \App\Models\CardTransaction::find($p->ipn_id);
-        $cb  = \App\Models\CardTransaction::find($p->cb_id);
-
-        if (!$ipn || !$cb) {
-            $skipped[] = ['pair' => $p, 'reason' => 'row missing'];
-            continue;
-        }
-        if ($ipn->status !== 'completed' || $cb->status !== 'completed') {
-            $skipped[] = ['pair' => $p, 'reason' => 'already reversed or not completed'];
-            continue;
-        }
-
-        $card = \App\Models\CardAccount::lockForUpdate()->find($p->card_account_id);
-        if (!$card) {
-            $skipped[] = ['pair' => $p, 'reason' => 'card missing'];
-            continue;
-        }
-
-        DB::beginTransaction();
-        try {
-            $before = $card->balance;
-            $card->balance -= $p->amount;
-            $card->total_funded -= $p->amount;
-            $card->save();
-
-            $ipn->status = 'reversed';
-            $ipn->description = ($ipn->description ?? '') . ' [REVERSED — duplicate of STK tx #' . $cb->id . ']';
-            $ipn->save();
-
-            \App\Models\CardAuditLog::log(
-                $card->id,
-                'reversal',
-                'Duplicate STK/IPN credit reversed',
-                $before,
-                $card->balance,
-                [
-                    'ipn_tx' => $ipn->id,
-                    'stk_tx' => $cb->id,
-                    'amount' => $p->amount,
-                ]
-            );
-
-            DB::commit();
-
-            $fixed[] = [
-                'ipn_id' => $ipn->id,
-                'cb_id'  => $cb->id,
-                'card_id' => $card->id,
-                'amount' => $p->amount,
-                'balance_before' => $before,
-                'balance_after' => $card->balance,
-            ];
-        } catch (\Exception $e) {
-            DB::rollBack();
-            $skipped[] = ['pair' => $p, 'reason' => $e->getMessage()];
-        }
-    }
-
-    return response()->json([
-        'pairs_fixed' => count($fixed),
-        'pairs_skipped' => count($skipped),
-        'fixed' => $fixed,
-        'skipped' => $skipped,
-    ]);
 });

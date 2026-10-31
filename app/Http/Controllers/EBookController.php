@@ -12,7 +12,7 @@ class EBookController extends Controller
 {
     public function index(Request $request)
     {
-        $query = EBook::with('category')->query();
+        $query = EBook::with('category');
 
         // Search
         if ($request->has('search')) {
@@ -108,18 +108,8 @@ class EBookController extends Controller
 
     public function show(EBook $ebook)
     {
-        $ebook->incrementViewCount();
-        $ebook->load('uploader', 'category');
-
-        // Get related eBooks (same category)
-        $relatedEBooks = EBook::where('category_id', $ebook->category_id)
-            ->where('id', '!=', $ebook->id)
-            ->where('is_active', true)
-            ->with('category')
-            ->limit(5)
-            ->get();
-
-        return view('ktvtc.library.ebooks.show', compact('ebook', 'relatedEBooks'));
+        // The reader-facing page doubles as the detail page
+        return redirect()->route('library.ebook.show', $ebook);
     }
 
     public function edit(EBook $ebook)

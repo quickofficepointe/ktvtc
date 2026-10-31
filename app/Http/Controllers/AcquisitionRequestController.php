@@ -55,14 +55,27 @@ class AcquisitionRequestController extends Controller
             'quantity' => 'required|integer|min:1|max:100',
             'estimated_price' => 'nullable|numeric|min:0',
             'reason' => 'required|string|max:1000',
+            'member_number' => 'nullable|string|max:50',
         ]);
 
-        $validated['requester_id'] = Auth::id();
+        // Optional: the member (or student) who asked for the book
+        $validated['requested_by'] = null;
+        if ($number = trim((string) $request->input('member_number'))) {
+            $member = \App\Models\Member::where('member_id', $number)->first();
+            if (!$member && ($student = \App\Models\Student::whereNull('merged_into_id')->where('student_number', $number)->first())) {
+                $member = app(\App\Services\Library\LendingService::class)->memberForStudent($student);
+            }
+            if (!$member) {
+                return back()->withInput()->with('error', "No member or student found with number {$number}.");
+            }
+            $validated['requested_by'] = $member->id;
+        }
+        unset($validated['member_number']);
         $validated['status'] = 'pending';
 
         AcquisitionRequest::create($validated);
 
-        return redirect()->route('acquisition-requests.index')
+        return redirect()->route('library.acquisition-requests.index')
             ->with('success', 'Acquisition request submitted successfully.');
     }
 
@@ -72,7 +85,13 @@ class AcquisitionRequestController extends Controller
     public function show(AcquisitionRequest $acquisitionRequest)
     {
         $acquisitionRequest->load(['requester', 'branch']);
-        return view('acquisition-requests.show', compact('acquisitionRequest'));
+
+        // Requests are reviewed from the list (approve / reject / order / receive)
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json($acquisitionRequest);
+        }
+
+        return redirect()->route('library.acquisition-requests.index', ['search' => $acquisitionRequest->title]);
     }
 
     /**
@@ -96,7 +115,7 @@ class AcquisitionRequestController extends Controller
 
         $acquisitionRequest->update($validated);
 
-        return redirect()->route('acquisition-requests.index')
+        return redirect()->route('library.acquisition-requests.index')
             ->with('success', 'Request updated successfully.');
     }
 
@@ -107,7 +126,7 @@ class AcquisitionRequestController extends Controller
     {
         $acquisitionRequest->delete();
 
-        return redirect()->route('acquisition-requests.index')
+        return redirect()->route('library.acquisition-requests.index')
             ->with('success', 'Request deleted successfully.');
     }
 
@@ -123,7 +142,7 @@ class AcquisitionRequestController extends Controller
             'approved_at' => now(),
         ]);
 
-        return redirect()->route('acquisition-requests.index')
+        return redirect()->route('library.acquisition-requests.index')
             ->with('success', 'Request approved successfully.');
     }
 
@@ -139,7 +158,7 @@ class AcquisitionRequestController extends Controller
             'rejected_at' => now(),
         ]);
 
-        return redirect()->route('acquisition-requests.index')
+        return redirect()->route('library.acquisition-requests.index')
             ->with('success', 'Request rejected.');
     }
 
@@ -153,7 +172,7 @@ class AcquisitionRequestController extends Controller
             'ordered_at' => now(),
         ]);
 
-        return redirect()->route('acquisition-requests.index')
+        return redirect()->route('library.acquisition-requests.index')
             ->with('success', 'Request marked as ordered.');
     }
 
@@ -170,7 +189,7 @@ class AcquisitionRequestController extends Controller
         // Here you could automatically create book records from the request
         // when it's marked as received
 
-        return redirect()->route('acquisition-requests.index')
+        return redirect()->route('library.acquisition-requests.index')
             ->with('success', 'Request marked as received.');
     }
 }

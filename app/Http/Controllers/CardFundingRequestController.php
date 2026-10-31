@@ -6,23 +6,12 @@ namespace App\Http\Controllers;
 use App\Models\CardFundingRequest;
 use App\Models\CardAccount;
 use App\Models\HighSchoolKcbTransaction;
-use App\Models\CardTransaction;
 use App\Models\CardAuditLog;
-use App\Services\CardService;
-use App\Services\KcbCardFundingService;
-use App\Services\SmsService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class CardFundingRequestController extends Controller
 {
-    protected $cardService;
-
-    public function __construct(CardService $cardService)
-    {
-        $this->cardService = $cardService;
-    }
 
     /**
      * List all funding requests
@@ -63,33 +52,13 @@ class CardFundingRequestController extends Controller
     }
 
     /**
-     * Mark funding request as completed
+     * Manual completion is no longer allowed: a card is only credited from a real
+     * KCB payment, assigned in Finance > KCB Payments.
      */
     public function complete(Request $request, CardFundingRequest $cardFundingRequest)
     {
-        $request->validate([
-            'mpesa_receipt' => 'required|string'
-        ]);
-
-        if ($cardFundingRequest->status === 'completed') {
-            return redirect()->back()->with('error', 'Funding already completed');
-        }
-
-        $result = $this->cardService->completeFunding(
-            $cardFundingRequest->checkout_request_id,
-            [
-                'transaction_id' => $cardFundingRequest->ipn_transaction_id ?? 'MANUAL-' . time(),
-                'mpesa_receipt' => $request->mpesa_receipt,
-                'fee_payment_id' => null
-            ]
-        );
-
-        if ($result['success']) {
-            return redirect()->route('funding.show', $cardFundingRequest)
-                ->with('success', 'Funding completed successfully');
-        } else {
-            return redirect()->back()->with('error', $result['message']);
-        }
+        return redirect()->route('finance.kcb-payments.index', ['q' => $cardFundingRequest->parent_phone])
+            ->with('info', 'Cards are credited from the received KCB payment. Find it here and assign it to the card.');
     }
 
     /**
@@ -118,38 +87,10 @@ class CardFundingRequestController extends Controller
      */
     public function retry(CardFundingRequest $cardFundingRequest)
     {
-        if (!$cardFundingRequest->canRetry()) {
-            return redirect()->back()
-                ->with('error', 'This request cannot be retried. Max retries reached or expired.');
-        }
-
-        $cardFundingRequest->incrementRetry();
-        $cardFundingRequest->status = 'pending';
-        $cardFundingRequest->save();
-
-        $kcbService = app(KcbCardFundingService::class);
-        $result = $kcbService->initiateSTKPush(
-            $cardFundingRequest->parent_phone,
-            $cardFundingRequest->amount,
-            'Card Funding for ' . $cardFundingRequest->student_name,
-            $cardFundingRequest->id
-        );
-
-        if (isset($result['error'])) {
-            $cardFundingRequest->status = 'failed';
-            $cardFundingRequest->failure_reason = $result['error'];
-            $cardFundingRequest->save();
-
-            return redirect()->back()->with('error', 'Retry failed: ' . $result['error']);
-        }
-
-        $cardFundingRequest->checkout_request_id = $result['checkout_request_id'];
-        $cardFundingRequest->kcb_invoice_number = $result['kcb_invoice_number'] ?? null;
-        $cardFundingRequest->status = 'processing';
-        $cardFundingRequest->save();
-
-        return redirect()->route('funding.show', $cardFundingRequest)
-            ->with('success', 'Retry initiated successfully');
+        // The STK service this used (KcbCardFundingService) never existed, so retry always crashed.
+        // Parents start a new payment from their funding link instead.
+        return redirect()->back()
+            ->with('info', 'Ask the parent to pay again from their funding link: ' . route('parent.fund.portal', $cardFundingRequest->cardAccount->student->admission_number ?? ''));
     }
 
     /**
@@ -281,289 +222,39 @@ class CardFundingRequestController extends Controller
     }
 
     /**
-     * Complete high school funding with duplicate prevention + IPN cross-check
+     * STK callback for a successful card top-up: status only.
+     *
+     * The card is credited when KCB's IPN for the same payment arrives
+     * (KcbIpnRouter). Crediting here as well is what caused double credits.
      */
     protected function completeHighSchoolFunding($transaction, $callback, $data)
     {
-        try {
-            DB::beginTransaction();
-
-            // CHECK 1: already completed?
-            if ($transaction->status === 'completed') {
-                Log::info('High school funding already completed - skipping', [
-                    'transaction_id' => $transaction->id
-                ]);
-                DB::commit();
-                return response()->json(['success' => true, 'message' => 'Already completed']);
-            }
-
-            // Extract metadata
-            $metadata = $callback['CallbackMetadata']['Item'] ?? [];
-            $mpesaReceipt = null;
-            $amount = $transaction->amount;
-            $transactionDate = null;
-
-            foreach ($metadata as $item) {
-                if (isset($item['Name']) && isset($item['Value'])) {
-                    if ($item['Name'] == 'MpesaReceiptNumber') {
-                        $mpesaReceipt = $item['Value'];
-                    }
-                    if ($item['Name'] == 'Amount') {
-                        $amount = (float) $item['Value'];
-                    }
-                    if ($item['Name'] == 'TransactionDate') {
-                        $transactionDate = $item['Value'];
-                    }
-                }
-            }
-
-            if (empty($mpesaReceipt)) {
-                Log::error('No M-Pesa receipt in callback', [
-                    'transaction_id' => $transaction->id,
-                    'metadata' => $metadata
-                ]);
-                DB::rollBack();
-                return response()->json(['error' => 'No M-Pesa receipt found'], 400);
-            }
-
-            // CHECK 2: same receipt already processed?
-            $existingTransaction = CardTransaction::where('mpesa_receipt', $mpesaReceipt)->first();
-            if ($existingTransaction) {
-                Log::warning('⚠️ DUPLICATE TRANSACTION DETECTED - Skipping', [
-                    'mpesa_receipt' => $mpesaReceipt,
-                    'existing_transaction_id' => $existingTransaction->id,
-                    'existing_reference' => $existingTransaction->reference,
-                    'new_transaction_id' => $transaction->id
-                ]);
-
-                $transaction->status = 'completed';
-                $transaction->mpesa_receipt_number = $mpesaReceipt;
-                $transaction->result_code = 0;
-                $transaction->result_description = 'Duplicate - already processed (existing transaction ID: ' . $existingTransaction->id . ')';
-                $transaction->callback_data = json_encode($data);
-                $transaction->completed_at = now();
-                $transaction->save();
-
-                DB::commit();
-                return response()->json(['success' => true, 'message' => 'Duplicate already processed']);
-            }
-
-            // CHECK 3: same reference already processed?
-            $reference = $transaction->invoice_number;
-            if (!empty($reference)) {
-                $existingByReference = CardTransaction::where('reference', $reference)->first();
-                if ($existingByReference) {
-                    Log::warning('⚠️ DUPLICATE BY REFERENCE DETECTED - Skipping', [
-                        'reference' => $reference,
-                        'existing_transaction_id' => $existingByReference->id,
-                        'new_transaction_id' => $transaction->id
-                    ]);
-
-                    $transaction->status = 'completed';
-                    $transaction->mpesa_receipt_number = $mpesaReceipt;
-                    $transaction->result_code = 0;
-                    $transaction->result_description = 'Duplicate by reference - already processed';
-                    $transaction->callback_data = json_encode($data);
-                    $transaction->completed_at = now();
-                    $transaction->save();
-
-                    DB::commit();
-                    return response()->json(['success' => true, 'message' => 'Duplicate already processed']);
-                }
-            }
-
-            // Get card WITH row lock
-            $card = CardAccount::lockForUpdate()->find($transaction->card_account_id);
-            if (!$card) {
-                Log::error('Card not found for high school funding', [
-                    'card_id' => $transaction->card_account_id
-                ]);
-                DB::rollBack();
-                return response()->json(['error' => 'Card not found'], 404);
-            }
-
-            // CHECK 4 (NEW): IPN already credited this same payment?
-            $recentFromIpn = CardTransaction::where('card_account_id', $card->id)
-                ->where('transaction_type', 'funding')
-                ->where('status', 'completed')
-                ->where('amount', $amount)
-                ->where('created_at', '>=', now()->subMinutes(5))
-                ->where('mpesa_receipt', 'LIKE', 'FT%')
-                ->where(function ($q) use ($reference) {
-                    $q->where('reference', 'LIKE', '8118445#%')
-                      ->orWhere('description', 'LIKE', '%' . $reference . '%');
-                })
-                ->first();
-
-            if ($recentFromIpn) {
-                Log::warning('STK callback: SKIPPED — already credited via IPN', [
-                    'card_id'      => $card->id,
-                    'amount'       => $amount,
-                    'reference'    => $reference,
-                    'ipn_tx'       => $recentFromIpn->id,
-                    'stk_txn'      => $transaction->id,
-                ]);
-
-                $transaction->status = 'completed';
-                $transaction->mpesa_receipt_number = $mpesaReceipt;
-                $transaction->result_code = 0;
-                $transaction->result_description = 'Skipped — already credited via IPN (tx #' . $recentFromIpn->id . ')';
-                $transaction->callback_data = json_encode($data);
-                $transaction->completed_at = now();
-                $transaction->save();
-
-                DB::commit();
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Already credited via IPN',
-                ]);
-            }
-
-            // Log duplicate check summary
-            Log::info('Duplicate check passed - proceeding with funding', [
-                'transaction_id' => $transaction->id,
-                'receipt' => $mpesaReceipt,
-                'reference' => $reference,
-                'amount' => $amount
-            ]);
-
-            // Get request data
-            $requestData = $transaction->request_data ?? [];
-            $typeLabel = $requestData['type_label'] ?? 'Funding';
-            $fundingType = $requestData['funding_type'] ?? 'T';
-
-            $student = $transaction->highSchoolStudent;
-            $studentName = $student ? $student->full_name : 'Unknown Student';
-
-            // Fund the card
-            $balanceBefore = $card->balance;
-            $card->balance += $amount;
-            $card->total_funded += $amount;
-            $card->last_funded_at = now();
-            $card->save();
-
-            // Create card transaction
-            $cardTransaction = CardTransaction::create([
-                'card_account_id' => $card->id,
-                'high_school_student_id' => $transaction->high_school_student_id,
-                'transaction_type' => 'funding',
-                'amount' => $amount,
-                'balance_before' => $balanceBefore,
-                'balance_after' => $card->balance,
-                'description' => "{$typeLabel} funding via M-Pesa - Receipt: {$mpesaReceipt} - Student: {$studentName}",
-                'mpesa_receipt' => $mpesaReceipt,
-                'reference' => $reference ?? $mpesaReceipt,
-                'status' => 'completed',
-                'processed_at' => now(),
-                'metadata' => json_encode([
-                    'transaction_id' => $transaction->id,
-                    'checkout_request_id' => $transaction->checkout_request_id,
-                    'funding_type' => $fundingType,
-                    'type_label' => $typeLabel,
-                    'student_id' => $transaction->high_school_student_id,
-                    'student_name' => $studentName,
-                ])
-            ]);
-
-            // Update KCB transaction
-            $transaction->status = 'completed';
-            $transaction->mpesa_receipt_number = $mpesaReceipt;
-            $transaction->result_code = 0;
-            $transaction->result_description = 'Payment successful - Transaction ID: ' . $cardTransaction->id;
-            $transaction->callback_data = json_encode($data);
-            $transaction->completed_at = now();
-            $transaction->save();
-
-            // Audit
-            CardAuditLog::log(
-                $card->id,
-                'funding_completed',
-                "Card funded: KES {$amount} ({$typeLabel}) Receipt: {$mpesaReceipt} - Student: {$studentName}",
-                $balanceBefore,
-                $card->balance,
-                [
-                    'amount' => $amount,
-                    'mpesa_receipt' => $mpesaReceipt,
-                    'new_balance' => $card->balance,
-                    'student_id' => $transaction->high_school_student_id,
-                    'transaction_id' => $cardTransaction->id
-                ]
-            );
-
-            DB::commit();
-
-            Log::info('✅ High school funding completed successfully', [
-                'transaction_id' => $transaction->id,
-                'amount' => $amount,
-                'receipt' => $mpesaReceipt,
-                'new_balance' => $card->balance,
-                'student_id' => $transaction->high_school_student_id,
-                'card_transaction_id' => $cardTransaction->id
-            ]);
-
-            $this->sendFundingSMS($student, $amount, $fundingType, $mpesaReceipt, $card->balance);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Funding completed successfully',
-                'receipt' => $mpesaReceipt,
-                'new_balance' => $card->balance,
-                'transaction_id' => $cardTransaction->id
-            ]);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('❌ Failed to complete high school funding: ' . $e->getMessage(), [
-                'transaction_id' => $transaction->id ?? null,
-                'trace' => $e->getTraceAsString()
-            ]);
-            return response()->json(['error' => 'Failed to complete funding: ' . $e->getMessage()], 500);
-        }
-    }
-
-    /**
-     * Send SMS with proper error handling (doesn't break transaction)
-     */
-    protected function sendFundingSMS($student, $amount, $fundingType, $mpesaReceipt, $newBalance)
-    {
-        if (!$student || !$student->parent_phone) {
-            Log::warning('No student or phone number for SMS', [
-                'student_id' => $student->id ?? null
-            ]);
-            return;
+        if ($transaction->status === 'completed') {
+            return response()->json(['success' => true, 'message' => 'Already confirmed']);
         }
 
-        try {
-            $smsService = app(SmsService::class);
-
-            if (!$smsService) {
-                Log::warning('SMS service not available');
-                return;
+        $mpesaReceipt = null;
+        foreach ($callback['CallbackMetadata']['Item'] ?? [] as $item) {
+            if (($item['Name'] ?? null) === 'MpesaReceiptNumber') {
+                $mpesaReceipt = $item['Value'] ?? null;
             }
-
-            $result = $smsService->sendFundingConfirmation(
-                $student,
-                $amount,
-                $fundingType,
-                $mpesaReceipt,
-                $newBalance
-            );
-
-            Log::info('Funding confirmation SMS sent', [
-                'student_id' => $student->id,
-                'amount' => $amount,
-                'type' => $fundingType,
-                'success' => $result['success'] ?? false
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('SMS sending failed but transaction completed successfully', [
-                'student_id' => $student->id ?? null,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
         }
+
+        $transaction->status = 'completed';
+        $transaction->mpesa_receipt_number = $mpesaReceipt;
+        $transaction->result_code = 0;
+        $transaction->result_description = 'Paid. Card is credited when the bank notification (IPN) arrives.';
+        $transaction->callback_data = json_encode($data);
+        $transaction->completed_at = now();
+        $transaction->save();
+
+        Log::info('Card funding STK confirmed; awaiting IPN to credit', [
+            'transaction_id' => $transaction->id,
+            'receipt'        => $mpesaReceipt,
+            'amount'         => $transaction->amount,
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Payment confirmed']);
     }
 
     /**

@@ -541,6 +541,22 @@
                 </div>
             </div>
 
+            {{-- Possible duplicates found on the last save --}}
+            @if(session('duplicate_matches'))
+                <div class="px-6 py-4 bg-yellow-50 border-t border-yellow-200 text-sm text-yellow-900 space-y-2">
+                    <p class="font-semibold"><i class="fas fa-user-friends mr-1"></i> This person may already be registered:</p>
+                    <ul class="list-disc ml-6">
+                        @foreach(session('duplicate_matches') as $m)
+                            <li><a href="{{ route('admin.students.show', $m['id']) }}" class="underline" target="_blank">{{ $m['label'] }}</a> — {{ $m['why'] }}</li>
+                        @endforeach
+                    </ul>
+                    <p>If it's the same person, open their record and enroll them there instead.</p>
+                    <label class="flex items-center gap-2 font-medium">
+                        <input type="checkbox" name="confirm_new_person" value="1"> This is a different person, create a new record
+                    </label>
+                </div>
+            @endif
+
             {{-- Actions --}}
             <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-end space-x-3">
                 <a href="{{ route('admin.students.index') }}"

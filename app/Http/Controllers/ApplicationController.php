@@ -20,7 +20,7 @@ class ApplicationController extends Controller
 
     public function __construct()
     {
-        $this->smsService = new SmsService();
+        $this->smsService = app(SmsService::class);
     }
 
     /**
@@ -192,10 +192,10 @@ class ApplicationController extends Controller
                 'gender' => $validated['gender'],
 
                 // Contact Information
-                'address' => $validated['address'],
-                'city' => $validated['city'],
-                'county' => $validated['county'],
-                'postal_code' => $validated['postal_code'],
+                'address' => $validated['address'] ?? null,
+                'city' => $validated['city'] ?? null,
+                'county' => $validated['county'] ?? null,
+                'postal_code' => $validated['postal_code'] ?? null,
 
                 // Education Background
                 'education_level' => $validated['education_level'],
@@ -215,7 +215,7 @@ class ApplicationController extends Controller
                 'emergency_contact_relationship' => $validated['emergency_contact_relationship'],
 
                 // Special Needs
-                'special_needs' => $validated['special_needs'],
+                'special_needs' => $validated['special_needs'] ?? null,
 
                 // Application Tracking
                 'application_number' => $applicationNumber,
@@ -236,6 +236,8 @@ class ApplicationController extends Controller
                            ->with('success', 'Application submitted successfully! Please complete the payment to finalize your application.');
 
         } catch (\Exception $e) {
+            Log::error('Online application failed: ' . $e->getMessage(), ['email' => $validated['email'] ?? null]);
+
             // Clean up uploaded files if application creation fails
             if (isset($idDocumentPath) && Storage::disk('public')->exists($idDocumentPath)) {
                 Storage::disk('public')->delete($idDocumentPath);

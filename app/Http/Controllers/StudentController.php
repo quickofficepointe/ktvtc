@@ -31,46 +31,15 @@ class StudentController extends Controller
         $this->smsService = $smsService;
     }
 
-    public function dashboard()
+    public function dashboard(\App\Services\Dashboards\RoleDashboards $dashboards)
     {
-        $user = auth()->user();
-
-        $totalFees = 0;
-        $totalPaid = 0;
-        $totalBalance = 0;
-        $enrollments = collect();
-        $recentPayments = collect();
-        $student = null;
-        $enrollmentCount = 0;
-
-        $student = $user->student;
-
-        if ($student) {
-            $enrollments = Enrollment::where('student_id', $student->id)
-                ->with(['course', 'payments'])
-                ->get();
-
-            $totalFees = $enrollments->sum('total_fees');
-            $totalPaid = $enrollments->sum('amount_paid');
-            $totalBalance = $enrollments->sum('balance');
-            $enrollmentCount = $enrollments->count();
-
-            $recentPayments = FeePayment::where('student_id', $student->id)
-                ->with('enrollment.course')
-                ->orderBy('payment_date', 'desc')
-                ->limit(5)
-                ->get();
+        $student = auth()->user()->student;
+        if (!$student) {
+            // Self-registered accounts are not linked to an admitted student yet
+            return view('ktvtc.students.dashboard', ['student' => null]);
         }
 
-        return view('ktvtc.students.dashboard', compact(
-            'enrollments',
-            'totalFees',
-            'totalPaid',
-            'totalBalance',
-            'recentPayments',
-            'student',
-            'enrollmentCount'
-        ));
+        return view('ktvtc.students.dashboard', $dashboards->student($student));
     }
 
     public function index(Request $request)
@@ -78,7 +47,7 @@ class StudentController extends Controller
         $user = auth()->user();
 
         $query = Student::query()
-            ->with(['campus', 'application'])
+            ->with(['campus', 'application', 'user'])
             ->when($user->role != 2, function ($q) use ($user) {
                 return $q->where('campus_id', $user->campus_id);
             });
@@ -135,6 +104,14 @@ class StudentController extends Controller
             $query->where('requires_cleanup', $request->requires_cleanup === 'yes');
         }
 
+        // Portal access: no account / account but never signed in / signs in
+        match ($request->input('portal')) {
+            'none' => $query->whereDoesntHave('user'),
+            'never' => $query->whereHas('user', fn ($u) => $u->whereNull('last_login_at')),
+            'active' => $query->whereHas('user', fn ($u) => $u->whereNotNull('last_login_at')),
+            default => null,
+        };
+
         $sortField = $request->get('sort', 'created_at');
         $sortDirection = $request->get('direction', 'desc');
         $query->orderBy($sortField, $sortDirection);
@@ -180,8 +157,11 @@ class StudentController extends Controller
         }
 
         $applications = Application::orderBy('application_number')->get();
+        $neverSignedIn = StudentPortalAccessController::neverSignedIn()
+            ->when($user->role != 2, fn ($q) => $q->where('campus_id', $user->campus_id))->count();
 
         return view('ktvtc.admin.students.index', compact(
+            'neverSignedIn',
             'user',
             'students',
             'campuses',
@@ -238,6 +218,18 @@ class StudentController extends Controller
         }
 
         Log::info('Validation passed');
+
+        // Stop the same person being registered twice (same ID number, name + phone, or email)
+        if (!$request->boolean('confirm_new_person')) {
+            $matches = app(\App\Services\Students\DuplicateStudentFinder::class)->matchesFor($request->only(['id_number', 'first_name', 'last_name', 'phone', 'email']));
+            if ($matches->isNotEmpty()) {
+                return redirect()->back()->withInput()->with('error',
+                    'This person may already be registered: ' .
+                    $matches->map(fn ($m) => "{$m['student']->full_name} ({$m['student']->student_number}, {$m['why']})")->implode('; ') .
+                    '. Open the existing record and enroll them there, or tick "This is a different person" and save again.')
+                    ->with('duplicate_matches', $matches->map(fn ($m) => ['id' => $m['student']->id, 'label' => "{$m['student']->full_name} ({$m['student']->student_number})", 'why' => $m['why']])->all());
+            }
+        }
 
         $studentNumber = $request->input('student_number');
 
@@ -374,8 +366,8 @@ class StudentController extends Controller
         // Handle document uploads
         $this->handleDocumentUploads($request, $student);
 
-        // ✅ FIXED: Create user account with welcome SMS
-        $this->createUserFromStudent($student);
+        // The portal account and login SMS come with the first enrollment, once the
+        // student's final number (COURSE/NNN/YEAR) is known
 
         Log::info('=== STUDENT STORE COMPLETED ===');
 
@@ -533,8 +525,8 @@ class StudentController extends Controller
 
     public function editDetails($id)
     {
-        $student = Student::findOrFail($id);
-        return view('ktvtc.admin.students.edit-details', compact('student'));
+        // The main edit form already covers every detail field.
+        return redirect()->route('admin.students.edit', Student::findOrFail($id));
     }
 
     public function updateDetails(Request $request, $id)
@@ -544,7 +536,7 @@ class StudentController extends Controller
         $validator = Validator::make($request->all(), [
             'address' => 'nullable|string',
             'city' => 'nullable|string',
-            'state' => 'nullable|string',
+            'county' => 'nullable|string',
             'postal_code' => 'nullable|string',
             'country' => 'nullable|string',
             'emergency_contact_name' => 'nullable|string',
@@ -559,7 +551,7 @@ class StudentController extends Controller
                 ->withInput();
         }
 
-        $student->update($request->all());
+        $student->update($validator->validated());
 
         return redirect()->route('admin.students.details', $student->id)
             ->with('success', 'Student details updated successfully.');
@@ -633,7 +625,8 @@ class StudentController extends Controller
 
     public function importView()
     {
-        return view('ktvtc.admin.students.import');
+        $campuses = Campus::orderBy('name')->get();
+        return view('ktvtc.admin.students.import', compact('campuses'));
     }
 
     public function importProcess(Request $request)
@@ -673,26 +666,78 @@ class StudentController extends Controller
         return response()->stream($callback, 200, $headers);
     }
 
-    public function enrollmentReport()
+    public function enrollmentReport(Request $request)
     {
-        $data = Enrollment::with(['student', 'course'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $from = Carbon::parse($request->input('date_from', now()->startOfYear()->toDateString()))->startOfDay();
+        $to = Carbon::parse($request->input('date_to', now()->toDateString()))->endOfDay();
+        $groupBy = in_array($request->group_by, ['day', 'week', 'month', 'year']) ? $request->group_by : 'month';
 
-        return view('ktvtc.admin.students.reports.enrollment', compact('data'));
+        $base = Enrollment::query()
+            ->when($request->filled('campus_id'), fn ($q) => $q->where('campus_id', $request->campus_id));
+        $dateCol = DB::raw('COALESCE(enrollment_date, DATE(created_at))');
+
+        // Each period is labelled by its first day so the view can parse it as a date.
+        $periodStart = match ($groupBy) {
+            'day' => 'COALESCE(enrollment_date, DATE(created_at))',
+            'week' => 'DATE_SUB(COALESCE(enrollment_date, DATE(created_at)), INTERVAL WEEKDAY(COALESCE(enrollment_date, DATE(created_at))) DAY)',
+            'month' => "DATE_FORMAT(COALESCE(enrollment_date, DATE(created_at)), '%Y-%m-01')",
+            'year' => "DATE_FORMAT(COALESCE(enrollment_date, DATE(created_at)), '%Y-01-01')",
+        };
+
+        $enrollmentData = (clone $base)->whereBetween($dateCol, [$from, $to])
+            ->selectRaw("$periodStart as date, COUNT(*) as count")
+            ->groupBy('date')->orderBy('date')->get();
+
+        $running = 0;
+        foreach ($enrollmentData as $row) {
+            $running += $row->count;
+            $row->cumulative = $running;
+        }
+
+        $totalEnrolled = $running;
+        $enrolledThisMonth = (clone $base)->where($dateCol, '>=', now()->startOfMonth())->count();
+        $enrolledThisYear = (clone $base)->where($dateCol, '>=', now()->startOfYear())->count();
+        $averagePerPeriod = $enrollmentData->count() > 0 ? round($totalEnrolled / $enrollmentData->count()) : 0;
+        $campuses = Campus::orderBy('name')->get();
+
+        return view('ktvtc.admin.students.reports.enrollment', compact(
+            'enrollmentData', 'totalEnrolled', 'enrolledThisMonth', 'enrolledThisYear', 'averagePerPeriod', 'campuses'
+        ));
     }
 
     public function demographicsReport()
     {
-        $genderData = Student::select('gender', DB::raw('count(*) as total'))
-            ->groupBy('gender')
-            ->get();
+        $students = Student::whereNull('merged_into_id');
+        $totalStudents = (clone $students)->count();
 
-        $statusData = Student::select('status', DB::raw('count(*) as total'))
-            ->groupBy('status')
-            ->get();
+        $distribution = fn (string $column) => (clone $students)
+            ->select($column, DB::raw('count(*) as count'))
+            ->groupBy($column)->orderByDesc('count')->get();
 
-        return view('ktvtc.admin.students.reports.demographics', compact('genderData', 'statusData'));
+        $genderDistribution = (clone $students)
+            ->selectRaw('LOWER(gender) as gender, count(*) as count')
+            ->groupBy(DB::raw('LOWER(gender)'))->get();
+        $statusDistribution = $distribution('status');
+        $categoryDistribution = $distribution('student_category');
+        $countyDistribution = $distribution('county')->take(10);
+
+        $ages = (clone $students)->whereNotNull('date_of_birth')
+            ->selectRaw('TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) as age')->pluck('age')
+            ->filter(fn ($age) => $age > 0 && $age < 100);
+
+        $ageRanges = [
+            'under_18' => $ages->filter(fn ($a) => $a < 18)->count(),
+            '18_25' => $ages->filter(fn ($a) => $a >= 18 && $a <= 25)->count(),
+            '26_35' => $ages->filter(fn ($a) => $a >= 26 && $a <= 35)->count(),
+            '36_45' => $ages->filter(fn ($a) => $a >= 36 && $a <= 45)->count(),
+            '46_plus' => $ages->filter(fn ($a) => $a >= 46)->count(),
+        ];
+        $averageAge = $ages->avg() ?? 0;
+
+        return view('ktvtc.admin.students.reports.demographics', compact(
+            'totalStudents', 'genderDistribution', 'statusDistribution', 'categoryDistribution',
+            'countyDistribution', 'ageRanges', 'averageAge'
+        ));
     }
 
     public function search(Request $request)
@@ -875,79 +920,13 @@ class StudentController extends Controller
                 'user_id' => $user->id
             ]);
         } else {
-            $this->createUserFromStudent($student);
-            $user = User::where('student_id', $student->id)->first();
+            [$user] = app(\App\Services\Students\StudentAccountService::class)->ensureAccount($student);
             if ($user) {
                 $newPassword = strtoupper($studentNumber);
                 $user->password = Hash::make($newPassword);
                 $user->save();
                 $this->sendPasswordUpdateSms($student, $newPassword);
             }
-        }
-    }
-
-    /**
-     * ✅ FIXED: Wrapped, safe, sends welcome SMS, collision-safe email
-     */
-    private function createUserFromStudent(Student $student): ?User
-    {
-        $existingUser = User::where('student_id', $student->id)->first();
-        if ($existingUser) {
-            return $existingUser;
-        }
-
-        $studentNumber = $student->student_number ?? $student->legacy_student_code;
-        if (!$studentNumber) {
-            Log::warning("Cannot create user — student {$student->id} has no student number");
-            return null;
-        }
-
-        $defaultPassword = strtoupper($studentNumber);
-
-        // Collision-safe email
-        $email = $student->email;
-        if (!$email || User::where('email', $email)->exists()) {
-            $base  = strtolower(preg_replace('/[^a-z0-9]/i', '', $studentNumber));
-            $email = "{$base}@student.ktvtc.ac.ke";
-
-            if (User::where('email', $email)->exists()) {
-                $email = "{$base}+{$student->id}@student.ktvtc.ac.ke";
-            }
-        }
-
-        $name = $student->full_name
-              ?? trim($student->first_name . ' ' . $student->last_name);
-
-        try {
-            $user = User::create([
-                'student_id'        => $student->id,
-                'name'              => $name,
-                'username'          => $studentNumber,
-                'email'             => $email,
-                'phone_number'      => $student->phone,   // ✅ correct column
-                'bio'               => $student->remarks ?? 'Student account automatically created',
-                'role'              => User::ROLE_STUDENT,
-                'is_active'         => true,
-                'is_approved'       => true,
-                'is_verified'       => true,
-                'password'          => Hash::make($defaultPassword),
-                'email_verified_at' => now(),
-            ]);
-
-            Log::info('✅ User auto-created for student', [
-                'student_id' => $student->id,
-                'user_id'    => $user->id,
-                'username'   => $user->username,
-            ]);
-
-            // ✅ NEW: Send welcome SMS with initial credentials
-            $this->sendPasswordUpdateSms($student, $defaultPassword);
-
-            return $user;
-
-        } catch (\Exception $e) {
-            Log::error("❌ Failed to auto-create user for student {$student->id}: " . $e->getMessage());
-            return null;
         }
     }
 

@@ -92,7 +92,7 @@
                         <div class="w-8 h-8 rounded-full bg-white bg-opacity-20 flex items-center justify-center">
                             <i class="fas fa-user-tie text-white"></i>
                         </div>
-                        <span class="ml-2 hidden md:inline font-medium">Library Admin</span>
+                        <span class="ml-2 hidden md:inline font-medium">{{ auth()->user()->name ?? 'Library' }}</span>
                     </button>
                 </div>
             </div>
@@ -111,8 +111,8 @@
                     <span class="absolute bottom-0 right-0 block h-3 w-3 rounded-full bg-green-400 ring-2 ring-primary"></span>
                 </div>
                 <div>
-                    <h6 class="font-medium">Library Admin</h6>
-                    <p class="text-xs opacity-75">Administrator</p>
+                    <h6 class="font-medium">{{ auth()->user()->name ?? 'Library' }}</h6>
+                    <p class="text-xs opacity-75">Librarian</p>
                 </div>
             </div>
 
@@ -273,7 +273,7 @@
             const currentPath = window.location.pathname;
             document.querySelectorAll('.nav-link').forEach(link => {
                 const href = link.getAttribute('href');
-                if (href && currentPath.startsWith(href.replace(route('library.dashboard'), ''))) {
+                if (href && currentPath.startsWith(new URL(href, window.location.origin).pathname)) {
                     link.classList.add('active');
                 }
             });

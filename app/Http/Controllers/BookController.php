@@ -68,8 +68,8 @@ class BookController extends Controller
         'page_count' => 'nullable|integer|min:1',
         'price' => 'nullable|numeric|min:0',
         'description' => 'nullable|string|max:2000',
-        'total_copies' => 'required|integer|min:1',
-        'available_copies' => 'required|integer|min:0|lte:total_copies',
+        'total_copies' => 'required|integer|min:1|max:200',
+        'branch_id' => 'nullable|exists:branches,id',
         'cover_image' => 'nullable|image|max:2048',
         'author_ids' => 'nullable|array',
         'author_ids.*' => 'exists:authors,id',
@@ -79,8 +79,13 @@ class BookController extends Controller
         $validated['cover_image'] = $request->file('cover_image')->store('books/covers', 'public');
     }
 
-    $validated['is_available'] = $validated['available_copies'] > 0;
+    // Copies are real barcoded items; the counts are calculated from them
+    $copies = (int) $validated['total_copies'];
+    $validated['total_copies'] = 0;
+    $validated['available_copies'] = 0;
+    $validated['is_available'] = false;
     $book = Book::create($validated);
+    $book->createCopies($copies, $validated['branch_id'] ?? null);
 
     // Attach authors
     if ($request->has('author_ids')) {
@@ -111,15 +116,13 @@ class BookController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'isbn' => 'nullable|string|max:20|unique:books,isbn,' . $book->id,
-            'category_id' => 'required|exists:book_categories,id',
+            'book_category_id' => 'required|exists:book_categories,id',
             'publication_year' => 'nullable|integer|min:1000|max:' . date('Y'),
             'publisher' => 'nullable|string|max:255',
             'language' => 'nullable|string|max:50',
             'page_count' => 'nullable|integer|min:1',
             'price' => 'nullable|numeric|min:0',
             'description' => 'nullable|string|max:2000',
-            'total_copies' => 'required|integer|min:1',
-            'available_copies' => 'required|integer|min:0|lte:total_copies',
             'cover_image' => 'nullable|image|max:2048',
             'author_ids' => 'nullable|array',
             'author_ids.*' => 'exists:authors,id',
@@ -133,8 +136,7 @@ class BookController extends Controller
             $validated['cover_image'] = $request->file('cover_image')->store('books/covers', 'public');
         }
 
-        $validated['is_available'] = $validated['available_copies'] > 0;
-
+        // Copy counts are not edited here: add or change copies under Items
         $book->update($validated);
 
         // Sync authors

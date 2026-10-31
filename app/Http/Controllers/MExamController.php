@@ -95,7 +95,7 @@ class MExamController extends Controller
 
             DB::commit();
 
-            return redirect()->route('exams.index')
+            return redirect()->route('mschool.exams.index')
                 ->with('success', 'Exam created successfully!');
 
         } catch (\Exception $e) {
@@ -164,7 +164,7 @@ class MExamController extends Controller
 
             DB::commit();
 
-            return redirect()->route('exams.index')
+            return redirect()->route('mschool.exams.index')
                 ->with('success', 'Exam updated successfully!');
 
         } catch (\Exception $e) {
@@ -185,7 +185,7 @@ class MExamController extends Controller
 
             // Check if exam has results
             if ($exam->results()->exists()) {
-                return redirect()->route('exams.index')
+                return redirect()->route('mschool.exams.index')
                     ->with('error', 'Cannot delete exam. It has associated results. Please delete the results first.');
             }
 
@@ -193,12 +193,12 @@ class MExamController extends Controller
 
             DB::commit();
 
-            return redirect()->route('exams.index')
+            return redirect()->route('mschool.exams.index')
                 ->with('success', 'Exam deleted successfully!');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->route('exams.index')
+            return redirect()->route('mschool.exams.index')
                 ->with('error', 'Failed to delete exam: ' . $e->getMessage());
         }
     }
@@ -275,11 +275,11 @@ class MExamController extends Controller
 
             $status = $exam->is_published ? 'published' : 'unpublished';
 
-            return redirect()->route('exams.index')
+            return redirect()->route('mschool.exams.index')
                 ->with('success', "Exam {$status} successfully!");
 
         } catch (\Exception $e) {
-            return redirect()->route('exams.index')
+            return redirect()->route('mschool.exams.index')
                 ->with('error', 'Failed to update exam status: ' . $e->getMessage());
         }
     }
@@ -297,11 +297,11 @@ class MExamController extends Controller
 
             $status = $exam->is_active ? 'activated' : 'deactivated';
 
-            return redirect()->route('exams.index')
+            return redirect()->route('mschool.exams.index')
                 ->with('success', "Exam {$status} successfully!");
 
         } catch (\Exception $e) {
-            return redirect()->route('exams.index')
+            return redirect()->route('mschool.exams.index')
                 ->with('error', 'Failed to update exam status: ' . $e->getMessage());
         }
     }

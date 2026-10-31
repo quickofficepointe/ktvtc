@@ -1434,6 +1434,13 @@ class SaleController extends Controller
         }
     }
 
+    public function show(Sale $sale)
+    {
+        $sale->load(['items', 'paymentTransactions', 'businessSection', 'shop', 'cashier']);
+
+        return view('ktvtc.cafeteria.sales.show', compact('sale'));
+    }
+
     public function printReceipt($id)
     {
         Log::info("Print receipt called for sale ID: {$id}");

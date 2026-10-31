@@ -33,441 +33,18 @@ class FinanceController extends Controller
     }
 
     /**
-     * ============================================================
-     * 1. DASHBOARD - COMPLETE WITH ALL PAYMENT SOURCES
-     * ============================================================
+     * Finance dashboard: money received by stream, the school-fees position, KCB feed health and cards.
      */
-    public function dashboard()
+    public function dashboard(Request $request, \App\Services\Dashboards\FinanceDashboard $dashboard)
     {
-        $today = now()->format('Y-m-d');
-        $currentYear = now()->year;
-        $currentMonth = now()->month;
+        $period = array_key_exists($request->query('period'), \App\Services\Dashboards\FinanceDashboard::PERIODS) ? $request->query('period') : 'month';
+        $campusId = $request->filled('campus_id') ? (int) $request->query('campus_id') : null;
 
-        // ============================================================
-        // 1. APPLICATION FEES (Event Applications)
-        // ============================================================
-        $applicationFeesTotal = EventApplication::where('application_status', 'confirmed')
-            ->sum('total_amount');
+        $data = $dashboard->build($period, $campusId);
+        $data['campuses'] = Campus::orderBy('name')->get(['id', 'name']);
+        $data['campusId'] = $campusId;
 
-        $applicationFeesToday = EventApplication::whereDate('created_at', $today)
-            ->where('application_status', 'confirmed')
-            ->sum('total_amount');
-
-        $applicationFeesMonth = EventApplication::whereYear('created_at', $currentYear)
-            ->whereMonth('created_at', $currentMonth)
-            ->where('application_status', 'confirmed')
-            ->sum('total_amount');
-
-        $pendingApplications = EventApplication::where('application_status', 'pending_payment')
-            ->count();
-
-        // ============================================================
-        // 2. SCHOOL FEES (Fee Payments - Manual)
-        // ============================================================
-        $schoolFeesTotal = FeePayment::where('status', 'completed')
-            ->where('payment_method', '!=', 'kcb')
-            ->sum('amount');
-
-        $schoolFeesToday = FeePayment::whereDate('payment_date', $today)
-            ->where('status', 'completed')
-            ->where('payment_method', '!=', 'kcb')
-            ->sum('amount');
-
-        $schoolFeesMonth = FeePayment::whereYear('payment_date', $currentYear)
-            ->whereMonth('payment_date', $currentMonth)
-            ->where('status', 'completed')
-            ->where('payment_method', '!=', 'kcb')
-            ->sum('amount');
-
-        $pendingVerifications = FeePayment::where('status', 'completed')
-            ->where('is_verified', false)
-            ->count();
-
-        // ============================================================
-        // 3. KCB IPN (Auto-reconciled School Fees)
-        // ============================================================
-        $kcbIpnTotal = FeePayment::where('status', 'completed')
-            ->where('payment_method', 'kcb')
-            ->sum('amount');
-
-        $kcbIpnToday = FeePayment::whereDate('payment_date', $today)
-            ->where('status', 'completed')
-            ->where('payment_method', 'kcb')
-            ->sum('amount');
-
-        $kcbIpnMonth = FeePayment::whereYear('payment_date', $currentYear)
-            ->whereMonth('payment_date', $currentMonth)
-            ->where('status', 'completed')
-            ->where('payment_method', 'kcb')
-            ->sum('amount');
-
-        // ============================================================
-        // 4. CAFETERIA SALES (STK Push & Other Methods)
-        // ============================================================
-        $cafeteriaSalesTotal = PaymentTransaction::where('status', 'completed')
-            ->whereHas('sale', function($q) {
-                $q->where('channel', 'cafeteria')
-                  ->orWhere('sale_type', 'pos');
-            })
-            ->sum('amount');
-
-        $cafeteriaSalesToday = PaymentTransaction::whereDate('created_at', $today)
-            ->where('status', 'completed')
-            ->whereHas('sale', function($q) {
-                $q->where('channel', 'cafeteria')
-                  ->orWhere('sale_type', 'pos');
-            })
-            ->sum('amount');
-
-        $cafeteriaSalesMonth = PaymentTransaction::whereYear('created_at', $currentYear)
-            ->whereMonth('created_at', $currentMonth)
-            ->where('status', 'completed')
-            ->whereHas('sale', function($q) {
-                $q->where('channel', 'cafeteria')
-                  ->orWhere('sale_type', 'pos');
-            })
-            ->sum('amount');
-
-        $cafeteriaTransactionsToday = PaymentTransaction::whereDate('created_at', $today)
-            ->where('status', 'completed')
-            ->whereHas('sale', function($q) {
-                $q->where('channel', 'cafeteria')
-                  ->orWhere('sale_type', 'pos');
-            })
-            ->count();
-
-        // ============================================================
-        // 5. EVENT FEES (Event Applications Payments)
-        // ============================================================
-        $eventFeesTotal = EventApplication::where('application_status', 'confirmed')
-            ->where('total_amount', '>', 0)
-            ->sum('total_amount');
-
-        $eventFeesToday = EventApplication::whereDate('created_at', $today)
-            ->where('application_status', 'confirmed')
-            ->where('total_amount', '>', 0)
-            ->sum('total_amount');
-
-        $eventFeesMonth = EventApplication::whereYear('created_at', $currentYear)
-            ->whereMonth('created_at', $currentMonth)
-            ->where('application_status', 'confirmed')
-            ->where('total_amount', '>', 0)
-            ->sum('total_amount');
-
-        $eventTransactionsToday = KcbBuniTransaction::whereDate('created_at', $today)
-            ->where('transaction_type', 'event_registration')
-            ->where('status', 'completed')
-            ->count();
-
-        // ============================================================
-        // 6. GRAND TOTALS
-        // ============================================================
-        $totalCollected = $schoolFeesTotal + $kcbIpnTotal + $cafeteriaSalesTotal + $eventFeesTotal + $applicationFeesTotal;
-        $todayCollection = $schoolFeesToday + $kcbIpnToday + $cafeteriaSalesToday + $eventFeesToday + $applicationFeesToday;
-        $monthlyCollection = $schoolFeesMonth + $kcbIpnMonth + $cafeteriaSalesMonth + $eventFeesMonth + $applicationFeesMonth;
-
-        // ============================================================
-        // 7. OUTSTANDING BALANCE (Student Fees)
-        // ============================================================
-        $outstandingBalance = Enrollment::sum(DB::raw('total_fees - amount_paid'));
-
-        // ============================================================
-        // 8. TRANSACTION STATISTICS
-        // ============================================================
-        $todayTransactions = PaymentTransaction::whereDate('created_at', $today)
-            ->where('status', 'completed')
-            ->count();
-
-        $todayTransactionAmount = PaymentTransaction::whereDate('created_at', $today)
-            ->where('status', 'completed')
-            ->sum('amount');
-
-        $pendingTransactions = PaymentTransaction::where('status', 'pending')->count();
-
-        // ============================================================
-        // 9. COLLECTION RATE
-        // ============================================================
-        $totalFees = Enrollment::sum('total_fees') ?: 1;
-        $collectionRate = round(($schoolFeesTotal / $totalFees) * 100, 1);
-
-        // ============================================================
-        // 10. TODAY'S PAYMENTS COUNT
-        // ============================================================
-        $todayPaymentsCount = FeePayment::whereDate('payment_date', $today)
-            ->where('status', 'completed')
-            ->count();
-
-        // ============================================================
-        // 11. RECENT ACTIVITY (All Payment Types)
-        // ============================================================
-
-        // Recent School Fee Payments
-        $recentFeePayments = FeePayment::with(['student', 'enrollment.course'])
-            ->where('status', 'completed')
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get();
-
-        // Recent KCB IPN Payments
-        $recentKcbIpnPayments = FeePayment::with(['student', 'enrollment.course'])
-            ->where('status', 'completed')
-            ->where('payment_method', 'kcb')
-            ->orderBy('created_at', 'desc')
-            ->limit(5)
-            ->get();
-
-        // Recent Cafeteria Transactions
-        $recentCafeteriaTransactions = PaymentTransaction::with(['sale', 'sale.shop'])
-            ->where('status', 'completed')
-            ->whereHas('sale', function($q) {
-                $q->where('channel', 'cafeteria')
-                  ->orWhere('sale_type', 'pos');
-            })
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get();
-
-        // Recent Event Applications
-        $recentEventApplications = EventApplication::with(['event'])
-            ->where('application_status', 'confirmed')
-            ->orderBy('created_at', 'desc')
-            ->limit(5)
-            ->get();
-
-        // Recent Application Fees
-        $recentApplicationFees = EventApplication::with(['event'])
-            ->where('application_status', 'confirmed')
-            ->where('total_amount', '>', 0)
-            ->orderBy('created_at', 'desc')
-            ->limit(5)
-            ->get();
-
-        // ============================================================
-        // 12. CHART DATA - Monthly Breakdown
-        // ============================================================
-
-        $monthlyLabels = [];
-        $monthlyData = [];
-        $monthlySchoolFees = [];
-        $monthlyKcbIpn = [];
-        $monthlyCafeteria = [];
-        $monthlyEvents = [];
-
-        for ($i = 5; $i >= 0; $i--) {
-            $month = now()->subMonths($i);
-            $monthlyLabels[] = $month->format('M Y');
-
-            // School Fees
-            $schoolAmount = FeePayment::whereYear('payment_date', $month->year)
-                ->whereMonth('payment_date', $month->month)
-                ->where('status', 'completed')
-                ->where('payment_method', '!=', 'kcb')
-                ->sum('amount');
-            $monthlySchoolFees[] = (float) $schoolAmount;
-
-            // KCB IPN
-            $kcbAmount = FeePayment::whereYear('payment_date', $month->year)
-                ->whereMonth('payment_date', $month->month)
-                ->where('status', 'completed')
-                ->where('payment_method', 'kcb')
-                ->sum('amount');
-            $monthlyKcbIpn[] = (float) $kcbAmount;
-
-            // Cafeteria
-            $cafeteriaAmount = PaymentTransaction::whereYear('created_at', $month->year)
-                ->whereMonth('created_at', $month->month)
-                ->where('status', 'completed')
-                ->whereHas('sale', function($q) {
-                    $q->where('channel', 'cafeteria')
-                      ->orWhere('sale_type', 'pos');
-                })
-                ->sum('amount');
-            $monthlyCafeteria[] = (float) $cafeteriaAmount;
-
-            // Events
-            $eventAmount = EventApplication::whereYear('created_at', $month->year)
-                ->whereMonth('created_at', $month->month)
-                ->where('application_status', 'confirmed')
-                ->where('total_amount', '>', 0)
-                ->sum('total_amount');
-            $monthlyEvents[] = (float) $eventAmount;
-
-            // Total
-            $total = $schoolAmount + $kcbAmount + $cafeteriaAmount + $eventAmount;
-            $monthlyData[] = (float) $total;
-        }
-
-        // ============================================================
-        // 13. PAYMENT METHOD BREAKDOWN
-        // ============================================================
-        $paymentMethods = collect([
-            [
-                'payment_method' => 'School Fees (Manual)',
-                'total' => $schoolFeesTotal,
-                'count' => FeePayment::where('status', 'completed')
-                    ->where('payment_method', '!=', 'kcb')
-                    ->count(),
-                'color' => '#B91C1C'
-            ],
-            [
-                'payment_method' => 'KCB IPN (Auto)',
-                'total' => $kcbIpnTotal,
-                'count' => FeePayment::where('status', 'completed')
-                    ->where('payment_method', 'kcb')
-                    ->count(),
-                'color' => '#3B82F6'
-            ],
-            [
-                'payment_method' => 'Cafeteria Sales',
-                'total' => $cafeteriaSalesTotal,
-                'count' => PaymentTransaction::where('status', 'completed')
-                    ->whereHas('sale', function($q) {
-                        $q->where('channel', 'cafeteria')
-                          ->orWhere('sale_type', 'pos');
-                    })
-                    ->count(),
-                'color' => '#10B981'
-            ],
-            [
-                'payment_method' => 'Event Fees',
-                'total' => $eventFeesTotal,
-                'count' => EventApplication::where('application_status', 'confirmed')
-                    ->where('total_amount', '>', 0)
-                    ->count(),
-                'color' => '#8B5CF6'
-            ],
-            [
-                'payment_method' => 'Application Fees',
-                'total' => $applicationFeesTotal,
-                'count' => EventApplication::where('application_status', 'confirmed')
-                    ->where('total_amount', '>', 0)
-                    ->count(),
-                'color' => '#F59E0B'
-            ]
-        ]);
-
-        // ============================================================
-        // 14. PENDING ITEMS COUNT
-        // ============================================================
-        $pendingFeeVerifications = FeePayment::where('status', 'completed')
-            ->where('is_verified', false)
-            ->count();
-
-        $pendingFundingRequests = CardFundingRequest::where('status', 'pending')->count();
-
-        // ============================================================
-        // 15. FEE STRUCTURE PENDING CHANGES
-        // ============================================================
-        $pendingFeeChanges = Course::whereNotNull('fee_modified_by')
-            ->whereNull('fee_modification_approved_by')
-            ->count();
-
-        // ============================================================
-        // 16. TOTAL STUDENTS AND ENROLLMENTS
-        // ============================================================
-        $totalStudents = Student::count();
-        $activeEnrollments = Enrollment::where('status', 'active')->count();
-        $totalPayments = FeePayment::where('status', 'completed')->count();
-
-        // ============================================================
-        // 17. CAMPUSES FOR FILTER
-        // ============================================================
-        $campuses = Campus::orderBy('name')->get();
-
-        // ============================================================
-        // 18. RECENT PAYMENTS (Combined for table)
-        // ============================================================
-        $recentPayments = FeePayment::with(['student', 'enrollment.course'])
-            ->where('status', 'completed')
-            ->orderBy('created_at', 'desc')
-            ->limit(15)
-            ->get();
-
-        // ============================================================
-        // 19. RECENT TRANSACTIONS (Combined for table)
-        // ============================================================
-        $recentTransactions = PaymentTransaction::with(['sale'])
-            ->where('status', 'completed')
-            ->orderBy('created_at', 'desc')
-            ->limit(15)
-            ->get();
-
-        return view('ktvtc.finance.dashboard', compact(
-            // Grand Totals
-            'totalCollected',
-            'todayCollection',
-            'monthlyCollection',
-            'outstandingBalance',
-            'collectionRate',
-            'todayPaymentsCount',
-
-            // School Fees
-            'schoolFeesTotal',
-            'schoolFeesToday',
-            'schoolFeesMonth',
-            'pendingVerifications',
-
-            // KCB IPN
-            'kcbIpnTotal',
-            'kcbIpnToday',
-            'kcbIpnMonth',
-
-            // Cafeteria
-            'cafeteriaSalesTotal',
-            'cafeteriaSalesToday',
-            'cafeteriaSalesMonth',
-            'cafeteriaTransactionsToday',
-
-            // Event Fees
-            'eventFeesTotal',
-            'eventFeesToday',
-            'eventFeesMonth',
-            'eventTransactionsToday',
-
-            // Application Fees
-            'applicationFeesTotal',
-            'applicationFeesToday',
-            'applicationFeesMonth',
-            'pendingApplications',
-
-            // Transaction Stats
-            'todayTransactions',
-            'todayTransactionAmount',
-            'pendingTransactions',
-
-            // Pending Items
-            'pendingFeeVerifications',
-            'pendingFundingRequests',
-            'pendingFeeChanges',
-
-            // Recent Activity
-            'recentPayments',
-            'recentTransactions',
-            'recentFeePayments',
-            'recentKcbIpnPayments',
-            'recentCafeteriaTransactions',
-            'recentEventApplications',
-            'recentApplicationFees',
-
-            // Chart Data
-            'monthlyLabels',
-            'monthlyData',
-            'monthlySchoolFees',
-            'monthlyKcbIpn',
-            'monthlyCafeteria',
-            'monthlyEvents',
-
-            // Payment Methods
-            'paymentMethods',
-
-            // Stats
-            'totalStudents',
-            'activeEnrollments',
-            'totalPayments',
-
-            // Filters
-            'campuses'
-        ));
+        return view('ktvtc.finance.dashboard', $data);
     }
 
     /**
@@ -2063,135 +1640,49 @@ class FinanceController extends Controller
      */
 
     /**
-     * Send fee reminders to selected students
+     * Reminders from the outstanding report. Same rules as Finance > Fee reminders:
+     * trusted balances only, student + parent, at most once a week per student.
      */
     public function sendFeeReminders(Request $request)
     {
-        $enrollmentIds = $request->enrollment_ids;
-        $template = $request->template ?? 'standard';
-        $customMessage = $request->custom_message ?? '';
-
-        if (empty($enrollmentIds)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No students selected.'
-            ], 400);
-        }
-
-        $enrollments = Enrollment::whereIn('id', $enrollmentIds)
-            ->with(['student'])
-            ->get();
-
-        $sentCount = 0;
-        $failedCount = 0;
-        $failed = [];
-
-        foreach ($enrollments as $enrollment) {
-            if (!$enrollment->student) {
-                $failedCount++;
-                $failed[] = [
-                    'name' => $enrollment->student_name ?? 'Unknown',
-                    'reason' => 'No student record found'
-                ];
-                continue;
-            }
-
-            if (!$enrollment->student->phone) {
-                $failedCount++;
-                $failed[] = [
-                    'name' => $enrollment->student->full_name,
-                    'reason' => 'No phone number'
-                ];
-                continue;
-            }
-
-            $balance = $enrollment->total_fees - $enrollment->amount_paid;
-            $name = $enrollment->student->full_name;
-
-            if ($template === 'custom' && !empty($customMessage)) {
-                $message = $this->parseMessage($customMessage, $name, $balance, $enrollment);
-            } else {
-                $message = $this->generateTemplateMessage($template, $name, $balance, $enrollment);
-            }
-
-            $result = $this->smsService->sendSingleSms($enrollment->student->phone, $message);
-
-            if ($result['success']) {
-                $sentCount++;
-            } else {
-                $failedCount++;
-                $failed[] = [
-                    'name' => $name,
-                    'reason' => $result['message'] ?? 'SMS sending failed'
-                ];
-            }
-        }
-
-        return response()->json([
-            'success' => true,
-            'total_count' => $enrollments->count(),
-            'sent_count' => $sentCount,
-            'failed_count' => $failedCount,
-            'failed' => $failed
-        ]);
+        return $this->remindEnrollments($request, (array) $request->input('enrollment_ids', []));
     }
 
+
     /**
-     * Send a single fee reminder to a student
+     * One student, any time (finance's own judgement); still only for trusted balances.
      */
     public function sendSingleFeeReminder($id)
     {
-        $enrollment = Enrollment::findOrFail($id);
+        $result = app(\App\Services\Payments\FeeReminderService::class)->send(Enrollment::findOrFail($id), auth()->id(), true);
 
-        if (!$enrollment->student || !$enrollment->student->phone) {
-            return redirect()->back()->with('error', 'Student has no phone number.');
-        }
-
-        $balance = $enrollment->total_fees - $enrollment->amount_paid;
-        $message = "Dear {$enrollment->student->full_name},\n\n";
-        $message .= "This is a reminder that you have an outstanding balance of KES " . number_format($balance, 2) . " for your enrollment in {$enrollment->course_name}.\n\n";
-        $message .= "Please settle your fees to avoid any interruptions.\n\n";
-        $message .= "Thank you,\nKTVTC Team";
-
-        $result = $this->smsService->sendSingleSms($enrollment->student->phone, $message);
-
-        if ($result['success']) {
-            return redirect()->back()->with('success', 'Fee reminder sent successfully.');
-        } else {
-            return redirect()->back()->with('error', 'Failed to send fee reminder: ' . $result['message']);
-        }
+        return redirect()->back()->with($result['ok'] ? 'success' : 'error', $result['message']);
     }
 
-    /**
-     * Send bulk balance reminders
-     */
+
     public function sendBulkBalanceReminders(Request $request)
     {
-        $ids = $request->enrollment_ids;
-        $enrollments = Enrollment::whereIn('id', $ids)->with(['student'])->get();
+        return $this->remindEnrollments($request, (array) $request->input('enrollment_ids', []));
+    }
 
+    private function remindEnrollments(Request $request, array $ids)
+    {
+        $reminders = app(\App\Services\Payments\FeeReminderService::class);
         $sent = 0;
-        $failed = 0;
+        $skipped = [];
+        foreach (Enrollment::with('student')->whereIn('id', $ids)->limit(\App\Services\Payments\FeeReminderService::BATCH * 4)->get() as $enrollment) {
+            $result = $reminders->send($enrollment, auth()->id());
+            $result['ok'] ? $sent++ : $skipped[] = $result['message'];
+        }
+        $message = "Reminders sent: {$sent}." . ($skipped ? ' Skipped ' . count($skipped) . ': ' . implode(' ', array_slice($skipped, 0, 3)) . (count($skipped) > 3 ? ' …' : '') : '');
 
-        foreach ($enrollments as $enrollment) {
-            if ($enrollment->student && $enrollment->student->phone) {
-                $balance = $enrollment->total_fees - $enrollment->amount_paid;
-                $message = "Dear {$enrollment->student->full_name},\n\n";
-                $message .= "This is a reminder that you have an outstanding balance of KES " . number_format($balance, 2) . " for your enrollment in {$enrollment->course_name}.\n\n";
-                $message .= "Please settle your fees to avoid any interruptions.\n\n";
-                $message .= "Thank you,\nKTVTC Team";
-
-                $result = $this->smsService->sendSingleSms($enrollment->student->phone, $message);
-                if ($result['success']) {
-                    $sent++;
-                } else {
-                    $failed++;
-                }
-            }
+        if ($request->expectsJson()) {
+            return response()->json(['success' => $sent > 0, 'message' => $message, 'sent' => $sent, 'skipped' => count($skipped)]);
         }
 
-        return redirect()->back()->with('success', "Bulk reminders sent: {$sent} sent, {$failed} failed.");
+        return redirect()->back()->with($sent ? 'success' : 'error', $message);
     }
+
 
     /**
      * Get students eligible for fee reminder
@@ -2206,44 +1697,7 @@ class FinanceController extends Controller
         return response()->json($enrollments);
     }
 
-    /**
-     * Generate template message for fee reminder
-     */
-    private function generateTemplateMessage($template, $name, $balance, $enrollment)
-    {
-        $balanceFormatted = number_format($balance, 2);
-        $link = 'www.ktvtc.ac.ke/pay';
-        $course = $enrollment->course_name ?? 'course';
-        $studentNumber = $enrollment->student_number ?? 'N/A';
 
-        switch ($template) {
-            case 'urgent':
-                return "URGENT: Dear {$name}, your fee balance of KES {$balanceFormatted} is now overdue. Please clear your fees immediately to avoid interruption. Pay via {$link} or visit the finance office. KTVTC Admin.";
-            case 'friendly':
-                return "Hello {$name}! Friendly reminder: Your outstanding balance is KES {$balanceFormatted}. Pay conveniently at {$link}. Thank you for choosing KTVTC.";
-            case 'standard':
-            default:
-                return "Dear {$name}, your current fee balance is KES {$balanceFormatted}. Please clear your fees promptly. Pay online: {$link}. Thank you. KTVTC.";
-        }
-    }
-
-    /**
-     * Parse custom message template
-     */
-    private function parseMessage($message, $name, $balance, $enrollment)
-    {
-        $replacements = [
-            '{name}' => $name,
-            '{balance}' => number_format($balance, 2),
-            '{link}' => 'www.ktvtc.ac.ke/pay',
-            '{course}' => $enrollment->course_name ?? 'course',
-            '{student_number}' => $enrollment->student_number ?? 'N/A',
-            '{total_fees}' => number_format($enrollment->total_fees, 2),
-            '{paid}' => number_format($enrollment->amount_paid, 2),
-        ];
-
-        return str_replace(array_keys($replacements), array_values($replacements), $message);
-    }
 
     /**
      * ============================================================
@@ -2372,13 +1826,10 @@ class FinanceController extends Controller
     /**
      * Get student balance API
      */
-    public function getStudentBalance(Request $request)
+    public function getStudentBalance(Request $request, $student = null)
     {
-        $request->validate([
-            'student_id' => 'required|exists:students,id',
-        ]);
-
-        $student = Student::find($request->student_id);
+        // The route is /api/student/{student}/balance; ?student_id= still works too
+        $student = Student::findOrFail($student ?? $request->query('student_id'));
         return $this->studentBalance($student);
     }
 

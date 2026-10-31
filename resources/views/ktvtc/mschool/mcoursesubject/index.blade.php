@@ -212,7 +212,7 @@
                                         '{{ $courseSubject->credit_hours }}',
                                         '{{ $courseSubject->sort_order }}'
                                     )" class="px-3 py-1 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100">Edit</button>
-                                    <button onclick="confirmDelete('{{ route('mschool.mcourse-subjects.destroy', $courseSubject->course_subject_id) }}')" class="px-3 py-1 text-xs rounded bg-red-50 text-red-600 hover:bg-red-100">Delete</button>
+                                    <button onclick="confirmDelete('{{ route('mschool.course-subjects.destroy', $courseSubject->course_subject_id) }}')" class="px-3 py-1 text-xs rounded bg-red-50 text-red-600 hover:bg-red-100">Delete</button>
                                 </div>
                             </td>
                         </tr>
@@ -562,7 +562,7 @@
 
         // Set form action
         const editForm = document.getElementById('editForm');
-        editForm.action = '{{ route("mschool.course-subjects.update", "") }}/' + id;
+        editForm.action = '{{ url('mschool/course-subjects') }}/' + id;
 
         // Fill form fields
         document.getElementById('editCourseSubjectId').value = id;

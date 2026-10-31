@@ -35,7 +35,7 @@ class FineRuleController extends Controller
 
         FineRule::create($validated);
 
-        return redirect()->route('fine-rules.index')
+        return redirect()->route('library.fine-rules.index')
             ->with('success', 'Fine rule created successfully.');
     }
 
@@ -57,7 +57,7 @@ class FineRuleController extends Controller
 
         $fineRule->update($validated);
 
-        return redirect()->route('fine-rules.index')
+        return redirect()->route('library.fine-rules.index')
             ->with('success', 'Fine rule updated successfully.');
     }
 
@@ -67,13 +67,13 @@ class FineRuleController extends Controller
     public function destroy(FineRule $fineRule)
     {
         if ($fineRule->transactions()->exists()) {
-            return redirect()->route('fine-rules.index')
+            return redirect()->route('library.fine-rules.index')
                 ->with('error', 'Cannot delete fine rule that is being used in transactions.');
         }
 
         $fineRule->delete();
 
-        return redirect()->route('fine-rules.index')
+        return redirect()->route('library.fine-rules.index')
             ->with('success', 'Fine rule deleted successfully.');
     }
 
@@ -84,7 +84,7 @@ class FineRuleController extends Controller
     {
         $fineRule->update(['is_active' => true]);
 
-        return redirect()->route('fine-rules.index')
+        return redirect()->route('library.fine-rules.index')
             ->with('success', 'Fine rule activated.');
     }
 
@@ -95,7 +95,7 @@ class FineRuleController extends Controller
     {
         $fineRule->update(['is_active' => false]);
 
-        return redirect()->route('fine-rules.index')
+        return redirect()->route('library.fine-rules.index')
             ->with('success', 'Fine rule deactivated.');
     }
 }

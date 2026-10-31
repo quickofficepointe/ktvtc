@@ -159,7 +159,7 @@
                                     </div>
                                     <div>
                                         <p class="text-sm font-semibold text-gray-900">{{ $branch->branch->name }}</p>
-                                        <p class="text-xs text-gray-500">{{ $branch->stat_date->format('M d, Y') }}</p>
+                                        <p class="text-xs text-gray-500">{{ $branch->stat_date?->format('M d, Y') }}</p>
                                     </div>
                                 </div>
                             </td>
@@ -201,14 +201,14 @@
                             <td class="px-6 py-4">
                                 <div class="text-center">
                                     <span class="inline-flex items-center justify-center w-14 h-10 rounded-full bg-red-100 text-red-800 font-bold">
-                                        ${{ number_format($branch->total_fines, 2) }}
+                                        KES {{ number_format($branch->total_fines, 2) }}
                                     </span>
                                 </div>
                             </td>
                             <td class="px-6 py-4">
                                 <div class="text-center">
                                     <span class="inline-flex items-center justify-center w-14 h-10 rounded-full bg-green-100 text-green-800 font-bold">
-                                        ${{ number_format($branch->collected_fines, 2) }}
+                                        KES {{ number_format($branch->collected_fines, 2) }}
                                     </span>
                                 </div>
                             </td>
@@ -266,10 +266,10 @@
                         <tr class="hover:bg-amber-50 transition-colors duration-150">
                             <td class="px-6 py-4">
                                 <div class="text-sm font-semibold text-gray-900">
-                                    {{ $stat->stat_date->format('M d, Y') }}
+                                    {{ $stat->stat_date?->format('M d, Y') }}
                                 </div>
                                 <div class="text-xs text-gray-500">
-                                    {{ $stat->stat_date->format('l') }}
+                                    {{ $stat->stat_date?->format('l') }}
                                 </div>
                             </td>
                             <td class="px-6 py-4">
@@ -325,14 +325,14 @@
                             <td class="px-6 py-4">
                                 <div class="text-center">
                                     <span class="inline-flex items-center justify-center w-14 h-10 rounded-full bg-red-100 text-red-800 font-bold">
-                                        ${{ number_format($stat->total_fines, 2) }}
+                                        KES {{ number_format($stat->total_fines, 2) }}
                                     </span>
                                 </div>
                             </td>
                             <td class="px-6 py-4">
                                 <div class="text-center">
                                     <span class="inline-flex items-center justify-center w-14 h-10 rounded-full bg-green-100 text-green-800 font-bold">
-                                        ${{ number_format($stat->collected_fines, 2) }}
+                                        KES {{ number_format($stat->collected_fines, 2) }}
                                     </span>
                                 </div>
                             </td>

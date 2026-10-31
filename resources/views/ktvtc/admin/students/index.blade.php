@@ -30,6 +30,11 @@
         <i class="fas fa-download"></i>
         <span>Export</span>
     </a>
+    <a href="{{ route('admin.students.duplicates') }}"
+       class="px-4 py-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-900 rounded-lg font-medium transition-colors flex items-center space-x-2">
+        <i class="fas fa-user-friends"></i>
+        <span>Possible duplicates</span>
+    </a>
     <a href="{{ route('admin.students.create') }}"
        class="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg font-medium transition-colors flex items-center space-x-2">
         <i class="fas fa-plus-circle"></i>
@@ -271,6 +276,16 @@
                 </div>
 
                 <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Student portal</label>
+                    <select name="portal" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <option value="">All</option>
+                        <option value="none" @selected(request('portal') === 'none')>No account yet</option>
+                        <option value="never" @selected(request('portal') === 'never')>Never signed in</option>
+                        <option value="active" @selected(request('portal') === 'active')>Signs in</option>
+                    </select>
+                </div>
+
+                <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Per Page</label>
                     <select name="per_page" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" onchange="this.form.submit()">
                         <option value="10" {{ request('per_page', 15) == 10 ? 'selected' : '' }}>10</option>
@@ -296,6 +311,21 @@
 </div>
 
 <!-- Bulk Actions Bar -->
+@if($neverSignedIn > 0)
+<div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex flex-wrap items-center justify-between gap-3">
+    <p class="text-sm text-amber-900"><i class="fas fa-key mr-1"></i>
+        <strong>{{ number_format($neverSignedIn) }}</strong> enrolled student(s) have never signed in to the student portal (or have no account yet).
+        <a href="{{ request()->fullUrlWithQuery(['portal' => 'never']) }}" class="underline">See them</a>
+    </p>
+    <form method="POST" action="{{ route('admin.students.bulk.send-logins') }}"
+          onsubmit="return confirm('Text login details to the next {{ min($neverSignedIn, \App\Http\Controllers\StudentPortalAccessController::BATCH) }} of these students (creating accounts where missing)? Each one gets an SMS. Students texted in the last 7 days are skipped.')">
+        @csrf
+        <input type="hidden" name="scope" value="never_signed_in">
+        <button class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm"><i class="fas fa-paper-plane mr-1"></i> Text the next {{ min($neverSignedIn, \App\Http\Controllers\StudentPortalAccessController::BATCH) }} their login details</button>
+    </form>
+</div>
+@endif
+
 <div id="bulkActionsBar" class="hidden bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
     <div class="flex items-center justify-between">
         <div class="flex items-center space-x-3">
@@ -319,6 +349,11 @@
                     class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors text-sm flex items-center space-x-2">
                 <i class="fas fa-archive"></i>
                 <span>Archive</span>
+            </button>
+            <button onclick="bulkSendLogins()"
+                    class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors text-sm flex items-center space-x-2">
+                <i class="fas fa-key"></i>
+                <span>Text login details</span>
             </button>
             <button onclick="bulkSyncStudentNumbers()"
                     class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm flex items-center space-x-2">
@@ -363,10 +398,10 @@
         <table class="w-full" id="studentsTable">
             <thead>
                 <tr class="bg-gray-50 border-b border-gray-200">
-                    <th class="py-3 px-6 text-left">
+                    <th class="py-3 px-3 text-left">
                         <input type="checkbox" onclick="toggleAllCheckboxes(this)" class="rounded border-gray-300 text-primary focus:ring-primary">
                     </th>
-                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         <a href="{{ route('admin.students.index', ['sort' => 'student_number', 'direction' => request('direction') == 'asc' ? 'desc' : 'asc'] + request()->except(['sort', 'direction'])) }}" class="hover:text-primary">
                             Student #
                             @if(request('sort') == 'student_number')
@@ -374,7 +409,7 @@
                             @endif
                         </a>
                     </th>
-                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         <a href="{{ route('admin.students.index', ['sort' => 'first_name', 'direction' => request('direction') == 'asc' ? 'desc' : 'asc'] + request()->except(['sort', 'direction'])) }}" class="hover:text-primary">
                             Name
                             @if(request('sort') == 'first_name')
@@ -382,23 +417,23 @@
                             @endif
                         </a>
                     </th>
-                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campus</th>
-                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registered</th>
-                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                    <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campus</th>
+                    <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                    <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status · Portal</th>
+                    <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registered</th>
+                    <th class="py-3 px-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
                 @forelse($students as $student)
                 <tr class="hover:bg-gray-50 transition-colors cursor-pointer" onclick="viewStudent('{{ $student->id }}')">
-                    <td class="py-3 px-6" onclick="event.stopPropagation()">
+                    <td class="py-3 px-3" onclick="event.stopPropagation()">
                         <input type="checkbox" name="student_ids[]" value="{{ $student->id }}"
                                class="student-checkbox rounded border-gray-300 text-primary focus:ring-primary"
                                onchange="updateSelectedCount()">
                     </td>
-                    <td class="py-3 px-6">
+                    <td class="py-3 px-3">
                         <div class="flex items-center">
                             <div class="w-8 h-8 rounded-lg bg-primary-light flex items-center justify-center mr-3">
                                 <i class="fas fa-id-card text-primary text-sm"></i>
@@ -421,7 +456,7 @@
                             </div>
                         </div>
                     </td>
-                    <td class="py-3 px-6">
+                    <td class="py-3 px-3">
                         <div>
                             <p class="font-medium text-gray-800">
                                 {{ $student->first_name }} {{ $student->last_name }}
@@ -443,7 +478,7 @@
                             </div>
                         </div>
                     </td>
-                    <td class="py-3 px-6">
+                    <td class="py-3 px-3">
                         <div class="text-sm">
                             @if($student->email)
                             <div class="flex items-center text-gray-600">
@@ -459,10 +494,10 @@
                             @endif
                         </div>
                     </td>
-                    <td class="py-3 px-6">
+                    <td class="py-3 px-3">
                         <span class="text-sm text-gray-900">{{ $student->campus->name ?? 'Not Assigned' }}</span>
                     </td>
-                    <td class="py-3 px-6">
+                    <td class="py-3 px-3">
                         @php
                             $categoryColors = [
                                 'regular' => 'bg-green-100 text-green-800',
@@ -477,7 +512,7 @@
                             {{ ucfirst(str_replace('_', ' ', $student->student_category)) }}
                         </span>
                     </td>
-                    <td class="py-3 px-6">
+                    <td class="py-3 px-3">
                         @php
                             $statusColors = [
                                 'active' => 'bg-green-100 text-green-800',
@@ -495,8 +530,12 @@
                             <i class="fas fa-circle mr-1 text-xs"></i>
                             {{ ucfirst($student->status) }}
                         </span>
+                        {{-- Student portal: last sign-in, or the button to text login details --}}
+                        <div class="mt-1.5" onclick="event.stopPropagation()">
+                            @include('ktvtc.admin.students.partials.portal-status', ['student' => $student, 'compact' => true])
+                        </div>
                     </td>
-                    <td class="py-3 px-6">
+                    <td class="py-3 px-3">
                         <div class="text-sm text-gray-600">
                             {{ $student->registration_date ? \Carbon\Carbon::parse($student->registration_date)->format('M j, Y') : 'N/A' }}
                         </div>
@@ -505,7 +544,7 @@
                                ($student->registration_type === 'online_application' ? 'Online' : 'Manual Entry') }}
                         </div>
                     </td>
-                    <td class="py-3 px-6" onclick="event.stopPropagation()">
+                    <td class="py-3 px-3" onclick="event.stopPropagation()">
                         <div class="flex items-center space-x-1">
                             <a href="{{ route('admin.students.show', $student) }}"
                                class="p-2 text-gray-600 hover:text-primary hover:bg-gray-100 rounded-lg transition-colors"
@@ -789,6 +828,22 @@
     }
 
     // ============ BULK ACTIONS ============
+    function bulkSendLogins() {
+        const ids = getSelectedStudentIds();
+        if (ids.length === 0) { showToast('Please select at least one student', 'warning'); return; }
+        if (confirm(`Create any missing accounts and text login details to ${ids.length} student(s)? Students who already sign in are skipped.`)) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ route('admin.students.bulk.send-logins') }}';
+            form.innerHTML = `
+                <input type="hidden" name="_token" value="${csrfToken}">
+                ${ids.map(id => `<input type="hidden" name="student_ids[]" value="${id}">`).join('')}
+            `;
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+
     function bulkActivate() {
         const ids = getSelectedStudentIds();
         if (ids.length === 0) { showToast('Please select at least one student', 'warning'); return; }

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Grn_Item;
+use App\Models\GrnItem;
 use Illuminate\Http\Request;
 
 class GrnItemController extends Controller
@@ -34,7 +34,7 @@ class GrnItemController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Grn_Item $grn_Item)
+    public function show(GrnItem $grn_Item)
     {
         //
     }
@@ -42,7 +42,7 @@ class GrnItemController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Grn_Item $grn_Item)
+    public function edit(GrnItem $grn_Item)
     {
         //
     }
@@ -50,7 +50,7 @@ class GrnItemController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Grn_Item $grn_Item)
+    public function update(Request $request, GrnItem $grn_Item)
     {
         //
     }
@@ -58,7 +58,7 @@ class GrnItemController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Grn_Item $grn_Item)
+    public function destroy(GrnItem $grn_Item)
     {
         //
     }

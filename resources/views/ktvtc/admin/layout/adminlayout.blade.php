@@ -388,7 +388,7 @@
                                 </div>
                             </a>
 
-                            <a href="{{ route('admin.exam-registrations.index') }}" class="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                            <a href="{{ route('academics.exam-registrations.index') }}" class="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors">
                                 <div class="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center mr-3">
                                     <i class="fas fa-pencil-alt text-amber-600"></i>
                                 </div>
@@ -577,6 +577,13 @@
                     <span class="nav-text">Academic Terms</span>
                 </a>
 
+                <!-- Academics: units, trainers, results -->
+                <a href="{{ route('academics.index') }}"
+                   class="admin-nav-link flex items-center px-4 py-3 rounded-xl {{ request()->routeIs('academics.*') ? 'active' : '' }}">
+                    <i class="fas fa-book-open mr-3 text-lg"></i>
+                    <span class="nav-text">Academics &amp; Results</span>
+                </a>
+
                 <!-- Examinations Section -->
                 <div class="mt-6 mb-2">
                     <p class="px-4 py-2 text-xs font-bold text-white/60 uppercase tracking-wider group-title">
@@ -585,8 +592,8 @@
                 </div>
 
                 <!-- Exam Registrations -->
-                <a href="{{ route('admin.exam-registrations.index') }}"
-                   class="admin-nav-link flex items-center px-4 py-3 rounded-xl {{ request()->routeIs('admin.exam-registrations.*') ? 'active' : '' }}">
+                <a href="{{ route('academics.exam-registrations.index') }}"
+                   class="admin-nav-link flex items-center px-4 py-3 rounded-xl {{ request()->routeIs('academics.exam-registrations.*') ? 'active' : '' }}">
                     <i class="fas fa-registered mr-3 text-lg"></i>
                     <span class="nav-text">Exam Registrations</span>
                 </a>

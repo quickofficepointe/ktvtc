@@ -66,7 +66,7 @@ class MCourseSubjectController extends Controller
 
             DB::commit();
 
-            return redirect()->route('course-subjects.index')
+            return redirect()->route('mschool.course-subjects.index')
                 ->with('success', 'Course subject association created successfully!');
 
         } catch (\Exception $e) {
@@ -113,7 +113,7 @@ class MCourseSubjectController extends Controller
 
             DB::commit();
 
-            return redirect()->route('course-subjects.index')
+            return redirect()->route('mschool.course-subjects.index')
                 ->with('success', 'Course subject association updated successfully!');
 
         } catch (\Exception $e) {
@@ -138,12 +138,12 @@ class MCourseSubjectController extends Controller
 
             DB::commit();
 
-            return redirect()->route('course-subjects.index')
+            return redirect()->route('mschool.course-subjects.index')
                 ->with('success', 'Course subject association deleted successfully!');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->route('course-subjects.index')
+            return redirect()->route('mschool.course-subjects.index')
                 ->with('error', 'Failed to delete course subject association: ' . $e->getMessage());
         }
     }

@@ -278,6 +278,16 @@
 
                 <div class="mb-4">
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-2">
+                        Wallet
+                    </label>
+                    <select name="wallet" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        <option value="canteen">Canteen (KES {{ number_format((float) $cardAccount->canteen_balance, 2) }})</option>
+                        <option value="transport">Transport (KES {{ number_format((float) $cardAccount->transport_balance, 2) }})</option>
+                    </select>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">
                         Adjustment Type
                     </label>
                     <div class="grid grid-cols-2 gap-2">

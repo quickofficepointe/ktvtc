@@ -26,6 +26,7 @@ class User extends Authenticatable implements MustVerifyEmail
     public const ROLE_TRAINERS    = 8;
     public const ROLE_WEBSITE     = 9;
     public const ROLE_ILO         = 10;
+    public const ROLE_ACADEMICS   = 11;
 
     public const ROLE_APPROVAL_NONE     = 'none';
     public const ROLE_APPROVAL_PENDING  = 'pending';
@@ -42,7 +43,6 @@ class User extends Authenticatable implements MustVerifyEmail
         'profile_picture',
         'bio',
         'role',
-        'is_verified',
         'is_active',
         'is_approved',
         'requested_role',
@@ -67,9 +67,9 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at'  => 'datetime',
             'phone_verified_at'  => 'datetime',
             'last_login_at'      => 'datetime',
+            'login_details_sent_at' => 'datetime',
             'role_approved_at'   => 'datetime',
             'password'           => 'hashed',
-            'is_verified'        => 'boolean',
             'is_active'          => 'boolean',
             'is_approved'        => 'boolean',
             'preferences'        => 'array',
@@ -84,7 +84,7 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return [
             self::ROLE_SUPER_ADMIN => 'Super Admin',
-            self::ROLE_MSCHOOL     => 'Main School',
+            self::ROLE_MSCHOOL     => 'Mobile School',
             self::ROLE_ADMIN       => 'Admin',
             self::ROLE_SCHOLARSHIP => 'Scholarship',
             self::ROLE_LIBRARY     => 'Library',
@@ -94,6 +94,7 @@ class User extends Authenticatable implements MustVerifyEmail
             self::ROLE_TRAINERS    => 'Trainers',
             self::ROLE_WEBSITE     => 'Website',
             self::ROLE_ILO         => 'ILO',
+            self::ROLE_ACADEMICS   => 'Academics',
         ];
     }
 
@@ -110,6 +111,12 @@ class User extends Authenticatable implements MustVerifyEmail
     public function getRoleNameAttribute(): string
     {
         return self::getRoles()[$this->role] ?? 'Unknown';
+    }
+
+    /** Only the academics office changes academic records; admin sees them read-only. */
+    public function canManageAcademics(): bool
+    {
+        return (int) $this->role === self::ROLE_ACADEMICS;
     }
 
     public function hasRole(int $role): bool
@@ -219,6 +226,11 @@ class User extends Authenticatable implements MustVerifyEmail
      * The student record linked to this user account.
      * One user → one student (users.student_id → students.id).
      */
+    public function campus(): BelongsTo
+    {
+        return $this->belongsTo(Campus::class);
+    }
+
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class, 'student_id');
@@ -227,12 +239,6 @@ class User extends Authenticatable implements MustVerifyEmail
     public function blogs(): HasMany
     {
         return $this->hasMany(Blog::class);
-    }
-
-    
-    public function contactMessages(): HasMany
-    {
-        return $this->hasMany(ContactMessage::class);
     }
 
     public function approvedRoleRequests(): HasMany

@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Member;
 use App\Models\Branch;
+use App\Services\Library\LendingException;
+use App\Services\Library\LendingService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class MemberController extends Controller
 {
@@ -63,7 +66,7 @@ class MemberController extends Controller
         $validated = $request->validate([
             'first_name' => 'required|string|max:100',
             'last_name' => 'required|string|max:100',
-            'email' => 'required|email|max:255|unique:members,email',
+            'email' => 'nullable|email|max:255|unique:members,email',
             'phone' => 'nullable|string|max:20',
             'date_of_birth' => 'nullable|date',
             'branch_id' => 'required|exists:branches,id',
@@ -89,17 +92,41 @@ class MemberController extends Controller
      */
     public function show(Member $member)
     {
+        if ($member->student) {
+            $member = app(LendingService::class)->memberForStudent($member->student);
+        }
+
         $member->load([
             'branch',
-            'transactions' => function($query) {
-                $query->with(['item.book'])->orderBy('borrow_date', 'desc');
-            },
-            'readingHistories' => function($query) {
-                $query->with('book')->orderBy('start_date', 'desc');
-            }
+            'student',
+            'transactions' => fn ($q) => $q->with(['item.book', 'issuer', 'receiver'])->orderByDesc('borrow_date')->orderByDesc('id'),
+            'reservations' => fn ($q) => $q->with(['book', 'heldItem'])->orderByDesc('id'),
+            'payments' => fn ($q) => $q->orderByDesc('payment_date')->orderByDesc('id'),
+        ]);
+        $blockers = app(LendingService::class)->borrowBlockers($member);
+
+        return view('ktvtc.library.members.show', compact('member', 'blockers'));
+    }
+
+    /**
+     * Record a fine payment (cash or M-Pesa received at the desk).
+     */
+    public function payFine(Request $request, Member $member, LendingService $lending)
+    {
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:1',
+            'payment_method' => 'required|in:cash,mpesa,bank',
+            'reference_number' => 'nullable|string|max:50',
         ]);
 
-        return view('ktvtc.library.members.show', compact('member'));
+        try {
+            $payment = $lending->payFine($member, (float) $validated['amount'], $validated['payment_method'],
+                $validated['reference_number'] ?? null, Auth::user()?->name);
+        } catch (LendingException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Received KES ' . number_format((float) $payment->amount, 2) . " (receipt {$payment->reference_number}).");
     }
 
     /**
@@ -110,7 +137,7 @@ class MemberController extends Controller
         $validated = $request->validate([
             'first_name' => 'required|string|max:100',
             'last_name' => 'required|string|max:100',
-            'email' => 'required|email|max:255|unique:members,email,' . $member->id,
+            'email' => 'nullable|email|max:255|unique:members,email,' . $member->id,
             'phone' => 'nullable|string|max:20',
             'date_of_birth' => 'nullable|date',
             'branch_id' => 'required|exists:branches,id',
@@ -124,7 +151,7 @@ class MemberController extends Controller
 
         $member->update($validated);
 
-        return redirect()->route('members.index')
+        return redirect()->route('library.members.index')
             ->with('success', 'Member updated successfully.');
     }
 
@@ -134,13 +161,13 @@ class MemberController extends Controller
     public function destroy(Member $member)
     {
         if ($member->transactions()->whereNull('return_date')->exists()) {
-            return redirect()->route('members.index')
+            return redirect()->route('library.members.index')
                 ->with('error', 'Cannot delete member with active borrowings.');
         }
 
         $member->delete();
 
-        return redirect()->route('members.index')
+        return redirect()->route('library.members.index')
             ->with('success', 'Member deleted successfully.');
     }
 
@@ -149,11 +176,16 @@ class MemberController extends Controller
      */
     private function generateMemberId($branchId)
     {
-        $branch = Branch::find($branchId);
-        $prefix = strtoupper(substr($branch->name, 0, 3));
-        $year = date('y');
-        $sequence = Member::where('branch_id', $branchId)->count() + 1;
+        // One running number per year for the whole library. The old per-branch count
+        // gave both "KENSWED ..." branches the same KEN-yy-0001 and broke after deletions.
+        $prefix = 'LIB-' . date('y') . '-';
+        $last = Member::where('member_id', 'like', $prefix . '%')->pluck('member_id')
+            ->map(fn ($id) => (int) substr($id, strlen($prefix)))->max() ?? 0;
 
-        return $prefix . '-' . $year . '-' . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+        do {
+            $candidate = $prefix . str_pad(++$last, 4, '0', STR_PAD_LEFT);
+        } while (Member::where('member_id', $candidate)->exists());
+
+        return $candidate;
     }
 }

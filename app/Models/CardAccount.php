@@ -17,6 +17,9 @@ class CardAccount extends Model
         'qr_token',
         'qr_generated_at',
         'balance',
+        'transport_balance',
+        'canteen_balance',
+        'wallets_split_at',
         'total_funded',
         'total_spent',
         'is_active',
@@ -46,6 +49,9 @@ class CardAccount extends Model
 
     protected $casts = [
         'balance' => 'decimal:2',
+        'transport_balance' => 'decimal:2',
+        'canteen_balance' => 'decimal:2',
+        'wallets_split_at' => 'datetime',
         'total_funded' => 'decimal:2',
         'total_spent' => 'decimal:2',
         'daily_limit' => 'decimal:2',

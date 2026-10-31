@@ -19,11 +19,19 @@ class Reservation extends Model
         'status',
         'queue_position',
         'notes',
+        'held_item_id',
+        'held_until',
+        'fulfilled_at',
+        'cancelled_at',
+        'created_by',
     ];
 
     protected $casts = [
         'reservation_date' => 'date',
         'expiry_date' => 'date',
+        'held_until' => 'datetime',
+        'fulfilled_at' => 'datetime',
+        'cancelled_at' => 'datetime',
     ];
 
     public function member(): BelongsTo
@@ -39,6 +47,12 @@ class Reservation extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    /** The copy put aside for this reader once one came back. */
+    public function heldItem(): BelongsTo
+    {
+        return $this->belongsTo(Item::class, 'held_item_id');
     }
 
     public function getIsActiveAttribute(): bool

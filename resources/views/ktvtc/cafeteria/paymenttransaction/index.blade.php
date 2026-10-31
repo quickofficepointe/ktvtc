@@ -69,7 +69,7 @@
                         <td class="px-6 py-4 font-medium">{{ $transaction->transaction_number }}</td>
                         <td class="px-6 py-4">
                             @if($transaction->sale)
-                            <a href="{{ route('sales.show', $transaction->sale_id) }}" class="text-blue-600 hover:text-blue-900">
+                            <a href="{{ route('cafeteria.sales.show', $transaction->sale_id) }}" class="text-blue-600 hover:text-blue-900">
                                 {{ $transaction->sale->invoice_number }}
                             </a>
                             @else

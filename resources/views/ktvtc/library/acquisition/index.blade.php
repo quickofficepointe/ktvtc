@@ -186,10 +186,10 @@
                                     </div>
                                     <div>
                                         <p class="text-sm font-semibold text-gray-900">
-                                            {{ $request->requester->first_name }} {{ $request->requester->last_name }}
+                                            {{ $request->requester?->first_name ?? 'Library staff' }} {{ $request->requester?->last_name }}
                                         </p>
-                                        <p class="text-xs text-gray-500">{{ $request->requester->member_id }}</p>
-                                        <p class="text-xs text-gray-500">{{ $request->requester->email }}</p>
+                                        <p class="text-xs text-gray-500">{{ $request->requester?->member_id }}</p>
+                                        <p class="text-xs text-gray-500">{{ $request->requester?->email }}</p>
                                     </div>
                                 </div>
                             </td>
@@ -414,6 +414,13 @@
                                        class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-colors"
                                        placeholder="29.99">
                             </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Requested by (member or student number)</label>
+                            <input type="text" name="member_number" value="{{ old('member_number') }}"
+                                   class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-colors"
+                                   placeholder="Leave empty if library staff are requesting it">
                         </div>
 
                         <div>

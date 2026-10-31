@@ -10,7 +10,9 @@ class CardTransaction extends Model
     protected $fillable = [
         'card_account_id',
         'transaction_type',
+        'wallet',
         'amount',
+        'fee_amount',
         'balance_before',
         'balance_after',
         'status',
@@ -33,6 +35,7 @@ class CardTransaction extends Model
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'fee_amount' => 'decimal:2',
         'balance_before' => 'decimal:2',
         'balance_after' => 'decimal:2',
         'metadata' => 'array',
@@ -95,13 +98,16 @@ class CardTransaction extends Model
     }
 
     /**
-     * Generate reference
+     * Generate a unique reference, e.g. CAF20261028-7K2Q9XWD.
+     * (Five random digits per day used to collide on busy days and fail the insert.)
      */
     public static function generateReference(string $prefix): string
     {
-        $date = date('Ymd');
-        $random = str_pad(random_int(1, 99999), 5, '0', STR_PAD_LEFT);
-        return $prefix . $date . $random;
+        do {
+            $reference = $prefix . date('Ymd') . '-' . strtoupper(\Illuminate\Support\Str::random(8));
+        } while (static::where('reference', $reference)->exists());
+
+        return $reference;
     }
 
     /**

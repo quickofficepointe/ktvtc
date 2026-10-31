@@ -200,13 +200,14 @@ public function getIssuedCertificates()
         $certificate = MCertificate::with(['student', 'course', 'template'])->findOrFail($id);
 
         return response()->json([
-            'student_name' => $certificate->student->first_name . ' ' . $certificate->student->last_name,
-            'course_name' => $certificate->course->course_name,
-            'certificate_type' => $certificate->template->template_name,
+            // Most older certificates point at a template that was since deleted
+            'student_name' => trim(($certificate->student->first_name ?? '') . ' ' . ($certificate->student->last_name ?? '')) ?: 'Unknown student',
+            'course_name' => $certificate->course->course_name ?? 'Unknown course',
+            'certificate_type' => $certificate->template->template_name ?? 'Template removed',
             'certificate_number' => $certificate->certificate_number,
-            'issue_date' => $certificate->issue_date->format('d/m/Y'),
+            'issue_date' => $certificate->issue_date?->format('d/m/Y'),
             'pdf_url' => $certificate->generated_pdf_path ? asset('storage/' . $certificate->generated_pdf_path) : null,
-            'download_url' => route('certificates.download', $certificate->certificate_id),
+            'download_url' => route('mschool.certificates.download', $certificate->certificate_id),
         ]);
     }
 

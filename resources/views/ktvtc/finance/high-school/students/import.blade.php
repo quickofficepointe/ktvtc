@@ -4,7 +4,7 @@
 @section('subtitle', 'Import high school students from Excel/CSV')
 
 @section('header-actions')
-<a href="{{ route('finance.hs-students.index') }}" class="text-gray-600 hover:text-gray-800">
+<a href="{{ route('hs-students.index') }}" class="text-gray-600 hover:text-gray-800">
     <i class="fas fa-arrow-left mr-2"></i> Back to Students
 </a>
 @endsection
@@ -26,7 +26,7 @@
         </div>
 
         <div class="mb-4">
-            <a href="{{ route('finance.hs-students.template') }}" class="text-primary hover:underline flex items-center text-sm">
+            <a href="{{ route('hs-students.template') }}" class="text-primary hover:underline flex items-center text-sm">
                 <i class="fas fa-download mr-2"></i> Download Template CSV
             </a>
         </div>
@@ -91,7 +91,7 @@
 
                 <!-- Submit Buttons -->
                 <div class="flex justify-end space-x-3 pt-4 border-t">
-                    <a href="{{ route('finance.hs-students.index') }}" class="px-4 py-2 border rounded-lg hover:bg-gray-50 transition text-sm">
+                    <a href="{{ route('hs-students.index') }}" class="px-4 py-2 border rounded-lg hover:bg-gray-50 transition text-sm">
                         Cancel
                     </a>
                     <button type="submit" id="submit-btn" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled>

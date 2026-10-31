@@ -96,96 +96,14 @@ class LibraryController extends Controller
         ));
     }
 
-    public function dashboard()
+    /**
+     * Library overview: stock, loans, overdue books, fines and the waiting list.
+     */
+    public function dashboard(\App\Services\Dashboards\RoleDashboards $dashboards)
     {
-        // --------------------------------------------------------
-        // Core counts
-        // --------------------------------------------------------
-        $totalBooks   = Book::count();
-        $totalMembers = Member::count();
-
-        // --------------------------------------------------------
-        // Borrowing stats
-        // --------------------------------------------------------
-        $activeBorrows = Transaction::where('status', 'borrowed')->count();
-
-        $overdueBooks = Transaction::where('status', 'borrowed')
-            ->where('due_date', '<', now())
-            ->count();
-
-        // --------------------------------------------------------
-        // Pending workflow items
-        // --------------------------------------------------------
-        $pendingReservations = Reservation::where('status', 'pending')->count();
-
-        $pendingAcquisitions = AcquisitionRequest::whereIn('status', ['pending', 'submitted'])
-            ->count();
-
-        // --------------------------------------------------------
-        // Fines
-        // Total uncollected fines across all borrowed/overdue items.
-        // --------------------------------------------------------
-        $defaultFinePerDay = 50; // KES per day — override if you have FineRule rows
-
-        $overdueTransactions = Transaction::with(['item.book', 'member'])
-            ->where('status', 'borrowed')
-            ->where('due_date', '<', now())
-            ->get();
-
-        $totalFines = $overdueTransactions->sum(function ($t) use ($defaultFinePerDay) {
-            // FIX: use the transaction's due_date as the base and now() as the target
-            $daysLate = \Carbon\Carbon::parse($t->due_date)->diffInDays(now());
-            return $daysLate * $defaultFinePerDay;
-        });
-
-        // --------------------------------------------------------
-        // Popular books (most transactions in last 30 days)
-        // --------------------------------------------------------
-        // FIX 1: qualify created_at with the transactions table to avoid
-        //        the "ambiguous column" SQL error caused by the join with items.
-        // FIX 2: use snake_case variable name to match the Blade view.
-        $popular_books = Book::withCount(['transactions' => function ($q) {
-                $q->where('transactions.created_at', '>=', now()->subDays(30));
-            }])
-            ->orderByDesc('transactions_count')
-            ->limit(5)
-            ->get();
-
-        // --------------------------------------------------------
-        // Recent transactions
-        // --------------------------------------------------------
-        $recent_transactions = Transaction::with(['member', 'item.book'])
-            ->latest()
-            ->limit(10)
-            ->get();
-
-        // --------------------------------------------------------
-        // Recent members
-        // --------------------------------------------------------
-        $recent_members = Member::latest()
-            ->limit(5)
-            ->get();
-
-        // --------------------------------------------------------
-        // Bundle for the view
-        // --------------------------------------------------------
-        $stats = [
-            'total_books'          => $totalBooks,
-            'total_members'        => $totalMembers,
-            'active_borrows'       => $activeBorrows,
-            'overdue_books'        => $overdueBooks,
-            'total_fines'          => $totalFines,
-            'pending_reservations' => $pendingReservations,
-            'pending_acquisitions' => $pendingAcquisitions,
-        ];
-
-        return view('ktvtc.library.dashboard', compact(
-            'stats',
-            'popular_books',
-            'recent_transactions',
-            'recent_members'
-        ));
+        return view('ktvtc.library.dashboard', $dashboards->library());
     }
+
 
     /**
      * Show single book details

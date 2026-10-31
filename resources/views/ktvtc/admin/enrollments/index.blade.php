@@ -410,7 +410,7 @@
                                             </button>
                                         @endif
                                         @if($enrollment->requires_external_exam && $enrollment->exam_registrations_count == 0)
-                                            <a href="{{ route('admin.exam-registrations.create', ['enrollment_id' => $enrollment->id]) }}"
+                                            <a href="{{ route('academics.exam-registrations.create', ['enrollment_id' => $enrollment->id]) }}"
                                                class="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-50 flex items-center">
                                                 <i class="fas fa-file-alt mr-2"></i>
                                                 Register Exam

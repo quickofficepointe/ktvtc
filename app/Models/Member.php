@@ -14,6 +14,7 @@ class Member extends Model
 
     protected $fillable = [
         'member_id',
+        'student_id',
         'first_name',
         'last_name',
         'email',
@@ -41,6 +42,11 @@ class Member extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function student(): BelongsTo
+    {
+        return $this->belongsTo(Student::class);
     }
 
     public function transactions(): HasMany

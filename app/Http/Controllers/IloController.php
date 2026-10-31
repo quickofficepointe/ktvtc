@@ -20,53 +20,14 @@ class IloController extends Controller
     // DASHBOARD
     // ============================================================
 
-    public function dashboard()
+    /**
+     * Industrial liaison overview: companies, openings, applications and students on attachment.
+     */
+    public function dashboard(\App\Services\Dashboards\RoleDashboards $dashboards)
     {
-        $stats = [
-            'companies'            => rescue(fn () => Company::count(), 0),
-            'active_companies'     => rescue(fn () => Company::active()->count(), 0),
-            'open_opportunities'   => rescue(fn () => Opportunity::where('status', 'open')->count(), 0),
-            'total_opportunities'  => rescue(fn () => Opportunity::count(), 0),
-            'pending_applications' => rescue(fn () => AttachmentApplication::pending()->count(), 0),
-            'approved_applications'=> rescue(fn () => AttachmentApplication::approved()->count(), 0),
-            'total_applications'   => rescue(fn () => AttachmentApplication::count(), 0),
-            'slots_offered'        => rescue(fn () => (int) Opportunity::where('status', 'open')->sum('slots'), 0),
-            'slots_filled'         => rescue(fn () => (int) Opportunity::where('status', 'open')->sum('slots_taken'), 0),
-        ];
-
-        $recentCompanies = rescue(
-            fn () => Company::latest()->limit(5)->get(),
-            collect()
-        );
-
-        $recentApplications = rescue(
-            fn () => AttachmentApplication::with(['opportunity.company', 'student'])
-                ->latest()
-                ->limit(8)
-                ->get(),
-            collect()
-        );
-
-        $openOpportunities = rescue(
-            fn () => Opportunity::with(['company', 'course'])
-                ->where('status', 'open')
-                ->orderBy('application_closes_at')
-                ->limit(6)
-                ->get(),
-            collect()
-        );
-
-        return view('ktvtc.ilo.dashboard', compact(
-            'stats',
-            'recentCompanies',
-            'recentApplications',
-            'openOpportunities'
-        ));
+        return view('ktvtc.ilo.dashboard', $dashboards->ilo());
     }
 
-    // ============================================================
-    // COMPANIES
-    // ============================================================
 
     public function companies(Request $request)
     {

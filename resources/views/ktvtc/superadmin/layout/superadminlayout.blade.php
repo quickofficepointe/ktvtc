@@ -876,7 +876,7 @@
         // Load notifications via AJAX
         function loadNotifications() {
             $.ajax({
-                url: '',
+                url: '{{ route('super-admin.api.notifications') }}',
                 method: 'GET',
                 success: function(data) {
                     $('#notificationList').html(data);
@@ -1127,7 +1127,7 @@
         // System Alerts Check
         function checkSystemAlerts() {
             $.ajax({
-                url: '',
+                url: '{{ route('super-admin.api.alerts') }}',
                 method: 'GET',
                 success: function(alerts) {
                     alerts.forEach(alert => {

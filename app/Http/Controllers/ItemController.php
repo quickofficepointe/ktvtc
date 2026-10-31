@@ -24,7 +24,7 @@ class ItemController extends Controller
         }
 
         $items = $query->orderBy('barcode')->paginate(20);
-        $books = Book::where('available_copies', '>', 0)->get();
+        $books = Book::orderBy('title')->get();
         $branches = Branch::where('is_active', true)->get();
 
         // Stats
@@ -52,18 +52,18 @@ class ItemController extends Controller
             'book_id' => 'required|exists:books,id',
             'branch_id' => 'required|exists:branches,id',
             'condition' => 'required|in:new,good,fair,poor',
-            'status' => 'required|in:available,borrowed,reserved,maintenance,lost',
+            'status' => 'required|in:available,borrowed,reserved,maintenance,lost,missing',
             'acquisition_date' => 'nullable|date',
             'acquisition_price' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string|max:500',
         ]);
 
-        $item = Item::create($validated);
-
-        // Update book available copies if item is available
-        if ($item->status === 'available') {
-            $item->book->increment('available_copies');
+        if ($validated['status'] === 'borrowed') {
+            return back()->withInput()->with('error', 'A new copy cannot start as borrowed; lend it from Transactions.');
         }
+
+        $item = Item::create($validated);
+        $item->book->syncCopyCounts();
 
         return redirect()->route('library.items.index')
             ->with('success', 'Item added successfully.');
@@ -79,23 +79,47 @@ class ItemController extends Controller
             'book_id' => 'required|exists:books,id',
             'branch_id' => 'required|exists:branches,id',
             'condition' => 'required|in:new,good,fair,poor',
-            'status' => 'required|in:available,borrowed,reserved,maintenance,lost',
+            'status' => 'required|in:available,borrowed,reserved,maintenance,lost,missing',
             'acquisition_date' => 'nullable|date',
             'acquisition_price' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string|max:500',
         ]);
 
-        // Handle status change for book available copies
-        if ($item->status !== 'available' && $validated['status'] === 'available') {
-            $item->book->increment('available_copies');
-        } elseif ($item->status === 'available' && $validated['status'] !== 'available') {
-            $item->book->decrement('available_copies');
+        // Loans and waiting-list holds change status through lending, not by hand
+        if (in_array($item->status, ['borrowed', 'reserved']) && $validated['status'] !== $item->status) {
+            return back()->withInput()->with('error', "Copy {$item->barcode} is {$item->status}; return it or cancel the reservation first.");
+        }
+        if ($validated['status'] === 'borrowed' && $item->status !== 'borrowed') {
+            return back()->withInput()->with('error', 'Lend copies from Transactions so the loan is recorded.');
         }
 
+        $oldBook = $item->book;
         $item->update($validated);
+        $item->book->syncCopyCounts();
+        if ($oldBook && $oldBook->id !== $item->book_id) {
+            $oldBook->syncCopyCounts();
+        }
 
         return redirect()->route('library.items.index')
             ->with('success', 'Item updated successfully.');
+    }
+
+    /**
+     * Stock-take and repairs: put a copy back on the shelf, or mark it in repair,
+     * missing or lost. Copies on loan or held for a reader change through lending.
+     */
+    public function setStatus(Request $request, Item $item)
+    {
+        $validated = $request->validate(['status' => 'required|in:available,maintenance,missing,lost']);
+
+        if (in_array($item->status, ['borrowed', 'reserved'])) {
+            return back()->with('error', "Copy {$item->barcode} is {$item->status}; return it or cancel the reservation first.");
+        }
+
+        $item->update(['status' => $validated['status']]);
+        $item->book?->syncCopyCounts();
+
+        return back()->with('success', "Copy {$item->barcode} set to {$validated['status']}.");
     }
 
     /**
@@ -108,12 +132,14 @@ class ItemController extends Controller
                 ->with('error', 'Cannot delete item that is currently borrowed.');
         }
 
-        // Update book available copies if item was available
-        if ($item->status === 'available') {
-            $item->book->decrement('available_copies');
+        if ($item->status === 'reserved') {
+            return redirect()->route('library.items.index')
+                ->with('error', 'Cannot delete a copy held for a reader on the waiting list.');
         }
 
+        $book = $item->book;
         $item->delete();
+        $book?->syncCopyCounts();
 
         return redirect()->route('library.items.index')
             ->with('success', 'Item deleted successfully.');

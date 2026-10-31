@@ -93,7 +93,7 @@
                                         <i class="fas fa-eye"></i>
                                     </a>
                                     @if($transaction->status === 'completed')
-                                        <a href="{{ route('finance.transactions.receipt', $transaction) }}" class="text-gray-500 hover:text-gray-700" title="Receipt" target="_blank">
+                                        <a href="{{ route('finance.transactions.print', $transaction) }}" class="text-gray-500 hover:text-gray-700" title="Receipt" target="_blank">
                                             <i class="fas fa-print"></i>
                                         </a>
                                     @endif

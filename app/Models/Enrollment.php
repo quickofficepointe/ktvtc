@@ -58,6 +58,7 @@ class Enrollment extends Model
         'total_fees',
         'amount_paid',
         'balance',
+        'billing_mode',
 
         // FEE LOCK FIELDS
         'fee_locked',
@@ -95,6 +96,7 @@ class Enrollment extends Model
         'total_fees' => 'decimal:2',
         'amount_paid' => 'decimal:2',
         'balance' => 'decimal:2',
+        'balance_confirmed_at' => 'datetime',
         'requires_external_exam' => 'boolean',
         'is_active' => 'boolean',
         'needs_review' => 'boolean',
@@ -138,6 +140,11 @@ class Enrollment extends Model
     public function enrolledByUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'enrolled_by_user_id');
+    }
+
+    public function termRegistrations(): HasMany
+    {
+        return $this->hasMany(TermRegistration::class)->orderBy('term_number');
     }
 
     public function payments(): HasMany
@@ -523,34 +530,5 @@ public function scopeFullyPaid($query)
 
         return max(0, round($threshold - $paid, 2));
     }
-    // ============================================================
-    // STUDENT NUMBER HELPER
-    // ============================================================
 
-    public function updateStudentNumberWithCourse()
-    {
-        if (!$this->student || !$this->course) {
-            return null;
-        }
-
-        $student = $this->student;
-        $courseCode = $this->course->code ?? 'STU';
-        $year = $this->intake_year ?? date('Y');
-        $baseNumber = $student->student_number;
-
-        if (strpos($baseNumber, '/') !== false) {
-            $parts = explode('/', $baseNumber);
-            $baseNumber = $parts[1] ?? $parts[0];
-        }
-
-        $newStudentNumber = strtoupper($courseCode) . '/' . $baseNumber . '/' . $year;
-
-        $student->student_number = $newStudentNumber;
-        $student->save();
-
-        $this->student_number = $newStudentNumber;
-        $this->save();
-
-        return $newStudentNumber;
-    }
 }

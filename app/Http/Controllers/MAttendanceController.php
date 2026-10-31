@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\MAttendance;
 use App\Models\MAttendanceRecord;
 use App\Models\MCourse;
+use App\Models\MEnrollment;
+use App\Models\MStudent;
 use App\Models\MSubject;
 use App\Models\MobileSchool;
 use Illuminate\Http\Request;
@@ -52,10 +54,8 @@ class MAttendanceController extends Controller
             'attendance_date' => 'required|date',
             'start_time' => 'required|date_format:H:i',
             'end_time' => 'required|date_format:H:i|after:start_time',
-            'attendable_type' => 'required|string|in:course,subject,class,batch',
-            'attendable_id' => 'required|integer',
             'subject_id' => 'nullable|exists:m_subjects,subject_id',
-            'course_id' => 'nullable|exists:m_courses,course_id',
+            'course_id' => 'required|exists:m_courses,course_id',
             'mobile_school_id' => 'nullable|exists:mobile_schools,id',
             'venue' => 'nullable|string|max:255',
             'room' => 'nullable|string|max:100',
@@ -73,6 +73,11 @@ class MAttendanceController extends Controller
             'remarks' => 'nullable|string',
         ]);
 
+        // What the session is for: the subject if one was picked, otherwise the course
+        $validated['attendable_type'] = !empty($validated['subject_id']) ? 'subject' : 'course';
+        $validated['attendable_id'] = $validated['subject_id'] ?? $validated['course_id'];
+        $validated['created_by'] = auth()->id();
+
         try {
             DB::beginTransaction();
 
@@ -85,7 +90,7 @@ class MAttendanceController extends Controller
 
             DB::commit();
 
-            return redirect()->route('attendances.index')
+            return redirect()->route('mschool.attendances.index')
                 ->with('success', 'Attendance session created successfully.');
 
         } catch (\Exception $e) {
@@ -101,9 +106,72 @@ class MAttendanceController extends Controller
      */
     public function show(MAttendance $attendance)
     {
-        $attendance->load(['course', 'subject', 'mobileSchool', 'records.student', 'records.trainer']);
+        $attendance->load(['course', 'subject', 'mobileSchool', 'records.student']);
+        $roster = $this->roster($attendance);
+        $records = $attendance->records->keyBy('student_id');
 
-        return view('ktvtc.admin.attendances.show', compact('attendance'));
+        return view('ktvtc.mschool.attendances.show', compact('attendance', 'roster', 'records'));
+    }
+
+    /**
+     * Mark the register: one status per student on the session's roster.
+     */
+    public function mark(Request $request, MAttendance $attendance)
+    {
+        if ($attendance->is_locked) {
+            return back()->with('error', 'This session is locked. Unlock it to change the register.');
+        }
+
+        $roster = $this->roster($attendance)->keyBy('student_id');
+        $validated = $request->validate([
+            'status' => 'required|array',
+            'status.*' => 'required|in:present,absent,late,leave,excused',
+            'reason' => 'nullable|array',
+            'reason.*' => 'nullable|string|max:500',
+        ]);
+
+        DB::transaction(function () use ($validated, $roster, $attendance, $request) {
+            foreach ($validated['status'] as $studentId => $status) {
+                if (!$roster->has((int) $studentId)) {
+                    continue; // only students on this session's roster
+                }
+                $reason = $validated['reason'][$studentId] ?? null;
+                MAttendanceRecord::updateOrCreate(
+                    ['attendance_id' => $attendance->attendance_id, 'student_id' => (int) $studentId],
+                    [
+                        'status' => $status,
+                        'is_late' => $status === 'late',
+                        'check_in_time' => in_array($status, ['present', 'late']) ? now()->format('H:i:s') : null,
+                        'absence_reason' => in_array($status, ['absent', 'leave', 'excused']) ? $reason : null,
+                        'late_reason' => $status === 'late' ? $reason : null,
+                        'verification_method' => 'manual',
+                        'recorded_by' => auth()->id(),
+                        'ip_address' => $request->ip(),
+                    ]
+                );
+            }
+            $attendance->total_expected = $roster->count();
+            $attendance->calculateStatistics();
+        });
+
+        return redirect()->route('mschool.attendances.show', $attendance->attendance_id)
+            ->with('success', 'Register saved: ' . $attendance->fresh()->total_present . ' present, '
+                . $attendance->fresh()->total_absent . ' absent, ' . $attendance->fresh()->total_late . ' late.');
+    }
+
+    /** Students expected at a session: active enrollments in its course (and mobile school, if set). */
+    private function roster(MAttendance $attendance)
+    {
+        $enrolled = MEnrollment::whereIn('status', ['active', 'pending'])
+            ->when($attendance->course_id, fn ($q) => $q->where('course_id', $attendance->course_id))
+            ->when($attendance->mobile_school_id, fn ($q) => $q->where('mobile_school_id', $attendance->mobile_school_id))
+            ->pluck('student_id');
+
+        if (!$attendance->course_id && !$attendance->mobile_school_id) {
+            return collect();
+        }
+
+        return MStudent::whereIn('student_id', $enrolled)->orderBy('first_name')->orderBy('last_name')->get();
     }
 
     /**
@@ -115,7 +183,7 @@ class MAttendanceController extends Controller
         $subjects = MSubject::active()->get();
         $mobileSchools = MobileSchool::active()->get();
 
-        return view('ktvtc.admin.attendances.edit', compact(
+        return view('ktvtc.mschool.attendances.edit', compact(
             'attendance',
             'courses',
             'subjects',
@@ -168,7 +236,7 @@ class MAttendanceController extends Controller
 
             DB::commit();
 
-            return redirect()->route('attendances.index')
+            return redirect()->route('mschool.attendances.index')
                 ->with('success', 'Attendance session updated successfully.');
 
         } catch (\Exception $e) {
@@ -193,7 +261,7 @@ class MAttendanceController extends Controller
 
             DB::commit();
 
-            return redirect()->route('attendances.index')
+            return redirect()->route('mschool.attendances.index')
                 ->with('success', 'Attendance session deleted successfully.');
 
         } catch (\Exception $e) {
@@ -291,12 +359,8 @@ class MAttendanceController extends Controller
      */
     public function records(MAttendance $attendance)
     {
-        $records = $attendance->records()
-            ->with(['student', 'trainer'])
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return view('ktvtc.admin.attendances.records', compact('attendance', 'records'));
+        // The register lives on the session page
+        return redirect()->route('mschool.attendances.show', $attendance->attendance_id);
     }
 
     /**

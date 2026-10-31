@@ -161,9 +161,8 @@ class AttachmentController extends Controller
         $student = $this->currentStudent();
         abort_unless($attachment->student_id === $student->id, 403);
 
-        $attachment->load(['company', 'term', 'application', 'reviewer', 'grader']);
-
-        return view('ktvtc.students.attachment.details-show', compact('student', 'attachment'));
+        // The details page already shows the student's attachment in full
+        return redirect()->route('student.attachment.details');
     }
 
     public function edit(Attachment $attachment)

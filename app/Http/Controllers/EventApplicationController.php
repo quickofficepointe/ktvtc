@@ -11,17 +11,6 @@ use Illuminate\Support\Facades\Validator;
 
 class EventApplicationController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
-    {
-        $applications = EventApplication::with(['event', 'attendees'])
-            ->latest()
-            ->paginate(20);
-
-        return view('ktvtc.website.events.eventapplication', compact('applications'));
-    }
   public function success(Request $request)
     {
         $applicationId = $request->query('application');
@@ -148,15 +137,6 @@ public function getByEvent(Event $event)
         }
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(EventApplication $application)
-    {
-        $application->load(['event', 'attendees']);
-
-        return view('event-applications.show', compact('application'));
-    }
 /**
  * Send event application confirmation to parent
  */
@@ -215,92 +195,6 @@ public function generateEventReminderMessage($application, $event)
     return $message;
 }
     /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(EventApplication $application)
-    {
-        $application->load(['event', 'attendees']);
-        $event = $application->event;
-
-        return view('event-applications.edit', compact('application', 'event'));
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, EventApplication $application)
-    {
-        $validator = Validator::make($request->all(), [
-            'parent_name' => 'required|string|max:255',
-            'parent_contact' => 'required|string|max:20',
-            'parent_email' => 'required|email|max:255',
-            'mpesa_reference_number' => 'required|string|max:255|unique:event_applications,mpesa_reference_number,' . $application->id,
-            'number_of_people' => 'required|integer|min:1|max:10',
-            'attendees' => 'required|array|size:' . $request->number_of_people,
-            'attendees.*.name' => 'required|string|max:255',
-            'attendees.*.school' => 'required|string|max:255',
-            'attendees.*.age' => 'required|integer|min:3|max:25',
-            'application_status' => 'required|in:pending,confirmed,cancelled,completed',
-            'notes' => 'nullable|string',
-        ]);
-
-        if ($validator->fails()) {
-            return redirect()->back()
-                ->withErrors($validator)
-                ->withInput();
-        }
-
-        try {
-            DB::beginTransaction();
-
-            $oldAttendeeCount = $application->number_of_people;
-            $newAttendeeCount = $request->number_of_people;
-
-            // Update the event application
-            $application->update([
-                'parent_name' => $request->parent_name,
-                'parent_contact' => $request->parent_contact,
-                'parent_email' => $request->parent_email,
-                'mpesa_reference_number' => $request->mpesa_reference_number,
-                'number_of_people' => $newAttendeeCount,
-                'application_status' => $request->application_status,
-                'notes' => $request->notes,
-            ]);
-
-            // Delete existing attendees and create new ones
-            $application->attendees()->delete();
-
-            foreach ($request->attendees as $attendeeData) {
-                EventApplicationAttendee::create([
-                    'event_application_id' => $application->id,
-                    'name' => $attendeeData['name'],
-                    'school' => $attendeeData['school'],
-                    'age' => $attendeeData['age'],
-                ]);
-            }
-
-            // Update event registered count if attendee count changed
-            if ($oldAttendeeCount !== $newAttendeeCount) {
-                $event = $application->event;
-                $difference = $newAttendeeCount - $oldAttendeeCount;
-                $event->increment('registered_attendees', $difference);
-            }
-
-            DB::commit();
-
-            return redirect()->route('event-applications.show', $application)
-                ->with('success', 'Application updated successfully!');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            return redirect()->back()
-                ->with('error', 'An error occurred while updating the application. Please try again.')
-                ->withInput();
-        }
-    }
-
-    /**
      * Remove the specified resource from storage.
      */
     public function destroy(EventApplication $application)
@@ -319,7 +213,7 @@ public function generateEventReminderMessage($application, $event)
 
             DB::commit();
 
-            return redirect()->route('event-applications.index')
+            return redirect()->route('admin.event-applications.index')
                 ->with('success', 'Application deleted successfully!');
 
         } catch (\Exception $e) {

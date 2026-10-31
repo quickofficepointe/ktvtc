@@ -20,6 +20,11 @@
 
 @section('header-actions')
 <div class="flex space-x-2">
+    <a href="{{ route('enrollment-terms.show', $enrollment) }}"
+       class="px-4 py-2 bg-primary hover:bg-red-800 text-white rounded-lg font-medium transition-colors flex items-center space-x-2">
+        <i class="fas fa-layer-group"></i>
+        <span>Terms</span>
+    </a>
     <a href="{{ route('admin.enrollments.edit', $enrollment) }}"
        class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium transition-colors flex items-center space-x-2">
         <i class="fas fa-edit"></i>
@@ -349,7 +354,7 @@
                             </p>
                         </div>
                         @if($enrollment->requires_external_exam && $enrollment->exam_registrations_count == 0)
-                        <a href="{{ route('admin.exam-registrations.create', ['enrollment_id' => $enrollment->id]) }}"
+                        <a href="{{ route('academics.exam-registrations.create', ['enrollment_id' => $enrollment->id]) }}"
                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm">
                             <i class="fas fa-file-alt mr-2"></i>
                             Register for Exam
@@ -459,7 +464,7 @@
                 Exam Registrations
             </h4>
             @if($enrollment->requires_external_exam)
-            <a href="{{ route('admin.exam-registrations.create', ['enrollment_id' => $enrollment->id]) }}"
+            <a href="{{ route('academics.exam-registrations.create', ['enrollment_id' => $enrollment->id]) }}"
                class="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg text-sm flex items-center">
                 <i class="fas fa-plus-circle mr-2"></i>
                 New Exam Registration
@@ -526,7 +531,7 @@
                                 @endif
                             </td>
                             <td class="px-6 py-4">
-                                <a href="{{ route('admin.exam-registrations.show', $exam) }}"
+                                <a href="{{ route('academics.exam-registrations.show', $exam) }}"
                                    class="text-primary hover:text-primary-dark text-sm">
                                     View
                                 </a>
@@ -541,7 +546,7 @@
                 <i class="fas fa-file-alt text-gray-300 text-4xl mb-3"></i>
                 <p class="text-gray-500">No exam registrations found for this enrollment</p>
                 @if($enrollment->requires_external_exam)
-                <a href="{{ route('admin.exam-registrations.create', ['enrollment_id' => $enrollment->id]) }}"
+                <a href="{{ route('academics.exam-registrations.create', ['enrollment_id' => $enrollment->id]) }}"
                    class="mt-4 inline-flex items-center px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg text-sm">
                     <i class="fas fa-plus-circle mr-2"></i>
                     Register for Exam
@@ -620,7 +625,7 @@
 <!-- Quick Actions (No Fee Actions) -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
     @if($enrollment->requires_external_exam)
-    <a href="{{ route('admin.exam-registrations.create', ['enrollment_id' => $enrollment->id]) }}"
+    <a href="{{ route('academics.exam-registrations.create', ['enrollment_id' => $enrollment->id]) }}"
        class="block p-4 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors">
         <i class="fas fa-file-alt text-blue-600 text-xl mb-2"></i>
         <p class="text-sm font-medium text-gray-900">Exam Registration</p>

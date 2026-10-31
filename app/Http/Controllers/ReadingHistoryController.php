@@ -92,7 +92,7 @@ class ReadingHistoryController extends Controller
             'created_by' => Auth::id()
         ]);
 
-        return redirect()->route('reading-histories.index')
+        return redirect()->route('library.reading-histories.index')
             ->with('success', 'Reading history added successfully.');
     }
 
@@ -112,7 +112,7 @@ class ReadingHistoryController extends Controller
 
         $readingHistory->update($validated);
 
-        return redirect()->route('reading-histories.index')
+        return redirect()->route('library.reading-histories.index')
             ->with('success', 'Reading history updated successfully.');
     }
 
@@ -123,7 +123,7 @@ class ReadingHistoryController extends Controller
     {
         $readingHistory->delete();
 
-        return redirect()->route('reading-histories.index')
+        return redirect()->route('library.reading-histories.index')
             ->with('success', 'Reading history deleted successfully.');
     }
 }

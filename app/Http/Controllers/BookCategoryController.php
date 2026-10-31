@@ -27,7 +27,7 @@ class BookCategoryController extends Controller
 
         BookCategory::create($validated);
 
-        return redirect()->route('book-categories.index')
+        return redirect()->route('library.book-categories.index')
             ->with('success', 'Category created successfully.');
     }
 
@@ -47,7 +47,7 @@ class BookCategoryController extends Controller
 
         $bookCategory->update($validated);
 
-        return redirect()->route('book-categories.index')
+        return redirect()->route('library.book-categories.index')
             ->with('success', 'Category updated successfully.');
     }
 
@@ -55,13 +55,13 @@ class BookCategoryController extends Controller
     {
         // Check if category has books
         if ($bookCategory->books()->exists()) {
-            return redirect()->route('book-categories.index')
+            return redirect()->route('library.book-categories.index')
                 ->with('error', 'Cannot delete category that has books. Please reassign books first.');
         }
 
         $bookCategory->delete();
 
-        return redirect()->route('book-categories.index')
+        return redirect()->route('library.book-categories.index')
             ->with('success', 'Category deleted successfully.');
     }
 }

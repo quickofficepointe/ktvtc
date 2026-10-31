@@ -399,6 +399,40 @@
                     <span>Outstanding Balance</span>
                 </a>
             </li>
+            <li>
+                <a href="{{ route('finance.fee-reminders.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.fee-reminders.*') ? 'active' : '' }}">
+                    <i class="fas fa-bell w-5 mr-3 text-center"></i>
+                    <span>Fee Reminders</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('finance.kcb-payments.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.kcb-payments.*') ? 'active' : '' }}">
+                    <i class="fas fa-inbox w-5 mr-3 text-center"></i>
+                    <span>KCB Payments</span>
+                    @php
+                        $kcbNeedsAttention = \App\Models\KcbIpn::awaitingFinance()->count();
+                    @endphp
+                    @if($kcbNeedsAttention > 0)
+                        <span class="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{{ $kcbNeedsAttention }}</span>
+                    @endif
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('finance.transport.index') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.transport.*') ? 'active' : '' }}">
+                    <i class="fas fa-bus w-5 mr-3 text-center"></i>
+                    <span>Transport Fare</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('finance.cafeteria-analytics') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.cafeteria-analytics') ? 'active' : '' }}">
+                    <i class="fas fa-chart-pie w-5 mr-3 text-center"></i>
+                    <span>Cafeteria Analysis</span>
+                </a>
+            </li>
 
             <!-- ============ TRANSACTIONS ============ -->
             <li class="mt-4">
@@ -480,7 +514,7 @@
                 <a href="{{ route('finance.fee-structure.index') }}"
                    class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.fee-structure.*') ? 'active' : '' }}">
                     <i class="fas fa-file-invoice-dollar w-5 mr-3 text-center"></i>
-                    <span>Fee Structure</span>
+                    <span>Term Fees</span>
                     @php
                         $pendingFeeChanges = \App\Models\Course::whereNotNull('fee_modified_by')
                             ->whereNull('fee_modification_approved_by')

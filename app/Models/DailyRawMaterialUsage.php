@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DailyRawMaterialUsage extends Model
 {
+    protected $table = 'daily_raw_material_usage';
+
     protected $fillable = [
         'daily_production_id',
         'raw_material_product_id',
@@ -29,7 +31,7 @@ class DailyRawMaterialUsage extends Model
     // Relationships
     public function dailyProduction(): BelongsTo
     {
-        return $this->belongsTo(CafeteriaDailyProduction::class);
+        return $this->belongsTo(CafeteriaDailyProduction::class, 'daily_production_id');
     }
 
     public function rawMaterial(): BelongsTo

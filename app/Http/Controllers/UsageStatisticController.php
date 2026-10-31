@@ -105,7 +105,7 @@ class UsageStatisticController extends Controller
 
         $statistic = UsageStatistic::create($validated);
 
-        return redirect()->route('usage-statistics.index')
+        return redirect()->route('library.usage-statistics.index')
             ->with('success', 'Usage statistic added successfully.');
     }
 
@@ -139,7 +139,7 @@ class UsageStatisticController extends Controller
 
         $usageStatistic->update($validated);
 
-        return redirect()->route('usage-statistics.index')
+        return redirect()->route('library.usage-statistics.index')
             ->with('success', 'Usage statistic updated successfully.');
     }
 
@@ -150,7 +150,7 @@ class UsageStatisticController extends Controller
     {
         $usageStatistic->delete();
 
-        return redirect()->route('usage-statistics.index')
+        return redirect()->route('library.usage-statistics.index')
             ->with('success', 'Usage statistic deleted successfully.');
     }
 
@@ -210,7 +210,7 @@ class UsageStatisticController extends Controller
 
         // Generate and return report
         // This is a placeholder for actual export functionality
-        return redirect()->route('usage-statistics.index')
+        return redirect()->route('library.usage-statistics.index')
             ->with('success', 'Monthly report generated for ' . $startDate . ' to ' . $endDate);
     }
 
@@ -224,7 +224,7 @@ class UsageStatisticController extends Controller
 
         // Generate and return report
         // This is a placeholder for actual export functionality
-        return redirect()->route('usage-statistics.index')
+        return redirect()->route('library.usage-statistics.index')
             ->with('success', 'Annual report generated for ' . $startDate . ' to ' . $endDate);
     }
 
@@ -235,7 +235,7 @@ class UsageStatisticController extends Controller
     {
         // Generate and return daily report
         // This is a placeholder for actual export functionality
-        return redirect()->route('usage-statistics.index')
+        return redirect()->route('library.usage-statistics.index')
             ->with('success', 'Daily report exported for ' . $usageStatistic->stat_date->format('M d, Y'));
     }
 }

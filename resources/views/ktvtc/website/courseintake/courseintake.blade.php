@@ -232,7 +232,7 @@
                 <h3 class="text-2xl font-bold text-gray-800 mb-3">No Upcoming Intakes</h3>
                 <p class="text-gray-600 max-w-md mx-auto mb-6">There are currently no upcoming course intakes scheduled. Please check back later for new intake announcements.</p>
                 <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                    <a href="{{ route('courses.index') }}" class="inline-flex items-center px-6 py-3 bg-[#B91C1C] text-white font-semibold rounded-lg hover:bg-[#991B1B] transition-colors">
+                    <a href="{{ route('course.index') }}" class="inline-flex items-center px-6 py-3 bg-[#B91C1C] text-white font-semibold rounded-lg hover:bg-[#991B1B] transition-colors">
                         Browse All Courses
                     </a>
                     <a href="{{ route('contact') }}" class="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors">

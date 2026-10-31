@@ -21,8 +21,9 @@ class StudentFeesController extends Controller
 
     public function __construct(KcbService $kcbService, SmsService $smsService)
     {
-        $this->middleware('auth');
-        $this->middleware('role.student');
+        // paymentCallback is called by KCB's server, which has no login
+        $this->middleware('auth')->except('paymentCallback');
+        $this->middleware('role.student')->except('paymentCallback');
         $this->kcbService = $kcbService;
         $this->smsService = $smsService;
     }
@@ -120,7 +121,8 @@ class StudentFeesController extends Controller
         }
 
         // Prepare callback URL
-        $callbackUrl = route('student.fees.payment.callback');
+        // Public URL: KCB's server can't log in, so the callback must sit outside the student area
+        $callbackUrl = route('kcb.fees.callback');
 
         // Initiate STK Push
         $stkResponse = $this->kcbService->initiateStkPush(
@@ -225,6 +227,8 @@ class StudentFeesController extends Controller
                     }
                 }
 
+                // Status only. The money is applied to the fee account when KCB's IPN
+                // arrives (KcbIpnRouter), so a payment is never counted twice.
                 $updateData['status'] = 'completed';
                 $updateData['mpesa_receipt_number'] = $metadata['MpesaReceiptNumber'] ?? null;
                 $updateData['transaction_date'] = isset($metadata['TransactionDate']) ?
@@ -232,42 +236,7 @@ class StudentFeesController extends Controller
 
                 $transaction->update($updateData);
 
-                // Update enrollment payment
-                $enrollment = Enrollment::find($transaction->enrollment_id);
-                if ($enrollment) {
-                    // Generate receipt number
-                    $receiptNumber = $this->generateReceiptNumber();
-
-                    // Create fee payment record
-                    $feePayment = FeePayment::create([
-                        'student_id' => $transaction->student_id,
-                        'enrollment_id' => $transaction->enrollment_id,
-                        'amount' => $transaction->amount,
-                        'payment_date' => now(),
-                        'receipt_number' => $receiptNumber,
-                        'payment_method' => 'kcb',
-                        'transaction_code' => $transaction->checkout_request_id,
-                        'bill_reference_number' => $transaction->invoice_number,
-                        'payer_name' => $transaction->student->full_name ?? null,
-                        'payer_phone' => $transaction->phone_number,
-                        'payer_type' => 'student',
-                        'status' => 'completed',
-                        'is_verified' => true,
-                        'verified_at' => now(),
-                        'import_source' => 'kcb_ipn',
-                        'notes' => "School fees payment via KCB. Receipt: " . ($metadata['MpesaReceiptNumber'] ?? 'N/A')
-                    ]);
-
-                    // Update enrollment
-                    $enrollment->amount_paid = $enrollment->amount_paid + $transaction->amount;
-                    $enrollment->balance = $enrollment->total_fees - $enrollment->amount_paid;
-                    $enrollment->save();
-
-                    // Send SMS confirmation
-                    $this->sendPaymentConfirmation($transaction->student, $enrollment, $transaction->amount, $receiptNumber);
-                }
-
-                Log::info('Student fee payment completed', [
+                Log::info('Student fee STK payment confirmed', [
                     'transaction_id' => $transaction->id,
                     'receipt' => $updateData['mpesa_receipt_number']
                 ]);
@@ -384,31 +353,6 @@ public function downloadStatement()
 }
 
     /**
-     * Send payment confirmation SMS
-     */
-    private function sendPaymentConfirmation($student, $enrollment, $amount, $receiptNumber)
-    {
-        try {
-            $message = "Kenswed College: Payment received!\n";
-            $message .= "Amount: KES " . number_format($amount, 2) . "\n";
-            $message .= "Course: {$enrollment->course_name}\n";
-            $message .= "Receipt: {$receiptNumber}\n";
-            $message .= "New Balance: KES " . number_format($enrollment->balance, 2) . "\n";
-            $message .= "Thank you for paying your fees on time.\n";
-            $message .= "Kenswed Technical College";
-
-            if ($student->phone) {
-                $this->smsService->sendSingleSms($student->phone, $message);
-            }
-        } catch (\Exception $e) {
-            Log::warning('Failed to send payment confirmation SMS', [
-                'student_id' => $student->id,
-                'error' => $e->getMessage()
-            ]);
-        }
-    }
-
-    /**
      * Format transaction date
      */
     private function formatTransactionDate($transactionDate)
@@ -421,19 +365,6 @@ public function downloadStatement()
             }
         }
         return now();
-    }
-
-    /**
-     * Generate receipt number
-     */
-    private function generateReceiptNumber()
-    {
-        $year = date('Y');
-        $month = date('m');
-        $day = date('d');
-        $lastPayment = FeePayment::whereDate('created_at', today())->count();
-        $sequence = str_pad($lastPayment + 1, 4, '0', STR_PAD_LEFT);
-        return "STU-{$year}{$month}{$day}-{$sequence}";
     }
 
     /**

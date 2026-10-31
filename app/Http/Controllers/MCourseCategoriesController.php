@@ -52,7 +52,7 @@ class MCourseCategoriesController extends Controller
 
             DB::commit();
 
-            return redirect()->route('course-categories.index')
+            return redirect()->route('mschool.course-categories.index')
                 ->with('success', 'Course category created successfully!');
 
         } catch (\Exception $e) {
@@ -100,7 +100,7 @@ class MCourseCategoriesController extends Controller
 
             DB::commit();
 
-            return redirect()->route('course-categories.index')
+            return redirect()->route('mschool.course-categories.index')
                 ->with('success', 'Course category updated successfully!');
 
         } catch (\Exception $e) {
@@ -123,7 +123,7 @@ class MCourseCategoriesController extends Controller
 
             // Check if category has courses
             if ($category->courses()->exists()) {
-                return redirect()->route('course-categories.index')
+                return redirect()->route('mschool.course-categories.index')
                     ->with('error', 'Cannot delete category. It has associated courses. Please reassign or delete the courses first.');
             }
 
@@ -131,12 +131,12 @@ class MCourseCategoriesController extends Controller
 
             DB::commit();
 
-            return redirect()->route('course-categories.index')
+            return redirect()->route('mschool.course-categories.index')
                 ->with('success', 'Course category deleted successfully!');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->route('course-categories.index')
+            return redirect()->route('mschool.course-categories.index')
                 ->with('error', 'Failed to delete course category: ' . $e->getMessage());
         }
     }

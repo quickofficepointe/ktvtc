@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 use App\Services\SmsService;
+use App\Services\Students\EnrollmentCreator;
 
 class EnrollmentController extends Controller
 {
@@ -178,100 +179,21 @@ class EnrollmentController extends Controller
                 ->withInput();
         }
 
-        DB::beginTransaction();
-
         try {
-            $student = Student::findOrFail($request->student_id);
-            $course = Course::findOrFail($request->course_id);
+            $enrollment = app(EnrollmentCreator::class)->create(
+                Student::findOrFail($request->student_id),
+                Course::findOrFail($request->course_id),
+                $request->only(['campus_id', 'total_fees', 'intake_year', 'intake_month', 'enrollment_date', 'start_date',
+                    'expected_end_date', 'status', 'study_mode', 'student_type', 'sponsorship_type', 'duration_months', 'remarks']),
+                auth()->id()
+            );
 
-            // 🔥 FIX: Use a strict DB transaction to ensure student number formatting doesn't fail due to race condition
-            DB::transaction(function () use ($student, $course, $request, &$formattedStudentNumber) {
-                
-                // Get the base student number
-                $baseNumber = $student->student_number;
+            return redirect()->route('admin.enrollments.show', $enrollment)
+                ->with('success', "Enrollment created for {$enrollment->student_name}. Number: {$enrollment->student_number}. 🔒 Fees are locked.");
 
-                // If student number is already formatted, extract the number part
-                if (strpos($baseNumber, '/') !== false) {
-                    $parts = explode('/', $baseNumber);
-                    $baseNumber = $parts[1] ?? $parts[0];
-                }
-
-                // Format student number: COURSECODE/BASE_NUMBER/YEAR
-                $courseCode = $course->code ?? 'STU';
-                $year = $request->intake_year ?? date('Y');
-                $formattedStudentNumber = strtoupper($courseCode) . '/' . $baseNumber . '/' . $year;
-
-                // Update student with formatted number
-                $student->student_number = $formattedStudentNumber;
-                $student->save();
-            });
-
-            // Re-fetch the student to ensure the save completed and we have the most current data
-            $student = Student::findOrFail($request->student_id);
-
-            // Prepare fee snapshot
-            $feeSnapshot = [
-                'total_fees' => (float) $request->total_fees,
-                'course_name' => $course->name,
-                'course_code' => $course->code,
-                'fee_structure' => $course->fee_breakdown ?? [],
-                'fee_version' => $course->fee_version ?? 'v1.0',
-                'created_at' => now()->toDateTimeString(),
-                'created_by' => auth()->user()?->name ?? 'System',
-                'intake_year' => $request->intake_year,
-                'intake_month' => $request->intake_month,
-                'study_mode' => $request->study_mode,
-                'student_type' => $request->student_type,
-                'sponsorship_type' => $request->sponsorship_type,
-            ];
-
-            // Create enrollment - fee_locked will be set to true automatically via model boot
-            $enrollment = Enrollment::create([
-                'student_id' => $request->student_id,
-                'course_id' => $request->course_id,
-                'campus_id' => $request->campus_id,
-                'student_name' => $student->full_name,
-                'student_number' => $formattedStudentNumber,
-                'course_name' => $course->name,
-                'course_code' => $course->code,
-                'department' => $course->department?->name,
-                'total_fees' => $request->total_fees,
-                'amount_paid' => $request->amount_paid ?? 0,
-                'intake_year' => $request->intake_year,
-                'intake_month' => $request->intake_month,
-                'enrollment_date' => $request->enrollment_date,
-                'start_date' => $request->start_date,
-                'expected_end_date' => $request->expected_end_date,
-                'status' => $request->status,
-                'study_mode' => $request->study_mode,
-                'student_type' => $request->student_type,
-                'sponsorship_type' => $request->sponsorship_type,
-                'duration_months' => $request->duration_months,
-                'remarks' => $request->remarks,
-                'is_active' => $request->status === 'active',
-                // 🔒 Fee locking fields (model boot will handle these)
-                'fee_locked' => true,
-                'fee_locked_at' => now(),
-                'fee_locked_by' => auth()->id(),
-                'fee_snapshot' => $feeSnapshot,
-                'fee_version_at_enrollment' => $course->fee_version ?? 'v1.0',
-            ]);
-
-            DB::commit();
-
-            Log::info('Enrollment created with fees locked', [
-                'enrollment_id' => $enrollment->id,
-                'student' => $enrollment->student_name,
-                'student_number' => $formattedStudentNumber,
-                'total_fees' => $enrollment->total_fees,
-                'created_by' => auth()->id()
-            ]);
-
-            return redirect()->route('admin.enrollments.index')
-                ->with('success', "Enrollment created successfully for {$enrollment->student_name}. Student Number: {$formattedStudentNumber}. 🔒 Fees are locked.");
-
+        } catch (\DomainException $e) {
+            return redirect()->back()->with('error', $e->getMessage())->withInput();
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Enrollment creation failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -413,6 +335,15 @@ class EnrollmentController extends Controller
             $student = Student::findOrFail($request->student_id);
             $course = Course::findOrFail($request->course_id);
 
+            // Moving this enrollment onto a student/course that already has an open enrollment would double-enroll them
+            $clash = Enrollment::where('student_id', $student->id)->where('course_id', $course->id)
+                ->where('id', '!=', $enrollment->id)->whereIn('status', EnrollmentCreator::OPEN_STATUSES)->first();
+            if ($clash && in_array($request->status, EnrollmentCreator::OPEN_STATUSES, true)) {
+                DB::rollBack();
+                return redirect()->back()->withInput()->with('error',
+                    "{$student->full_name} already has an open {$course->name} enrollment ({$clash->student_number}).");
+            }
+
             // Store old values for audit
             $oldTotal = $enrollment->total_fees;
             $oldStatus = $enrollment->status;
@@ -424,7 +355,8 @@ class EnrollmentController extends Controller
                 'course_id' => $request->course_id,
                 'campus_id' => $request->campus_id,
                 'student_name' => $student->full_name,
-                'student_number' => $student->student_number,
+                // Each enrollment keeps its own number; it is not replaced by the student's main number
+                'student_number' => $enrollment->student_number ?: $student->student_number,
                 'course_name' => $course->name,
                 'course_code' => $course->code,
                 'department' => $course->department?->name,
@@ -812,10 +744,39 @@ class EnrollmentController extends Controller
     /**
      * Enrollment report
      */
-    public function enrollmentReport()
+    public function enrollmentReport(Request $request)
     {
-        $data = Enrollment::with(['student', 'course'])->get();
-        return view('ktvtc.admin.enrollments.report', compact('data'));
+        $from = Carbon::parse($request->input('date_from', now()->startOfYear()->toDateString()))->startOfDay();
+        $to = Carbon::parse($request->input('date_to', now()->toDateString()))->endOfDay();
+        $groupBy = in_array($request->group_by, ['month', 'quarter', 'year']) ? $request->group_by : 'month';
+        $date = 'COALESCE(enrollment_date, DATE(created_at))';
+
+        $period = match ($groupBy) {
+            'month' => "DATE_FORMAT($date, '%Y-%m')",
+            'quarter' => "CONCAT(YEAR($date), ' Q', QUARTER($date))",
+            'year' => "YEAR($date)",
+        };
+
+        $enrollmentData = Enrollment::query()
+            ->when($request->filled('campus_id'), fn ($q) => $q->where('campus_id', $request->campus_id))
+            ->whereBetween(DB::raw($date), [$from, $to])
+            ->selectRaw("$period as period, COUNT(*) as count")
+            ->groupBy('period')->orderBy('period')->get();
+
+        $totalEnrollments = (int) $enrollmentData->sum('count');
+        $months = max(1, (int) ceil($from->diffInMonths($to)));
+        $averagePerMonth = round($totalEnrollments / $months);
+        $peakMonth = $enrollmentData->sortByDesc('count')->first()?->period;
+
+        $first = $enrollmentData->first()?->count ?? 0;
+        $last = $enrollmentData->last()?->count ?? 0;
+        $growthRate = $first > 0 && $enrollmentData->count() > 1 ? round(($last - $first) / $first * 100, 1) : 0;
+
+        $campuses = Campus::orderBy('name')->get();
+
+        return view('ktvtc.admin.enrollments.reports.enrollment', compact(
+            'enrollmentData', 'totalEnrollments', 'averagePerMonth', 'peakMonth', 'growthRate', 'campuses'
+        ));
     }
 
     /**
@@ -1171,48 +1132,4 @@ class EnrollmentController extends Controller
         return response()->json($enrollments);
     }
 
-    /**
-     * Update student number for an enrollment with course code and year
-     */
-    public function updateStudentNumber($id)
-    {
-        $enrollment = Enrollment::findOrFail($id);
-        $student = $enrollment->student;
-        $course = $enrollment->course;
-
-        if (!$student || !$course) {
-            return redirect()->back()->with('error', 'Student or course not found.');
-        }
-
-        // Get base number
-        $baseNumber = $student->student_number;
-        if (strpos($baseNumber, '/') !== false) {
-            $parts = explode('/', $baseNumber);
-            $baseNumber = $parts[1] ?? $parts[0];
-        }
-
-        // Format new number
-        $courseCode = $course->code ?? 'STU';
-        $year = $enrollment->intake_year ?? date('Y');
-        $newStudentNumber = strtoupper($courseCode) . '/' . $baseNumber . '/' . $year;
-
-        // Update student
-        $student->student_number = $newStudentNumber;
-        $student->save();
-
-        // Update enrollment
-        $enrollment->student_number = $newStudentNumber;
-        $enrollment->save();
-
-        Log::info('Student number updated', [
-            'enrollment_id' => $enrollment->id,
-            'student' => $enrollment->student_name,
-            'old_number' => $enrollment->getOriginal('student_number'),
-            'new_number' => $newStudentNumber,
-            'updated_by' => auth()->id()
-        ]);
-
-        return redirect()->back()
-            ->with('success', "Student number updated to: {$newStudentNumber}");
-    }
 }

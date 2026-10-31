@@ -144,19 +144,27 @@
                         @forelse($card->transactions ?? [] as $transaction)
                             <tr class="border-b border-gray-100 hover:bg-gray-50">
                                 <td class="py-2">{{ $transaction->created_at->format('d M Y H:i') }}</td>
+                                @php
+                                    $isCredit = $transaction->balance_after >= $transaction->balance_before;
+                                @endphp
                                 <td class="py-2">
                                     <span class="text-xs px-2 py-0.5 rounded
                                         @if($transaction->transaction_type === 'funding') bg-green-100 text-green-600
                                         @elseif($transaction->transaction_type === 'purchase') bg-blue-100 text-blue-600
+                                        @elseif($transaction->transaction_type === 'disbursement') bg-purple-100 text-purple-600
                                         @else bg-gray-100 text-gray-500 @endif">
-                                        {{ ucfirst($transaction->transaction_type) }}
+                                        {{ $transaction->transaction_type === 'disbursement' ? 'Fare' : ucfirst($transaction->transaction_type) }}
                                     </span>
+                                    @if($transaction->wallet)
+                                        <span class="text-xs text-gray-400">{{ ucfirst($transaction->wallet) }}</span>
+                                    @endif
                                 </td>
-                                <td class="py-2 text-right font-medium
-                                    @if($transaction->transaction_type === 'funding') text-green-600
-                                    @else text-red-600 @endif">
-                                    {{ $transaction->transaction_type === 'funding' ? '+' : '-' }}
+                                <td class="py-2 text-right font-medium {{ $isCredit ? 'text-green-600' : 'text-red-600' }}">
+                                    {{ $isCredit ? '+' : '-' }}
                                     KES {{ number_format($transaction->amount, 2) }}
+                                    @if($transaction->fee_amount > 0)
+                                        <span class="block text-xs text-gray-400">incl. fee {{ number_format($transaction->fee_amount, 2) }}</span>
+                                    @endif
                                 </td>
                                 <td class="py-2 text-right">KES {{ number_format($transaction->balance_after, 2) }}</td>
                                 <td class="py-2">
@@ -185,14 +193,29 @@
         <div class="finance-card p-5">
             <h4 class="font-bold text-gray-800 text-sm mb-3">Balance & Limits</h4>
             <div class="space-y-2">
-                <div>
-                    <p class="text-xs text-gray-500">Current Balance</p>
-                    <p class="text-2xl font-bold text-green-600">KES {{ number_format($card->balance, 2) }}</p>
-
-                    {{-- ✅ Adjust Balance trigger --}}
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="rounded-lg bg-blue-50 p-3">
+                        <p class="text-xs text-blue-700"><i class="fas fa-bus mr-1"></i>Transport</p>
+                        <p class="text-xl font-bold text-blue-700">KES {{ number_format($card->transport_balance, 2) }}</p>
+                    </div>
+                    <div class="rounded-lg bg-green-50 p-3">
+                        <p class="text-xs text-green-700"><i class="fas fa-utensils mr-1"></i>Canteen</p>
+                        <p class="text-xl font-bold text-green-700">KES {{ number_format($card->canteen_balance, 2) }}</p>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500">Total on card: KES {{ number_format($card->balance, 2) }}</p>
+                <div class="flex flex-wrap gap-x-4 gap-y-1">
+                    <a href="{{ route('finance.transport.give', ['card' => $card->id]) }}"
+                       class="text-xs text-blue-600 hover:text-blue-800 hover:underline">
+                        <i class="fas fa-hand-holding-usd mr-1"></i> Give transport fare
+                    </a>
                     <button type="button" onclick="openAdjustModal()"
-                            class="mt-2 text-xs text-blue-600 hover:text-blue-800 hover:underline">
+                            class="text-xs text-blue-600 hover:text-blue-800 hover:underline">
                         <i class="fas fa-sliders-h mr-1"></i> Adjust Balance
+                    </button>
+                    <button type="button" onclick="document.getElementById('transferWalletModal').classList.remove('hidden')"
+                            class="text-xs text-blue-600 hover:text-blue-800 hover:underline">
+                        <i class="fas fa-exchange-alt mr-1"></i> Move between wallets
                     </button>
                 </div>
                 <div>
@@ -282,16 +305,24 @@
                     <strong>Card:</strong> <span class="font-mono">{{ $card->card_number }}</span>
                 </p>
                 <p class="text-gray-600">
-                    <strong>Current Balance:</strong>
-                    <span class="font-bold text-green-600">
-                        KES {{ number_format($card->balance, 2) }}
-                    </span>
+                    <strong>Transport:</strong> KES {{ number_format($card->transport_balance, 2) }}
+                    &nbsp;·&nbsp;
+                    <strong>Canteen:</strong> KES {{ number_format($card->canteen_balance, 2) }}
                 </p>
             </div>
 
             <form method="POST" action="{{ route('cards.adjust-balance', $card) }}"
                   onsubmit="return confirmAdjust()">
                 @csrf
+
+                {{-- Wallet --}}
+                <div class="mb-4">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Wallet</label>
+                    <select name="wallet" required class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="canteen">Canteen</option>
+                        <option value="transport">Transport</option>
+                    </select>
+                </div>
 
                 {{-- Type --}}
                 <div class="mb-4">
@@ -358,6 +389,41 @@
                             class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold">
                         <i class="fas fa-check mr-2"></i> Apply Adjustment
                     </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{{-- MOVE MONEY BETWEEN WALLETS (e.g. parent paid canteen money with a T reference) --}}
+<div id="transferWalletModal" class="hidden fixed inset-0 z-[1300] overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4 py-6">
+        <div class="fixed inset-0 bg-black/50" onclick="document.getElementById('transferWalletModal').classList.add('hidden')"></div>
+        <div class="relative bg-white rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <h3 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-exchange-alt text-blue-600 mr-2"></i>Move between wallets</h3>
+            <form method="POST" action="{{ route('cards.transfer-wallet', $card) }}" class="space-y-4">
+                @csrf
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Direction</label>
+                    <select name="from" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="transport">Transport → Canteen (has KES {{ number_format($card->transport_balance, 2) }})</option>
+                        <option value="canteen">Canteen → Transport (has KES {{ number_format($card->canteen_balance, 2) }})</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Amount (KES)</label>
+                    <input type="number" name="amount" step="0.01" min="0.01" required class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Reason</label>
+                    <input type="text" name="reason" required minlength="5" maxlength="255"
+                           placeholder="e.g. Parent asked to use transport money for meals"
+                           class="w-full px-3 py-2 border rounded-lg text-sm">
+                </div>
+                <div class="flex justify-end gap-3 pt-3 border-t">
+                    <button type="button" onclick="document.getElementById('transferWalletModal').classList.add('hidden')"
+                            class="px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold">Move</button>
                 </div>
             </form>
         </div>

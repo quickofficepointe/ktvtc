@@ -28,7 +28,7 @@ public function index(Request $request)
             'enrollment.course',
             'registrar'
         ])
-        ->when($user->role != 2, function ($q) use ($user) {
+        ->when(!in_array((int) $user->role, [2, 11], true), function ($q) use ($user) {
             return $q->whereHas('enrollment', function($sq) use ($user) {
                 $sq->where('campus_id', $user->campus_id);
             });
@@ -118,14 +118,14 @@ public function index(Request $request)
     $examTypes = $this->getExamTypes(); // Get distinct exam types from database
 
     $students = Student::orderBy('first_name')
-        ->when($user->role != 2, function ($q) use ($user) {
+        ->when(!in_array((int) $user->role, [2, 11], true), function ($q) use ($user) {
             return $q->where('campus_id', $user->campus_id);
         })
         ->get();
 
     $enrollments = Enrollment::with(['student', 'course'])
         ->where('requires_external_exam', true)
-        ->when($user->role != 2, function ($q) use ($user) {
+        ->when(!in_array((int) $user->role, [2, 11], true), function ($q) use ($user) {
             return $q->where('campus_id', $user->campus_id);
         })
         ->orderBy('created_at', 'desc')
@@ -134,13 +134,13 @@ public function index(Request $request)
     $statuses = ['pending', 'registered', 'active', 'completed', 'failed'];
 
     // ADD THIS: Get campuses for filter dropdown
-    if ($user->role == 2) {
+    if (in_array((int) $user->role, [2, 11], true)) {
         $campuses = \App\Models\Campus::orderBy('name')->get();
     } else {
         $campuses = \App\Models\Campus::where('id', $user->campus_id)->orderBy('name')->get();
     }
 
-    return view('ktvtc.admin.exam-registrations.index', compact(
+    return view('ktvtc.academics.exam-registrations.index', compact(
         'examRegistrations',
         'examBodies',
         'examTypes',
@@ -178,7 +178,7 @@ public function create(Request $request)
 
     // Get ALL students for the dropdown (based on user role)
     $students = Student::orderBy('first_name')
-        ->when($user->role != 2, function ($q) use ($user) {
+        ->when(!in_array((int) $user->role, [2, 11], true), function ($q) use ($user) {
             return $q->where('campus_id', $user->campus_id);
         })
         ->get();
@@ -188,7 +188,7 @@ public function create(Request $request)
         ->whereDoesntHave('examRegistrations', function($q) {
             $q->whereIn('status', ['registered', 'active', 'completed']);
         })
-        ->when($user->role != 2, function ($q) use ($user) {
+        ->when(!in_array((int) $user->role, [2, 11], true), function ($q) use ($user) {
             return $q->where('campus_id', $user->campus_id);
         })
         ->orderBy('created_at', 'desc')
@@ -203,7 +203,7 @@ public function create(Request $request)
             ->find($request->enrollment_id);
     }
 
-    return view('ktvtc.admin.exam-registrations.create', compact(
+    return view('ktvtc.academics.exam-registrations.create', compact(
         'students',        // ← ADD THIS
         'enrollments',
         'examBodies',
@@ -262,7 +262,7 @@ public function create(Request $request)
 
             DB::commit();
 
-            return redirect()->route('admin.exam-registrations.show', $examRegistration)
+            return redirect()->route('academics.exam-registrations.show', $examRegistration)
                 ->with('success', 'Exam registration created successfully.');
 
         } catch (\Exception $e) {
@@ -286,7 +286,7 @@ public function create(Request $request)
             'registrar'
         ]);
 
-        return view('ktvtc.admin.exam-registrations.show', compact('examRegistration'));
+        return view('ktvtc.academics.exam-registrations.show', ['registration' => $examRegistration]);
     }
 
     /**
@@ -296,7 +296,7 @@ public function create(Request $request)
     {
         $examBodies = ['KNEC', 'CDACC', 'NITA', 'TVETA', 'OTHER'];
 
-        return view('ktvtc.admin.exam-registrations.edit', compact('examRegistration', 'examBodies'));
+        return view('ktvtc.academics.exam-registrations.edit', ['registration' => $examRegistration, 'examBodies' => $examBodies]);
     }
 
     /**
@@ -329,7 +329,7 @@ public function create(Request $request)
 
             DB::commit();
 
-            return redirect()->route('admin.exam-registrations.show', $examRegistration)
+            return redirect()->route('academics.exam-registrations.show', $examRegistration)
                 ->with('success', 'Exam registration updated successfully.');
 
         } catch (\Exception $e) {
@@ -353,7 +353,7 @@ public function create(Request $request)
 
         $examRegistration->delete();
 
-        return redirect()->route('admin.exam-registrations.index')
+        return redirect()->route('academics.exam-registrations.index')
             ->with('success', 'Exam registration deleted successfully.');
     }
 
@@ -379,6 +379,27 @@ public function create(Request $request)
 
         return redirect()->back()
             ->with('success', 'Exam registration marked as registered.');
+    }
+
+    /**
+     * Set one status on several registrations.
+     */
+    public function bulkUpdateStatus(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer',
+            'status' => 'required|in:pending,registered,active,completed,failed',
+        ]);
+
+        $user = auth()->user();
+
+        $updated = ExamRegistration::whereIn('id', $validated['ids'])
+            ->when(!in_array((int) $user->role, [2, 11], true), fn ($q) => $q->whereHas('enrollment', fn ($sq) => $sq->where('campus_id', $user->campus_id)))
+            ->update(['status' => $validated['status']]);
+
+        return redirect()->back()
+            ->with('success', "{$updated} registration(s) set to {$validated['status']}.");
     }
 
     /**
@@ -441,7 +462,7 @@ public function create(Request $request)
             'enrollment.course'
         ]);
 
-        $pdf = Pdf::loadView('ktvtc.admin.exam-registrations.slip-pdf', compact('examRegistration'))
+        $pdf = Pdf::loadView('ktvtc.academics.exam-registrations.slip-pdf', compact('examRegistration'))
             ->setPaper('A4', 'portrait');
 
         return $pdf->download('exam-slip-' . ($examRegistration->registration_number ?? 'slip') . '.pdf');
@@ -453,60 +474,63 @@ public function create(Request $request)
     public function summaryReport(Request $request)
     {
         $user = auth()->user();
+        $selectedYear = (int) $request->input('year', now()->year);
 
-        $query = ExamRegistration::with(['enrollment.course'])
-            ->when($user->role != 2, function ($q) use ($user) {
-                return $q->whereHas('enrollment', function($sq) use ($user) {
-                    $sq->where('campus_id', $user->campus_id);
-                });
-            });
+        $query = ExamRegistration::query()
+            ->when(!in_array((int) $user->role, [2, 11], true), fn ($q) => $q->whereHas('enrollment', fn ($sq) => $sq->where('campus_id', $user->campus_id)))
+            ->when($request->filled('campus_id'), fn ($q) => $q->whereHas('enrollment', fn ($sq) => $sq->where('campus_id', $request->campus_id)))
+            ->when($request->filled('exam_body'), fn ($q) => $q->where('exam_body', $request->exam_body))
+            ->whereYear(DB::raw('COALESCE(registration_date, created_at)'), $selectedYear);
 
-        // Apply date filters
-        if ($request->filled('date_from')) {
-            $query->whereDate('registration_date', '>=', $request->date_from);
-        }
-
-        if ($request->filled('date_to')) {
-            $query->whereDate('registration_date', '<=', $request->date_to);
-        }
-
-        // Total registrations
         $totalRegistrations = (clone $query)->count();
+        $statusBreakdown = (clone $query)->select('status', DB::raw('count(*) as total'))
+            ->groupBy('status')->pluck('total', 'status')->all();
+        $registeredCount = $statusBreakdown['registered'] ?? 0;
+        $completedCount = $statusBreakdown['completed'] ?? 0;
 
-        // Status breakdown
-        $statusBreakdown = [
-            'pending' => (clone $query)->where('status', 'pending')->count(),
-            'registered' => (clone $query)->where('status', 'registered')->count(),
-            'active' => (clone $query)->where('status', 'active')->count(),
-            'completed' => (clone $query)->where('status', 'completed')->count(),
-            'failed' => (clone $query)->where('status', 'failed')->count(),
-        ];
+        $passed = fn ($q) => $q->whereIn(DB::raw('LOWER(result)'), ['pass', 'passed', 'competent']);
+        $withResults = (clone $query)->whereNotNull('result')->where('result', '!=', '');
+        $resultsTotal = (clone $withResults)->count();
+        $passRate = $resultsTotal > 0 ? round($passed(clone $withResults)->count() / $resultsTotal * 100, 1) : 0;
 
-        // Exam body breakdown
-        $examBodyBreakdown = [];
-        $examBodies = ['KNEC', 'CDACC', 'NITA', 'TVETA', 'OTHER'];
-        foreach ($examBodies as $body) {
-            $examBodyBreakdown[$body] = (clone $query)
-                ->where('exam_body', $body)
-                ->count();
-        }
+        $byBody = (clone $query)->select('exam_body', DB::raw('count(*) as total'))
+            ->groupBy('exam_body')->orderByDesc('total')->pluck('total', 'exam_body');
+        $examBodyLabels = $byBody->keys()->map(fn ($b) => $b ?: 'Not set')->values();
+        $examBodyData = $byBody->values();
 
-        // Success rate
-        $totalCompleted = $statusBreakdown['completed'] ?? 0;
-        $totalFailed = $statusBreakdown['failed'] ?? 0;
-        $totalWithResults = $totalCompleted + $totalFailed;
-        $successRate = $totalWithResults > 0
-            ? round(($totalCompleted / $totalWithResults) * 100, 1)
-            : 0;
+        $performanceByBody = $byBody->keys()->map(function ($body) use ($withResults, $passed) {
+            $rows = (clone $withResults)->where('exam_body', $body);
+            $total = (clone $rows)->count();
+            $pass = $passed(clone $rows)->count();
+            return [
+                'name' => $body ?: 'Not set',
+                'total' => $total,
+                'pass' => $pass,
+                'fail' => $total - $pass,
+                'pass_rate' => $total > 0 ? round($pass / $total * 100, 1) : 0,
+            ];
+        })->filter(fn ($b) => $b['total'] > 0)->values();
 
-        return view('ktvtc.admin.exam-registrations.summary', compact(
-            'totalRegistrations',
-            'statusBreakdown',
-            'examBodyBreakdown',
-            'totalWithResults',
-            'totalCompleted',
-            'totalFailed',
-            'successRate'
+        $perMonth = (clone $query)
+            ->selectRaw('MONTH(COALESCE(registration_date, created_at)) as m, count(*) as total')
+            ->groupBy('m')->pluck('total', 'm');
+        $monthlyLabels = collect(range(1, 12))->map(fn ($m) => date('M', mktime(0, 0, 0, $m, 1)));
+        $monthlyData = collect(range(1, 12))->map(fn ($m) => (int) ($perMonth[$m] ?? 0));
+
+        $topCourses = (clone $query)->with('enrollment.course')->get()
+            ->groupBy(fn ($r) => $r->enrollment?->course?->name ?? $r->enrollment?->course_name ?? 'Unknown course')
+            ->map(fn ($rows, $name) => ['name' => $name, 'count' => $rows->count()])
+            ->sortByDesc('count')->take(5)->values();
+
+        $recentResults = (clone $withResults)->with('student')
+            ->orderByDesc(DB::raw('COALESCE(result_date, updated_at)'))->limit(10)->get();
+
+        $campuses = \App\Models\Campus::orderBy('name')->get();
+
+        return view('ktvtc.academics.exam-registrations.summary', compact(
+            'selectedYear', 'campuses', 'totalRegistrations', 'statusBreakdown', 'registeredCount', 'completedCount',
+            'passRate', 'examBodyLabels', 'examBodyData', 'performanceByBody', 'monthlyLabels', 'monthlyData',
+            'topCourses', 'recentResults'
         ));
     }
 
@@ -521,7 +545,7 @@ public function create(Request $request)
                 'enrollment.student',
                 'enrollment.course'
             ])
-            ->when($user->role != 2, function ($q) use ($user) {
+            ->when(!in_array((int) $user->role, [2, 11], true), function ($q) use ($user) {
                 return $q->whereHas('enrollment', function($sq) use ($user) {
                     $sq->where('campus_id', $user->campus_id);
                 });

@@ -1,5 +1,36 @@
 @extends('ktvtc.superadmin.layout.superadminlayout')
 
+@php
+    // Helper functions for activity colors and icons
+    if (!function_exists("activityBorderClass")) { function activityBorderClass($action) {
+        $colors = [
+            'login' => 'border-green-500',
+            'logout' => 'border-gray-500',
+            'user_created' => 'border-blue-500',
+            'user_deleted' => 'border-red-500',
+            'user_updated' => 'border-yellow-500',
+            'role_changed' => 'border-purple-500',
+            'password_reset' => 'border-pink-500',
+            'settings_updated' => 'border-indigo-500',
+        ];
+        return $colors[$action] ?? 'border-gray-400';
+    } }
+
+    if (!function_exists("getActivityIcon")) { function getActivityIcon($action) {
+        $icons = [
+            'login' => 'fa-sign-in-alt',
+            'logout' => 'fa-sign-out-alt',
+            'user_created' => 'fa-user-plus',
+            'user_deleted' => 'fa-user-times',
+            'user_updated' => 'fa-user-edit',
+            'role_changed' => 'fa-user-tag',
+            'password_reset' => 'fa-key',
+            'settings_updated' => 'fa-cog',
+        ];
+        return $icons[$action] ?? 'fa-info-circle';
+    } }
+@endphp
+
 @section('title', 'User Activity: ' . $user->name)
 @section('breadcrumb')
     <li class="inline-flex items-center">
@@ -110,9 +141,9 @@
         @if($activities->count() > 0)
             <div class="space-y-4">
                 @foreach($activities as $activity)
-                    <div class="flex items-start border-l-4 {{ getActivityColor($activity->action) }} pl-4 py-4 hover:bg-gray-50 rounded-lg">
+                    <div class="flex items-start border-l-4 {{ activityBorderClass($activity->action) }} pl-4 py-4 hover:bg-gray-50 rounded-lg">
                         <!-- Icon -->
-                        <div class="w-10 h-10 rounded-lg {{ getActivityColor($activity->action) }} flex items-center justify-center mr-4 mt-1">
+                        <div class="w-10 h-10 rounded-lg {{ activityBorderClass($activity->action) }} flex items-center justify-center mr-4 mt-1">
                             <i class="fas {{ getActivityIcon($activity->action) }} text-white"></i>
                         </div>
 
@@ -207,37 +238,6 @@
     </div>
 </div>
 @endsection
-
-@php
-    // Helper functions for activity colors and icons
-    function getActivityColor($action) {
-        $colors = [
-            'login' => 'border-green-500',
-            'logout' => 'border-gray-500',
-            'user_created' => 'border-blue-500',
-            'user_deleted' => 'border-red-500',
-            'user_updated' => 'border-yellow-500',
-            'role_changed' => 'border-purple-500',
-            'password_reset' => 'border-pink-500',
-            'settings_updated' => 'border-indigo-500',
-        ];
-        return $colors[$action] ?? 'border-gray-400';
-    }
-
-    function getActivityIcon($action) {
-        $icons = [
-            'login' => 'fa-sign-in-alt',
-            'logout' => 'fa-sign-out-alt',
-            'user_created' => 'fa-user-plus',
-            'user_deleted' => 'fa-user-times',
-            'user_updated' => 'fa-user-edit',
-            'role_changed' => 'fa-user-tag',
-            'password_reset' => 'fa-key',
-            'settings_updated' => 'fa-cog',
-        ];
-        return $icons[$action] ?? 'fa-info-circle';
-    }
-@endphp
 
 @section('scripts')
 <script>

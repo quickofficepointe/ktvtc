@@ -21,46 +21,14 @@ use Carbon\Carbon;
 
 class WebsiteController extends Controller
 {
-    public function dashboard()
+    /**
+     * Website overview: applications, messages, posts and upcoming events.
+     */
+    public function dashboard(\App\Services\Dashboards\RoleDashboards $dashboards)
     {
-        // Get recent blog posts
-        $recentBlogs = Blog::latest()
-            ->take(5)
-            ->get();
-
-        // Get recent messages (unread first)
-        $recentMessages = Message::latest()
-            ->take(5)
-            ->get();
-
-        // Get upcoming events
-        $upcomingEvents = Event::where('event_start_date', '>=', now())
-            ->orderBy('event_start_date', 'asc')
-            ->take(3)
-            ->get();
-
-        // Get stats data
-        $stats = $this->getDashboardStats();
-
-        // Get recent activities
-        $recentActivities = $this->getRecentActivities();
-
-        // Get system status
-        $systemStatus = $this->getSystemStatus();
-
-        // Get popular pages (you need to implement this based on your analytics)
-        $popularPages = $this->getPopularPages();
-
-        return view('ktvtc.website.dashboard', compact(
-            'recentBlogs',
-            'recentMessages',
-            'upcomingEvents',
-            'stats',
-            'recentActivities',
-            'systemStatus',
-            'popularPages'
-        ));
+        return view('ktvtc.website.dashboard', $dashboards->website());
     }
+
 
     private function getDashboardStats()
     {
@@ -210,7 +178,7 @@ class WebsiteController extends Controller
                     'time' => $recentBlog->updated_at->diffForHumans(),
                     'icon' => 'fa-newspaper',
                     'color' => $status == 'published' ? 'green' : 'yellow',
-                    'url' => route('blogs.show', $recentBlog->id)
+                    'url' => route('website.blogs.show', $recentBlog->id)
                 ]);
             }
 
@@ -223,7 +191,7 @@ class WebsiteController extends Controller
                     'time' => $recentMessage->created_at->diffForHumans(),
                     'icon' => 'fa-envelope',
                     'color' => 'purple',
-                    'url' => route('messages.show', $recentMessage->id)
+                    'url' => route('website.messages.index')
                 ]);
             }
 

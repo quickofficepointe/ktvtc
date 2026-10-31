@@ -22,7 +22,7 @@
                 <ol class="flex items-center space-x-2 text-sm">
                     <li><a href="{{ route('home') }}" class="hover:underline">Home</a></li>
                     <li><span class="text-white">/</span></li>
-                    <li><a href="{{ route('partners.index') }}" class="hover:underline">Partners</a></li>
+                    <li><a href="{{ route('partner.index') }}" class="hover:underline">Partners</a></li>
                     <li><span class="text-white">/</span></li>
                     <li class="text-white font-semibold">{{ Str::limit($partner->name, 30) }}</li>
                 </ol>

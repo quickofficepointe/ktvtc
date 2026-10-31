@@ -167,7 +167,21 @@
                     <a href="{{ route('student.enrollment.index') }}"
                        class="flex items-center px-3 py-3 text-sm rounded-lg nav-link {{ request()->routeIs('student.enrollment.*') ? 'active' : '' }}">
                         <i class="fas fa-graduation-cap w-5 mr-3"></i>
-                        <span>My Enrollment</span>
+                        <span>My Terms</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('student.results.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-lg nav-link {{ request()->routeIs('student.results.*') ? 'active' : '' }}">
+                        <i class="fas fa-award w-5 mr-3"></i>
+                        <span>My Results</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('student.library.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-lg nav-link {{ request()->routeIs('student.library.*') ? 'active' : '' }}">
+                        <i class="fas fa-book-reader w-5 mr-3"></i>
+                        <span>My Library</span>
                     </a>
                 </li>
 
@@ -224,6 +238,14 @@
 
     {{-- Main --}}
     <div class="main-content ml-0 md:ml-64 mt-16 p-4 md:p-6 min-h-screen transition-all duration-300" id="mainContent">
+        @foreach(['success' => 'bg-green-50 border-green-500 text-green-800', 'error' => 'bg-red-50 border-red-500 text-red-800', 'warning' => 'bg-yellow-50 border-yellow-500 text-yellow-800', 'info' => 'bg-blue-50 border-blue-500 text-blue-800'] as $key => $classes)
+            @if(session($key))
+                <div class="max-w-5xl mx-auto mb-4 border-l-4 rounded-lg px-4 py-3 text-sm {{ $classes }}">{{ session($key) }}</div>
+            @endif
+        @endforeach
+        @if($errors->any())
+            <div class="max-w-5xl mx-auto mb-4 border-l-4 rounded-lg px-4 py-3 text-sm bg-red-50 border-red-500 text-red-800">{{ $errors->first() }}</div>
+        @endif
         @yield('content')
     </div>
 

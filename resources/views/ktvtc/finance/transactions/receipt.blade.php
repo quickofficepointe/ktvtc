@@ -173,8 +173,7 @@
         <div class="header">
             <h1>KTVTC</h1>
             <p>Kenswed Technical & Vocational Training College</p>
-            <p>P.O. Box 12345, Nairobi</p>
-            <p>Tel: 0700 000 000</p>
+            <p>Finance office: {{ config('kcb.finance_phone') }}</p>
         </div>
 
         <div class="receipt-number">

@@ -85,7 +85,7 @@ class NotificationController extends Controller
             $message = "Notification created successfully.";
         }
 
-        return redirect()->route('notifications.index')
+        return redirect()->route('library.notifications.index')
             ->with('success', $message);
     }
 
@@ -103,7 +103,7 @@ class NotificationController extends Controller
 
         $notification->update($validated);
 
-        return redirect()->route('notifications.index')
+        return redirect()->route('library.notifications.index')
             ->with('success', 'Notification updated successfully.');
     }
 
@@ -114,7 +114,7 @@ class NotificationController extends Controller
     {
         $notification->delete();
 
-        return redirect()->route('notifications.index')
+        return redirect()->route('library.notifications.index')
             ->with('success', 'Notification deleted successfully.');
     }
 

@@ -18,6 +18,10 @@ class Course extends Model
         'slug',
         'code',
         'duration',
+        'term_count',
+        'term_length',
+        'term_length_unit',
+        'academic_track',
         'total_hours',
         'schedule',
         'description',
@@ -75,6 +79,27 @@ class Course extends Model
     public function feeModificationApprovedBy()
     {
         return $this->belongsTo(User::class, 'fee_modification_approved_by');
+    }
+
+    public function units()
+    {
+        return $this->hasMany(CourseUnit::class)->orderBy('term_number')->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function gradingScale(): ?GradingScale
+    {
+        return GradingScale::forTrack($this->academic_track);
+    }
+
+    public function termFees()
+    {
+        return $this->hasMany(CourseTermFee::class);
+    }
+
+    /** Has finance split this course into terms? */
+    public function hasTermSetup(): bool
+    {
+        return $this->term_count > 0 && $this->term_length > 0 && in_array($this->term_length_unit, ['weeks', 'months'], true);
     }
 
     public function enrollments()

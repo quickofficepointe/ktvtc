@@ -60,7 +60,7 @@ class MCourseController extends Controller
 
             DB::commit();
 
-            return redirect()->route('courses.index')
+            return redirect()->route('mschool.mcourses.index')
                 ->with('success', 'Course created successfully!');
 
         } catch (\Exception $e) {
@@ -110,7 +110,7 @@ class MCourseController extends Controller
 
             DB::commit();
 
-            return redirect()->route('courses.index')
+            return redirect()->route('mschool.mcourses.index')
                 ->with('success', 'Course updated successfully!');
 
         } catch (\Exception $e) {
@@ -133,13 +133,13 @@ class MCourseController extends Controller
 
             // Check if course has enrollments
             if ($course->enrollments()->exists()) {
-                return redirect()->route('courses.index')
+                return redirect()->route('mschool.mcourses.index')
                     ->with('error', 'Cannot delete course. It has associated enrollments. Please reassign or delete the enrollments first.');
             }
 
             // Check if course has subjects
             if ($course->subjects()->exists()) {
-                return redirect()->route('courses.index')
+                return redirect()->route('mschool.mcourses.index')
                     ->with('error', 'Cannot delete course. It has associated subjects. Please remove the subjects first.');
             }
 
@@ -152,12 +152,12 @@ class MCourseController extends Controller
 
             DB::commit();
 
-            return redirect()->route('courses.index')
+            return redirect()->route('mschool.mcourses.index')
                 ->with('success', 'Course deleted successfully!');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->route('courses.index')
+            return redirect()->route('mschool.mcourses.index')
                 ->with('error', 'Failed to delete course: ' . $e->getMessage());
         }
     }

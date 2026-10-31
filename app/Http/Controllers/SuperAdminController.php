@@ -19,57 +19,20 @@ use DeepCopy\f013\C;
 class SuperAdminController extends Controller
 {
     /**
-     * Display super admin dashboard
+     * System overview: users, logins, errors and recent activity.
      */
-    public function dashboard()
+    public function dashboard(\App\Services\Dashboards\RoleDashboards $dashboards)
     {
-        // System stats
-        $stats = [
-            'total_users' => User::count(),
-            'active_users' => User::where('is_active', true)->count(),
-            'pending_approval' => User::where('is_approved', false)->count(),
-            'today_logins' => SystemLog::where('action', 'login')
-                ->whereDate('created_at', today())
-                ->count(),
-            'system_errors' => SystemLog::where('level', 'error')
-                ->whereDate('created_at', today())
-                ->count(),
-            'disk_usage' => $this->getDiskUsage(),
-            'memory_usage' => $this->getMemoryUsage(),
-        ];
-
-        // Recent activities
-        $recentActivities = SystemLog::with('user')
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get();
-
-        // User distribution by role
-        $userDistribution = User::select('role', DB::raw('count(*) as count'))
-            ->groupBy('role')
-            ->get()
-            ->mapWithKeys(function ($item) {
-                $roleName = $this->getRoleName($item->role);
-                return [$roleName => $item->count];
-            });
-
-        // System alerts
-        $alerts = $this->getSystemAlerts();
-
-        return view('ktvtc.superadmin.dashboard', compact(
-            'stats',
-            'recentActivities',
-            'userDistribution',
-            'alerts'
-        ));
+        return view('ktvtc.superadmin.dashboard', $dashboards->superAdmin() + ['alerts' => $this->getSystemAlerts()]);
     }
+
 
     /**
      * Display all users
      */
     public function users(Request $request)
     {
-        $query = User::withTrashed()->with(['campus', 'shop']);
+        $query = User::withTrashed()->with('campus');
 
         // Search
         if ($request->has('search')) {
@@ -115,18 +78,7 @@ class SuperAdminController extends Controller
         $users = $query->orderBy('created_at', 'desc')->paginate(20);
 
         // Role list for filter dropdown
-        $roles = collect([
-            (object)['id' => 0, 'name' => 'Super Admin'],
-            (object)['id' => 1, 'name' => 'Main School'],
-            (object)['id' => 2, 'name' => 'Admin'],
-            (object)['id' => 3, 'name' => 'Scholarship'],
-            (object)['id' => 4, 'name' => 'Library'],
-            (object)['id' => 5, 'name' => 'Student'],
-            (object)['id' => 6, 'name' => 'Cafeteria'],
-            (object)['id' => 7, 'name' => 'Finance'],
-            (object)['id' => 8, 'name' => 'Trainers'],
-            (object)['id' => 9, 'name' => 'Website'],
-        ]);
+        $roles = collect(User::getRoles())->map(fn ($name, $id) => (object) ['id' => $id, 'name' => $name])->values();
 
         $campuses = Campus::active()->get();
 
@@ -163,18 +115,7 @@ class SuperAdminController extends Controller
     public function createUser()
     {
         // Fixed: Use same role collection as users() method
-        $roles = collect([
-            (object)['id' => 0, 'name' => 'Super Admin'],
-            (object)['id' => 1, 'name' => 'Main School'],
-            (object)['id' => 2, 'name' => 'Admin'],
-            (object)['id' => 3, 'name' => 'Scholarship'],
-            (object)['id' => 4, 'name' => 'Library'],
-            (object)['id' => 5, 'name' => 'Student'],
-            (object)['id' => 6, 'name' => 'Cafeteria'],
-            (object)['id' => 7, 'name' => 'Finance'],
-            (object)['id' => 8, 'name' => 'Trainers'],
-            (object)['id' => 9, 'name' => 'Website'],
-        ]);
+        $roles = collect(User::getRoles())->map(fn ($name, $id) => (object) ['id' => $id, 'name' => $name])->values();
 
         $campuses = Campus::active()->get();
         return view('ktvtc.superadmin.users.create', compact('roles', 'campuses'));
@@ -205,8 +146,9 @@ class SuperAdminController extends Controller
             'campus_id' => $request->campus_id,
             'is_approved' => true,
             'is_active' => true,
-            'email_verified_at' => now(),
         ]);
+        // email_verified_at isn't mass-assignable, so it was silently dropped from create() above
+        $user->markEmailAsVerified();
 
         SystemLog::create([
             'user_id' => auth()->id(),
@@ -230,18 +172,7 @@ class SuperAdminController extends Controller
         }
 
         // Fixed: Use same role collection as users() method
-        $roles = collect([
-            (object)['id' => 0, 'name' => 'Super Admin'],
-            (object)['id' => 1, 'name' => 'Main School'],
-            (object)['id' => 2, 'name' => 'Admin'],
-            (object)['id' => 3, 'name' => 'Scholarship'],
-            (object)['id' => 4, 'name' => 'Library'],
-            (object)['id' => 5, 'name' => 'Student'],
-            (object)['id' => 6, 'name' => 'Cafeteria'],
-            (object)['id' => 7, 'name' => 'Finance'],
-            (object)['id' => 8, 'name' => 'Trainers'],
-            (object)['id' => 9, 'name' => 'Website'],
-        ]);
+        $roles = collect(User::getRoles())->map(fn ($name, $id) => (object) ['id' => $id, 'name' => $name])->values();
 
         $campuses = Campus::active()->get();
         return view('ktvtc.superadmin.users.edit', compact('user', 'roles', 'campuses'));
@@ -536,6 +467,61 @@ class SuperAdminController extends Controller
     // ==================== SYSTEM MANAGEMENT METHODS ====================
 
     /**
+     * Roles are fixed in code (User::ROLE_*); this lists them with how many users hold each.
+     */
+    public function roles()
+    {
+        $counts = User::selectRaw('role, COUNT(*) as total, SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) as inactive')
+            ->groupBy('role')->get()->keyBy('role');
+
+        $roles = collect(User::getRoles())->map(fn ($name, $id) => [
+            'id'       => $id,
+            'name'     => $name,
+            'total'    => (int) ($counts[$id]->total ?? 0),
+            'inactive' => (int) ($counts[$id]->inactive ?? 0),
+        ])->values();
+
+        return view('ktvtc.superadmin.roles.index', compact('roles'));
+    }
+
+    /**
+     * Audit trail: every logged system action, filterable.
+     */
+    public function auditTrail(Request $request)
+    {
+        $logs = SystemLog::with('user')
+            ->when($request->filled('action'), fn ($q) => $q->where('action', $request->action))
+            ->when($request->filled('level'), fn ($q) => $q->where('level', $request->level))
+            ->when($request->filled('user_id'), fn ($q) => $q->where('user_id', $request->user_id))
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('created_at', '>=', $request->from))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('created_at', '<=', $request->to))
+            ->latest()->paginate(50)->withQueryString();
+
+        $actions = SystemLog::select('action')->distinct()->orderBy('action')->pluck('action');
+
+        return view('ktvtc.superadmin.reports.audit', compact('logs', 'actions'));
+    }
+
+    /**
+     * Activity report: who has been using the system, and when they last logged in.
+     */
+    public function activityReport(Request $request)
+    {
+        $days = max(1, min(365, (int) $request->query('days', 30)));
+        $since = now()->subDays($days);
+
+        $byRole = User::selectRaw('role, COUNT(*) as users, SUM(CASE WHEN last_login_at >= ? THEN 1 ELSE 0 END) as active', [$since])
+            ->groupBy('role')->get()->keyBy('role');
+
+        $recent = User::whereNotNull('last_login_at')->orderByDesc('last_login_at')->limit(30)->get(['id', 'name', 'email', 'role', 'last_login_at', 'last_login_ip']);
+
+        $actions = SystemLog::where('created_at', '>=', $since)
+            ->selectRaw('DATE(created_at) as day, COUNT(*) as total')->groupBy('day')->orderBy('day')->pluck('total', 'day');
+
+        return view('ktvtc.superadmin.reports.activity', compact('byRole', 'recent', 'actions', 'days'));
+    }
+
+    /**
      * System settings
      */
     public function systemSettings()
@@ -602,16 +588,26 @@ class SuperAdminController extends Controller
     public function createBackup(Request $request)
     {
         $filename = 'backup_' . date('Y-m-d_H-i-s') . '.sql';
+        Storage::disk('backups')->makeDirectory('');
 
+        // config() not env(): env() is empty once config is cached. Password goes via
+        // MYSQL_PWD so it isn't visible in the process list; every argument is escaped.
+        $db = config('database.connections.' . config('database.default'));
         $command = sprintf(
-            'mysqldump -u%s -p%s %s > %s',
-            env('DB_USERNAME'),
-            env('DB_PASSWORD'),
-            env('DB_DATABASE'),
-            storage_path('app/backups/' . $filename)
+            'mysqldump --host=%s --port=%s --user=%s %s > %s',
+            escapeshellarg($db['host'] ?? '127.0.0.1'),
+            escapeshellarg((string) ($db['port'] ?? 3306)),
+            escapeshellarg($db['username'] ?? ''),
+            escapeshellarg($db['database'] ?? ''),
+            escapeshellarg(storage_path('app/backups/' . $filename))
         );
+        putenv('MYSQL_PWD=' . ($db['password'] ?? ''));
+        exec($command, $output, $exitCode);
+        putenv('MYSQL_PWD');
 
-        exec($command);
+        if ($exitCode !== 0) {
+            return back()->with('error', 'Backup failed (mysqldump exit code ' . $exitCode . '). Check that mysqldump is installed on the server.');
+        }
 
         SystemLog::create([
             'user_id' => auth()->id(),
@@ -630,15 +626,15 @@ class SuperAdminController extends Controller
     {
         $query = SystemLog::with('user');
 
-        if ($request->has('level')) {
+        if ($request->filled('level')) {
             $query->where('level', $request->level);
         }
 
-        if ($request->has('user_id')) {
+        if ($request->filled('user_id')) {
             $query->where('user_id', $request->user_id);
         }
 
-        if ($request->has('search')) {
+        if ($request->filled('search')) {
             $query->where('description', 'like', "%{$request->search}%");
         }
 
@@ -920,21 +916,7 @@ class SuperAdminController extends Controller
 
     private function getRoleName($roleId)
     {
-        // Fixed: Changed 'Mschool' to 'Main School' for consistency
-        $roles = [
-            0 => 'Super Admin',
-            1 => 'Main School',
-            2 => 'Admin',
-            3 => 'Scholarship',
-            4 => 'Library',
-            5 => 'Student',
-            6 => 'Cafeteria',
-            7 => 'Finance',
-            8 => 'Trainers',
-            9 => 'Website',
-        ];
-
-        return $roles[$roleId] ?? "Role {$roleId}";
+        return User::getRoles()[$roleId] ?? "Role {$roleId}";
     }
 
     private function formatBytes($bytes, $precision = 2)
@@ -983,9 +965,7 @@ class SuperAdminController extends Controller
 public function showUser(User $user)
 {
     // Load related data
-    $user->load(['campus', 'shop', 'logs' => function($query) {
-        $query->orderBy('created_at', 'desc')->limit(20);
-    }]);
+    $user->load('campus');
 
     // Get recent activities
     $recentActivities = SystemLog::where('user_id', $user->id)
@@ -994,7 +974,13 @@ public function showUser(User $user)
         ->limit(20)
         ->get();
 
-    return view('ktvtc.superadmin.users.show', compact('user', 'recentActivities'));
+    $loginHistory = SystemLog::where('user_id', $user->id)
+        ->where('action', 'login')
+        ->orderBy('created_at', 'desc')
+        ->limit(20)
+        ->get();
+
+    return view('ktvtc.superadmin.users.show', compact('user', 'recentActivities', 'loginHistory'));
 }
     /**
      * Get system alerts (AJAX)

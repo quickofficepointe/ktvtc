@@ -472,6 +472,9 @@
     {{-- RIGHT COLUMN --}}
     <div class="space-y-6">
 
+        {{-- STUDENT PORTAL --}}
+        @include('ktvtc.admin.students.partials.portal-status', ['student' => $student])
+
         {{-- APPLICATION --}}
         @if($student->application)
         <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">

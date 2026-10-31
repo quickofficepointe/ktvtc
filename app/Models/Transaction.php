@@ -22,6 +22,8 @@ class Transaction extends Model
         'status',
         'fine_amount',
         'notes',
+        'issued_by',
+        'returned_by',
     ];
 
     protected $casts = [
@@ -51,6 +53,16 @@ class Transaction extends Model
         return $this->hasMany(Payment::class);
     }
 
+    public function issuer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'issued_by');
+    }
+
+    public function receiver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'returned_by');
+    }
+
     public function getIsOverdueAttribute(): bool
     {
         return $this->status === 'overdue' ||
@@ -59,34 +71,54 @@ class Transaction extends Model
 
     public function getDaysOverdueAttribute(): int
     {
-        if (!$this->is_overdue) {
-            return 0;
-        }
-
-        return max(0, now()->diffInDays($this->due_date));
+        return $this->daysOverdueAt($this->return_date ?? now());
     }
 
-    public function calculateFine($fineRules): float
+    /** Whole days late on $at (0 if not late). Carbon 3's diffInDays is signed, so order matters. */
+    public function daysOverdueAt($at): int
     {
-        if (!$this->is_overdue) {
+        if (!$this->due_date) {
             return 0;
         }
+        $at = Carbon::parse($at)->startOfDay();
+        $due = $this->due_date->copy()->startOfDay();
 
-        $daysOverdue = $this->days_overdue;
+        return $at->greaterThan($due) ? (int) $due->diffInDays($at) : 0;
+    }
+
+    /**
+     * Fine for returning on $at under the active rules. Each rule skips its grace
+     * days and is capped by its own day and amount limits.
+     */
+    public function calculateFine($fineRules, $at = null): float
+    {
+        $daysOverdue = $this->daysOverdueAt($at ?? now());
         $fineAmount = 0;
 
         foreach ($fineRules as $rule) {
-            if ($rule->is_active) {
-                if ($rule->calculation_type === 'daily') {
-                    $applicableDays = min($daysOverdue, $rule->max_fine_days ?? $daysOverdue);
-                    $fineAmount += $applicableDays * $rule->fine_amount;
-                } elseif ($rule->calculation_type === 'fixed') {
-                    $fineAmount += $rule->fine_amount;
-                }
+            if (!$rule->is_active) {
+                continue;
             }
+            $days = max(0, $daysOverdue - (int) $rule->grace_period_days);
+            if ($days === 0) {
+                continue;
+            }
+            if ($rule->max_fine_days) {
+                $days = min($days, (int) $rule->max_fine_days);
+            }
+            $amount = match ($rule->calculation_type) {
+                'daily' => $days * (float) $rule->fine_amount,
+                'fixed' => (float) $rule->fine_amount,
+                'percentage' => round((float) ($this->item?->book?->price ?? 0) * (float) $rule->fine_amount / 100, 2),
+                default => 0,
+            };
+            if ($rule->max_fine_amount !== null && (float) $rule->max_fine_amount > 0) {
+                $amount = min($amount, (float) $rule->max_fine_amount);
+            }
+            $fineAmount += $amount;
         }
 
-        return min($fineAmount, $fineRules->max('max_fine_amount') ?? $fineAmount);
+        return round($fineAmount, 2);
     }
 
     public function scopeOverdue($query)

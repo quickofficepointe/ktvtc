@@ -81,7 +81,7 @@ class MSubjectController extends Controller
 
             DB::commit();
 
-            return redirect()->route('subjects.index')
+            return redirect()->route('mschool.subjects.index')
                 ->with('success', 'Subject created successfully!');
 
         } catch (\Exception $e) {
@@ -153,7 +153,7 @@ class MSubjectController extends Controller
 
             DB::commit();
 
-            return redirect()->route('subjects.index')
+            return redirect()->route('mschool.subjects.index')
                 ->with('success', 'Subject updated successfully!');
 
         } catch (\Exception $e) {
@@ -176,13 +176,13 @@ class MSubjectController extends Controller
 
             // Check if subject is used as prerequisite for other subjects
             if ($subject->requiredBy()->exists()) {
-                return redirect()->route('subjects.index')
+                return redirect()->route('mschool.subjects.index')
                     ->with('error', 'Cannot delete subject. It is set as prerequisite for other subjects. Please update those subjects first.');
             }
 
             // Check if subject has course associations
             if ($subject->courses()->exists()) {
-                return redirect()->route('subjects.index')
+                return redirect()->route('mschool.subjects.index')
                     ->with('error', 'Cannot delete subject. It is associated with courses. Please remove the associations first.');
             }
 
@@ -200,12 +200,12 @@ class MSubjectController extends Controller
 
             DB::commit();
 
-            return redirect()->route('subjects.index')
+            return redirect()->route('mschool.subjects.index')
                 ->with('success', 'Subject deleted successfully!');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->route('subjects.index')
+            return redirect()->route('mschool.subjects.index')
                 ->with('error', 'Failed to delete subject: ' . $e->getMessage());
         }
     }

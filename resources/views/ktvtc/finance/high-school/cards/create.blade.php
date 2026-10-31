@@ -7,7 +7,7 @@
 <li>
     <div class="flex items-center">
         <i class="fas fa-angle-right text-gray-400"></i>
-        <a href="{{ route('finance.cards.index') }}" class="ml-1 text-sm font-medium text-gray-500 hover:text-primary md:ml-2">
+        <a href="{{ route('cards.index') }}" class="ml-1 text-sm font-medium text-gray-500 hover:text-primary md:ml-2">
             Cards
         </a>
     </div>
@@ -88,7 +88,7 @@
 
     {{-- Filter --}}
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
-        <form method="GET" action="{{ route('finance.cards.create') }}" class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
+        <form method="GET" action="{{ route('cards.create') }}" class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
             <div class="lg:col-span-4">
                 <label class="text-xs font-semibold text-gray-600">Search</label>
                 <input type="text"
@@ -124,7 +124,7 @@
                     <i class="fas fa-search mr-2"></i> Filter
                 </button>
 
-                <a href="{{ route('finance.cards.create') }}" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm">
+                <a href="{{ route('cards.create') }}" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm">
                     <i class="fas fa-times mr-1"></i> Reset
                 </a>
             </div>
@@ -217,11 +217,11 @@
                             <td class="py-3 px-4 text-center">
                                 <div class="flex justify-center gap-2 whitespace-nowrap">
                                     @if($student->cardAccount)
-                                        <a href="{{ route('finance.cards.show', $student->cardAccount) }}" class="text-primary hover:text-primary-dark transition" title="View Card">
+                                        <a href="{{ route('cards.show', $student->cardAccount) }}" class="text-primary hover:text-primary-dark transition" title="View Card">
                                             <i class="fas fa-eye"></i>
                                         </a>
                                         @if($student->cardAccount->qr_code)
-                                            <a href="{{ route('finance.cards.download-qr', $student->cardAccount) }}" class="text-purple-600 hover:text-purple-800 transition" title="Download QR">
+                                            <a href="{{ route('cards.download-qr', $student->cardAccount) }}" class="text-purple-600 hover:text-purple-800 transition" title="Download QR">
                                                 <i class="fas fa-qrcode"></i>
                                             </a>
                                         @else
@@ -244,7 +244,7 @@
                                 <p class="text-lg font-medium">No students found</p>
                                 <p class="text-sm text-gray-400 mt-1">Add a new student or adjust your filters</p>
 
-                                <a href="{{ route('finance.hs-students.create') }}" class="mt-3 inline-block px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition">
+                                <a href="{{ route('hs-students.create') }}" class="mt-3 inline-block px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition">
                                     <i class="fas fa-user-plus mr-2"></i> Add Student
                                 </a>
                             </td>

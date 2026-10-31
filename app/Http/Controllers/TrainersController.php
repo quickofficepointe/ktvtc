@@ -15,54 +15,14 @@ class TrainersController extends Controller
     // DASHBOARD
     // ============================================================
 
-    public function dashboard()
+    /**
+     * Trainer overview: my units, marks still to enter or submit, and feedback.
+     */
+    public function dashboard(\App\Services\Dashboards\RoleDashboards $dashboards)
     {
-        $trainer   = Auth::user();
-        $courseIds = $trainer->trainerCourseIds();
-
-        $currentTerm = AcademicTerm::where('is_current', true)->first();
-
-        $stats = [
-            'courses'                => count($courseIds),
-            'active_students'        => Enrollment::forCourses($courseIds)
-                                                ->where('status', 'active')
-                                                ->count(),
-            'students_on_attachment' => Attachment::forCourses($courseIds)
-                                                ->whereIn('status', [
-                                                    'trainer_approved',
-                                                    'active',
-                                                ])
-                                                ->count(),
-            'pending_approval'       => Attachment::forCourses($courseIds)
-                                                ->where('status', 'submitted')
-                                                ->count(),
-        ];
-
-        $recentEnrollments = Enrollment::with(['student', 'course', 'term'])
-            ->forCourses($courseIds)
-            ->where('status', 'active')
-            ->latest()
-            ->limit(10)
-            ->get();
-
-        $recentAttachments = Attachment::with(['student', 'company'])
-            ->forCourses($courseIds)
-            ->whereIn('status', ['submitted', 'trainer_approved', 'needs_revision'])
-            ->latest()
-            ->limit(5)
-            ->get();
-
-        return view('ktvtc.trainers.dashboard', compact(
-            'stats',
-            'recentEnrollments',
-            'recentAttachments',
-            'currentTerm'
-        ));
+        return view('ktvtc.trainers.dashboard', $dashboards->trainer(auth()->user()));
     }
 
-    // ============================================================
-    // STUDENTS PER TERM
-    // ============================================================
 
     public function students(Request $request)
     {

@@ -10,6 +10,8 @@ use App\Models\CardAuditLog;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Services\Cards\CardWallet;
+use App\Services\Cards\InsufficientWalletBalance;
 use App\Services\StockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -75,35 +77,34 @@ class QRScannerController extends Controller
                 });
             }
 
-            // ============================================================
-            // ✅ RANK BY HIGH SCHOOL STUDENT PURCHASE FREQUENCY
-            // ============================================================
-            // - Only counts purchases linked to a high_school_student
-            // - Last 30 days window (adjustable below)
-            // - Handles both clean JSON and legacy double-encoded JSON
-            // ============================================================
-            $query->orderByRaw("
-                (
-                    SELECT COALESCE(SUM(jt.quantity), 0)
-                    FROM card_transactions ct
-                    INNER JOIN card_accounts ca ON ca.id = ct.card_account_id
-                    JOIN JSON_TABLE(
-                        JSON_UNQUOTE(ct.metadata),
-                        '$.items[*]' COLUMNS (
-                            product_id INT PATH '$.product_id',
-                            quantity   INT PATH '$.quantity'
-                        )
-                    ) AS jt
-                    WHERE ct.transaction_type = 'purchase'
-                      AND ct.status = 'completed'
-                      AND ca.high_school_student_id IS NOT NULL
-                      AND jt.product_id = products.id
-                      AND ct.created_at >= ?
-                ) DESC
-            ", [now()->subDays(30)])
-            ->orderBy('product_name');
+            // Most-bought first: quantities from high-school card purchases in the last
+            // 30 days. Counted in PHP so it works on any MariaDB/MySQL version (the old
+            // JSON_TABLE query needed MariaDB 10.6+); metadata may be double-encoded.
+            $bought = [];
+            CardTransaction::query()
+                ->join('card_accounts', 'card_accounts.id', '=', 'card_transactions.card_account_id')
+                ->whereNotNull('card_accounts.high_school_student_id')
+                ->where('card_transactions.transaction_type', 'purchase')
+                ->where('card_transactions.status', 'completed')
+                ->where('card_transactions.created_at', '>=', now()->subDays(30))
+                ->pluck('card_transactions.metadata')
+                ->each(function ($metadata) use (&$bought) {
+                    $data = is_array($metadata) ? $metadata : json_decode((string) $metadata, true);
+                    if (is_string($data)) {
+                        $data = json_decode($data, true);
+                    }
+                    foreach ((array) ($data['items'] ?? []) as $line) {
+                        if (isset($line['product_id'])) {
+                            $bought[(int) $line['product_id']] = ($bought[(int) $line['product_id']] ?? 0) + (int) ($line['quantity'] ?? 1);
+                        }
+                    }
+                });
+
+            $query->orderBy('product_name');
 
             $products = $query->get()
+                ->sortByDesc(fn ($product) => $bought[$product->id] ?? 0)
+                ->values()
                 ->map(function ($product) {
                     return [
                         'id'              => $product->id,
@@ -203,7 +204,7 @@ class QRScannerController extends Controller
                 'student_name'     => $student->full_name,
                 'admission_number' => $student->admission_number,
                 'class'            => $student->class,
-                'balance'          => $student->cardAccount->balance,
+                'balance'          => app(CardWallet::class)->balanceOf($student->cardAccount, CardWallet::CANTEEN), // cafeteria spends canteen only
                 'photo'            => $student->profile_picture ? asset('storage/' . $student->profile_picture) : null,
                 'card_status'      => $student->cardAccount->is_active ? 'active' : 'inactive',
                 'is_blocked'       => $student->cardAccount->is_blocked,
@@ -350,7 +351,7 @@ class QRScannerController extends Controller
                     'student_name'     => $student->full_name,
                     'admission_number' => $student->admission_number,
                     'class'            => $student->class,
-                    'balance'          => $card->balance,
+                    'balance'          => app(CardWallet::class)->balanceOf($card, CardWallet::CANTEEN), // cafeteria spends canteen only
                     'photo'            => $student->profile_picture ? asset('storage/' . $student->profile_picture) : null,
                     'card_status'      => $card->is_active ? 'active' : 'inactive',
                     'is_blocked'       => $card->is_blocked,
@@ -445,46 +446,26 @@ class QRScannerController extends Controller
                 ];
             }
 
-            if ($card->balance < $totalAmount) {
-                DB::rollBack();
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Insufficient balance. Available: KES ' . number_format($card->balance, 2) . ', Required: KES ' . number_format($totalAmount, 2),
-                ], 400);
-            }
-
-            $balanceBefore = $card->balance;
-            $card->balance -= $totalAmount;
-            $card->total_spent += $totalAmount;
-            $card->today_spent += $totalAmount;
-            $card->today_transactions += 1;
-            $card->last_used_at = now();
-            if (!$card->today_first_used_at) {
-                $card->today_first_used_at = now();
-            }
-            $card->save();
-
             $reference = CardTransaction::generateReference('CAF');
             $itemNames = collect($itemsData)->pluck('product_name')->join(', ');
 
-            $transaction = CardTransaction::create([
-                'card_account_id'  => $card->id,
-                'transaction_type' => 'purchase',
-                'amount'           => $totalAmount,
-                'balance_before'   => $balanceBefore,
-                'balance_after'    => $card->balance,
-                'description'      => 'Cafeteria: ' . $itemNames,
-                'reference'        => $reference,
-                'status'           => 'completed',
-                'processed_at'     => now(),
-                // ✅ CLEAN ARRAY — the model's 'array' cast handles JSON encoding
-                'metadata'         => [
-                    'scanned_by'      => auth()->id(),
-                    'scanned_by_name' => auth()->user()->name ?? 'System',
-                    'location'        => 'cafeteria',
-                    'items'           => $itemsData,
-                ],
-            ]);
+            // Canteen wallet only: transport money can't be spent at the cafeteria
+            try {
+                $transaction = app(CardWallet::class)->debit($card, CardWallet::CANTEEN, $totalAmount, 'purchase', [
+                    'description' => 'Cafeteria: ' . $itemNames,
+                    'reference'   => $reference,
+                    'location'    => 'cafeteria',
+                    'metadata'    => [
+                        'scanned_by'      => auth()->id(),
+                        'scanned_by_name' => auth()->user()->name ?? 'System',
+                        'location'        => 'cafeteria',
+                        'items'           => $itemsData,
+                    ],
+                ], auth()->id());
+            } catch (InsufficientWalletBalance $e) {
+                DB::rollBack();
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+            }
 
             foreach ($itemsData as $itemData) {
                 $product = Product::find($itemData['product_id']);
@@ -505,20 +486,6 @@ class QRScannerController extends Controller
                 }
             }
 
-            CardAuditLog::log(
-                $card->id,
-                'purchase_made',
-                "Cafeteria purchase: KES {$totalAmount} - {$itemNames}",
-                $balanceBefore,
-                $card->balance,
-                [
-                    'amount'         => $totalAmount,
-                    'items'          => $itemsData,
-                    'transaction_id' => $transaction->id,
-                    'scanned_by'     => auth()->id(),
-                ]
-            );
-
             DB::commit();
 
             Log::info('Card purchase processed with products', [
@@ -526,14 +493,14 @@ class QRScannerController extends Controller
                 'student_id'  => $student->id,
                 'amount'      => $totalAmount,
                 'items'       => count($itemsData),
-                'new_balance' => $card->balance,
+                'new_balance' => $card->canteen_balance,
                 'reference'   => $reference,
             ]);
 
             return response()->json([
                 'success'     => true,
                 'message'     => 'Payment successful',
-                'new_balance' => $card->balance,
+                'new_balance' => $card->canteen_balance,
                 'transaction' => [
                     'id'             => $transaction->id,
                     'amount'         => $transaction->amount,
@@ -588,63 +555,26 @@ class QRScannerController extends Controller
         if ($card->is_locked) {
             return response()->json(['success' => false, 'message' => 'Card is locked'], 400);
         }
-        if ($card->balance < $request->amount) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Insufficient balance. Available: KES ' . number_format($card->balance, 2),
-            ], 400);
+        try {
+            $transaction = app(CardWallet::class)->debit($card, CardWallet::CANTEEN, (float) $request->amount, 'purchase', [
+                'description' => $request->description ?? 'Cafeteria purchase (custom)',
+                'reference'   => CardTransaction::generateReference('CAF'),
+                'location'    => 'cafeteria',
+                'metadata'    => [
+                    'scanned_by'       => auth()->id(),
+                    'scanned_by_name'  => auth()->user()->name ?? 'System',
+                    'location'         => 'cafeteria',
+                    'is_custom_amount' => true,
+                ],
+            ], auth()->id());
+        } catch (InsufficientWalletBalance $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
         }
-
-        $balanceBefore = $card->balance;
-        $card->balance -= $request->amount;
-        $card->total_spent += $request->amount;
-        $card->today_spent += $request->amount;
-        $card->today_transactions += 1;
-        $card->last_used_at = now();
-        if (!$card->today_first_used_at) {
-            $card->today_first_used_at = now();
-        }
-        $card->save();
-
-        $reference = CardTransaction::generateReference('CAF');
-
-        $transaction = CardTransaction::create([
-            'card_account_id'  => $card->id,
-            'transaction_type' => 'purchase',
-            'amount'           => $request->amount,
-            'balance_before'   => $balanceBefore,
-            'balance_after'    => $card->balance,
-            'description'      => $request->description ?? 'Cafeteria purchase (custom)',
-            'reference'        => $reference,
-            'status'           => 'completed',
-            'processed_at'     => now(),
-            // ✅ CLEAN ARRAY
-            'metadata'         => [
-                'scanned_by'       => auth()->id(),
-                'scanned_by_name'  => auth()->user()->name ?? 'System',
-                'location'         => 'cafeteria',
-                'is_custom_amount' => true,
-            ],
-        ]);
-
-        CardAuditLog::log(
-            $card->id,
-            'purchase_made',
-            "Cafeteria purchase: KES {$request->amount} - {$request->description}",
-            $balanceBefore,
-            $card->balance,
-            [
-                'amount'         => $request->amount,
-                'description'    => $request->description,
-                'transaction_id' => $transaction->id,
-                'scanned_by'     => auth()->id(),
-            ]
-        );
 
         return response()->json([
             'success'     => true,
             'message'     => 'Payment successful',
-            'new_balance' => $card->balance,
+            'new_balance' => $card->canteen_balance,
             'transaction' => [
                 'id'             => $transaction->id,
                 'amount'         => $transaction->amount,

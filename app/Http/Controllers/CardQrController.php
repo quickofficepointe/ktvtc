@@ -261,7 +261,7 @@ class CardQrController extends Controller
      */
     public function showQr(CardAccount $cardAccount)
     {
-        $card = $cardAccount->load('student');
-        return view('ktvtc.finance.high-school.cards.qr-show', compact('card'));
+        // Same page as "print QR": the card's code with a print button
+        return $this->print($cardAccount->load('student'));
     }
 }

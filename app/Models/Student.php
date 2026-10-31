@@ -108,46 +108,15 @@ class Student extends Model
      * Generate the next available unique student number
      * Starting from 947 and checking for duplicates
      */
+    /**
+     * Next running number for a new student (e.g. "987"); their first enrollment
+     * turns it into COURSECODE/987/YEAR. Comes from one college-wide sequence so it
+     * can never repeat (the old version filled gaps and could reuse numbers).
+     */
     public static function getNextStudentNumber()
     {
-        $startNumber = 947;
-        $maxAttempts = 1000;
-
-        // Get all existing student numbers in one query
-        $existingNumbers = self::whereNotNull('student_number')
-            ->pluck('student_number')
-            ->toArray();
-
-        // Create a lookup set for O(1) checks
-        $existingSet = array_flip($existingNumbers);
-
-        for ($i = 0; $i < $maxAttempts; $i++) {
-            $currentNumber = (string)($startNumber + $i);
-            
-            // Check if this exact number exists
-            if (!isset($existingSet[$currentNumber])) {
-                // Also check if it appears as part of a formatted number
-                $found = false;
-                foreach ($existingNumbers as $existing) {
-                    if (strpos($existing, '/' . $currentNumber . '/') !== false) {
-                        $found = true;
-                        break;
-                    }
-                }
-                
-                if (!$found) {
-                    return $currentNumber;
-                }
-            }
-        }
-
-        // Fallback: Use timestamp with unique ID
-        return 'TEMP_' . date('Ymd') . '_' . uniqid();
+        return (string) app(\App\Services\Students\StudentNumberService::class)->nextRunning();
     }
-
-    /**
-     * Check if a student number is already in use
-     */
     public static function isStudentNumberTaken($number)
     {
         if (empty($number)) {

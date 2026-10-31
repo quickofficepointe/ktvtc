@@ -96,6 +96,38 @@ class Book extends Model
         return $this->authors->pluck('full_name')->implode(', ');
     }
 
+    /**
+     * Copy counts come from the barcoded copies, never typed in. Lost copies leave
+     * the total; missing ones stay in it until a stock-take finds or writes them off.
+     */
+    public function syncCopyCounts(): void
+    {
+        $counts = $this->items()->selectRaw('status, COUNT(*) as n')->groupBy('status')->pluck('n', 'status');
+        $available = (int) ($counts['available'] ?? 0);
+
+        $this->forceFill([
+            'total_copies' => (int) $counts->sum() - (int) ($counts['lost'] ?? 0),
+            'available_copies' => $available,
+            'is_available' => $available > 0,
+        ])->saveQuietly();
+    }
+
+    /** Add $count barcoded copies (B<book id>-01, -02 ...) that are on the shelf or $status. */
+    public function createCopies(int $count, ?int $branchId = null, string $status = 'available'): int
+    {
+        $branchId ??= $this->branch_id ?? Branch::where('is_active', true)->orderBy('id')->value('id') ?? Branch::orderBy('id')->value('id');
+        $n = $this->items()->count();
+        for ($made = 0; $made < $count; $made++) {
+            do {
+                $barcode = sprintf('B%d-%02d', $this->id, ++$n);
+            } while (Item::where('barcode', $barcode)->exists());
+            $this->items()->create(['barcode' => $barcode, 'branch_id' => $branchId, 'status' => $status, 'condition' => 'good']);
+        }
+        $this->syncCopyCounts();
+
+        return $count;
+    }
+
     public function getBorrowedCopiesAttribute(): int
     {
         return $this->total_copies - $this->available_copies;

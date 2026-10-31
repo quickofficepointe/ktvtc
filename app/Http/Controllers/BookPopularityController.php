@@ -39,11 +39,11 @@ class BookPopularityController extends Controller
                 $popularity->calculatePopularityScore();
             }
 
-            return redirect()->route('book-popularities.index')
+            return redirect()->route('library.book-popularities.index')
                 ->with('success', 'All popularity scores have been refreshed successfully!');
 
         } catch (\Exception $e) {
-            return redirect()->route('book-popularities.index')
+            return redirect()->route('library.book-popularities.index')
                 ->with('error', 'Error refreshing popularity scores: ' . $e->getMessage());
         }
     }
@@ -98,11 +98,11 @@ class BookPopularityController extends Controller
             $bookPopularity->update($request->only(['borrow_count', 'reservation_count', 'view_count']));
             $bookPopularity->calculatePopularityScore();
 
-            return redirect()->route('book-popularities.index')
+            return redirect()->route('library.book-popularities.index')
                 ->with('success', 'Popularity data updated successfully!');
 
         } catch (\Exception $e) {
-            return redirect()->route('book-popularities.index')
+            return redirect()->route('library.book-popularities.index')
                 ->with('error', 'Error updating popularity: ' . $e->getMessage());
         }
     }
@@ -138,11 +138,11 @@ class BookPopularityController extends Controller
 
             $popularity->calculatePopularityScore();
 
-            return redirect()->route('book-popularities.index')
+            return redirect()->route('library.book-popularities.index')
                 ->with('success', 'Book popularity tracking added successfully!');
 
         } catch (\Exception $e) {
-            return redirect()->route('book-popularities.index')
+            return redirect()->route('library.book-popularities.index')
                 ->with('error', 'Error adding popularity tracking: ' . $e->getMessage());
         }
     }

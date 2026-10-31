@@ -7,6 +7,8 @@ use App\Models\HighSchoolStudent;
 use App\Models\CardTransaction;
 use App\Models\CardAuditLog;
 use App\Services\CardService;
+use App\Services\Cards\CardWallet;
+use App\Services\Cards\InsufficientWalletBalance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
@@ -205,7 +207,7 @@ class CardAccountController extends Controller
                 ]);
             }
 
-            return redirect()->route('finance.cards.show', $card)
+            return redirect()->route('cards.show', $card)
                 ->with('success', 'Card issued successfully! Card number: ' . $card->card_number);
 
         } catch (\Exception $e) {
@@ -323,6 +325,7 @@ class CardAccountController extends Controller
     public function show(CardAccount $cardAccount)
     {
         $card = $cardAccount;
+        app(CardWallet::class)->balanceOf($card, CardWallet::CANTEEN); // splits an old combined balance on first view
         $card->load(['student', 'transactions' => function($q) {
             $q->orderBy('created_at', 'desc')->limit(20);
         }]);
@@ -372,7 +375,7 @@ class CardAccountController extends Controller
                 json_encode($request->all())
             );
 
-            return redirect()->route('finance.cards.show', $cardAccount)
+            return redirect()->route('cards.show', $cardAccount)
                 ->with('success', 'Card updated successfully');
 
         } catch (\Exception $e) {
@@ -388,7 +391,7 @@ class CardAccountController extends Controller
     {
         try {
             $cardAccount->delete();
-            return redirect()->route('finance.cards.index')
+            return redirect()->route('cards.index')
                 ->with('success', 'Card deleted successfully');
 
         } catch (\Exception $e) {
@@ -476,33 +479,50 @@ class CardAccountController extends Controller
      */
     public function adjustBalance(Request $request, CardAccount $cardAccount)
     {
-        $request->validate([
-            'amount' => 'required|numeric|not_in:0',
+        $data = $request->validate([
+            'wallet' => 'required|in:transport,canteen',
+            'amount' => 'required|numeric|min:0.01',
             'reason' => 'required|string|max:255',
-            'type' => 'required|in:add,subtract'
+            'type'   => 'required|in:add,subtract',
         ]);
 
+        $wallet = app(CardWallet::class);
+        $tx = ['reference' => CardTransaction::generateReference('ADJ'), 'description' => 'Manual adjustment: ' . $data['reason']];
+
         try {
-            $amount = $request->type === 'add' ? $request->amount : -$request->amount;
-
-            $result = $this->cardService->adjustBalance(
-                $cardAccount,
-                $amount,
-                $request->reason,
-                auth()->id()
-            );
-
-            if ($result['success']) {
-                return redirect()->back()
-                    ->with('success', 'Balance adjusted successfully. New balance: KES ' . number_format($result['new_balance'], 2));
-            } else {
-                return redirect()->back()->with('error', $result['message']);
-            }
-
-        } catch (\Exception $e) {
-            return redirect()->back()
-                ->with('error', 'Failed to adjust balance: ' . $e->getMessage());
+            $data['type'] === 'add'
+                ? $wallet->credit($cardAccount, $data['wallet'], (float) $data['amount'], 'adjustment', $tx, auth()->id())
+                : $wallet->debit($cardAccount, $data['wallet'], (float) $data['amount'], 'adjustment', $tx, auth()->id());
+        } catch (InsufficientWalletBalance $e) {
+            return redirect()->back()->with('error', $e->getMessage());
         }
+
+        return redirect()->back()->with('success', sprintf(
+            'Balance adjusted. Transport: KES %s, Canteen: KES %s.',
+            number_format($cardAccount->transport_balance, 2),
+            number_format($cardAccount->canteen_balance, 2)
+        ));
+    }
+
+    /**
+     * Move money between the card's own transport and canteen wallets.
+     */
+    public function transferWallet(Request $request, CardAccount $cardAccount)
+    {
+        $data = $request->validate([
+            'from'   => 'required|in:transport,canteen',
+            'amount' => 'required|numeric|min:0.01',
+            'reason' => 'required|string|min:5|max:255',
+        ]);
+        $to = $data['from'] === CardWallet::TRANSPORT ? CardWallet::CANTEEN : CardWallet::TRANSPORT;
+
+        try {
+            app(CardWallet::class)->transfer($cardAccount, $data['from'], $to, (float) $data['amount'], $data['reason'], auth()->id());
+        } catch (InsufficientWalletBalance $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+
+        return redirect()->back()->with('success', 'KES ' . number_format($data['amount'], 2) . " moved from {$data['from']} to {$to}.");
     }
 
     /**
@@ -757,20 +777,27 @@ public function getStudentsWithoutCards(Request $request)
     {
         $request->validate([
             'card_id' => 'required|exists:card_accounts,id',
-            'amount' => 'required|numeric|min:0.01',
+            'amount'  => 'required|numeric|min:0.01',
             'sale_id' => 'nullable|exists:sales,id',
-            'items' => 'nullable|array'
         ]);
 
         $card = CardAccount::findOrFail($request->card_id);
-        $result = $this->cardService->processPurchase(
-            $card,
-            $request->amount,
-            $request->sale_id,
-            $request->items ?? []
-        );
+        if (!$card->is_active || $card->is_blocked || $card->is_locked) {
+            return response()->json(['success' => false, 'message' => 'Card is not usable'], 400);
+        }
 
-        return response()->json($result);
+        try {
+            $tx = app(CardWallet::class)->debit($card, CardWallet::CANTEEN, (float) $request->amount, 'purchase', [
+                'reference'   => CardTransaction::generateReference('CAF'),
+                'description' => 'Cafeteria purchase',
+                'sale_id'     => $request->sale_id,
+                'location'    => 'cafeteria',
+            ], auth()->id());
+        } catch (InsufficientWalletBalance $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 400);
+        }
+
+        return response()->json(['success' => true, 'transaction_id' => $tx->id, 'canteen_balance' => $card->canteen_balance]);
     }
 
     public function studentTransactions(HighSchoolStudent $student, Request $request)

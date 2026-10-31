@@ -73,7 +73,7 @@ class GoodsReceivedNote extends Model
 
     public function items(): HasMany
     {
-        return $this->hasMany(GrnItem::class);
+        return $this->hasMany(GrnItem::class, 'grn_id');
     }
 
     public function qualityChecker(): BelongsTo

@@ -140,7 +140,7 @@
     <div class="header">
         <h1>KTVTC</h1>
         <p>Kenswed Technical & Vocational Training College</p>
-        <p>P.O. Box 12345, Nairobi | Tel: 0700 000 000</p>
+        <p>Finance office: {{ config('kcb.finance_phone') }}</p>
         <h2 style="margin-top: 10px; font-size: 18px; color: #1f2937;">
             Student Fee Statement
         </h2>
