@@ -27,10 +27,12 @@ return [
     |--------------------------------------------------------------------------
     | IPNs from an IP outside the allow-list are still recorded, but held in
     | the finance queue as "quarantined" instead of crediting anyone.
+    | Comma-separated addresses or ranges. KCB has sent from 196.216.222.14 and
+    | 196.216.223.14, so the default is the block covering both.
     | Leave empty to accept any IP (not recommended).
     */
     'ipn' => [
-        'allowed_ips' => array_filter(array_map('trim', explode(',', env('KCB_IPN_ALLOWED_IPS', '196.216.222.14')))),
+        'allowed_ips' => array_filter(array_map('trim', explode(',', env('KCB_IPN_ALLOWED_IPS', '196.216.222.0/23')))),
 
         // PEM public key from KCB for the "signature" header (base64 RSA-SHA256 of the raw body).
         // Ignored until a valid key is configured.

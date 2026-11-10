@@ -18,6 +18,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\IpUtils;
 
 /**
  * Single entry point for every KCB IPN, whichever URL it arrives on.
@@ -575,7 +576,8 @@ class KcbIpnRouter
         }
 
         $allowed = config('kcb.ipn.allowed_ips', []);
-        if ($allowed && $ip !== null && !in_array($ip, $allowed, true)) {
+        // Entries may be single addresses or ranges (196.216.222.0/23): KCB sends from more than one server
+        if ($allowed && $ip !== null && !IpUtils::checkIp($ip, $allowed)) {
             return "Sent from an unknown IP address ({$ip}).";
         }
 
