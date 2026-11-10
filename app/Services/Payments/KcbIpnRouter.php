@@ -137,6 +137,38 @@ class KcbIpnRouter
     }
 
     /**
+     * Where route() would send this IPN, in words, without changing anything (for dry runs).
+     */
+    public function preview(KcbIpn $ipn): string
+    {
+        if ($link = $this->findStkOrder($ipn)) {
+            return 'link to ' . class_basename($link) . ' #' . $link->id . ' (paid by M-Pesa prompt; no balance change)';
+        }
+        if ($reason = $this->alreadyRecorded($ipn)) {
+            return 'duplicate: ' . $reason;
+        }
+
+        if ($ipn->till_number === config('kcb.tills.school_fees')) {
+            $students = $this->studentsByReference($ipn->account_reference);
+            return $students->count() === 1
+                ? "credit school fees of {$students->first()->student_number}"
+                : 'finance queue: ' . ($ipn->account_reference === null ? 'no account number entered' : "no single student matches \"{$ipn->account_reference}\"");
+        }
+
+        if ($ipn->till_number === config('kcb.tills.cafeteria')) {
+            [$admission, $type] = $this->parseAdmission($ipn->account_reference);
+            $student = $admission ? HighSchoolStudent::where('admission_number', $admission)->first() : null;
+            $card = $student?->cardAccount;
+            if ($card && $card->is_active && !$card->is_blocked) {
+                return "credit card {$card->card_number} of admission {$student->admission_number}, " . CardWallet::walletFor($type) . ' wallet';
+            }
+            return 'finance queue: ' . ($ipn->account_reference === null ? 'no account number entered' : "no card or sale matches \"{$ipn->account_reference}\"");
+        }
+
+        return "finance queue: unknown till {$ipn->till_number}";
+    }
+
+    /**
      * The payment is already stored, so a failure while applying it must not leave it
      * stuck as "received" where nobody sees it: it goes to the finance queue instead.
      */
@@ -429,9 +461,12 @@ class KcbIpnRouter
         if (!$reference) {
             return [null, null];
         }
-        // Whole reference must be the admission number, so "C123/2026" (a college number) never matches
-        if (preg_match('/^([TC])?\s*0*(\d{1,5})$/i', trim($reference), $m)) {
-            return [$m[2], $m[1] !== '' ? strtoupper($m[1]) : null];
+        // Whole reference must be the admission number, so "C123/2026" (a college number) never matches.
+        // At most 5 digits as typed: the till's sale references are zero-padded to 6 ("000931" = sale 931)
+        // and must never be read as admission 931.
+        if (preg_match('/^([TC])?\s*(\d{1,5})$/i', trim($reference), $m)) {
+            $admission = ltrim($m[2], '0');
+            return [$admission !== '' ? $admission : '0', $m[1] !== '' ? strtoupper($m[1]) : null];
         }
         return [null, null];
     }

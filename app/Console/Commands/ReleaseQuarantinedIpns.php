@@ -40,9 +40,10 @@ class ReleaseQuarantinedIpns extends Command
                 continue;
             }
             $status = $dry ? 'would be routed' : $result->status;
+            $where = $dry ? $router->preview($ipn) : ($result->status_reason ?? '');
             $outcomes[$status] = ($outcomes[$status] ?? 0) + 1;
-            $this->line(sprintf('  #%d  %s  KES %s  %s  -> %s%s', $ipn->id, $ipn->transaction_id, number_format((float) $ipn->transaction_amount, 2),
-                $ipn->business_key ?? '-', $status, !$dry && $result->status_reason ? " ({$result->status_reason})" : ''));
+            $this->line(sprintf('  #%d  %s  KES %s  %s  -> %s', $ipn->id, $ipn->transaction_id, number_format((float) $ipn->transaction_amount, 2),
+                $ipn->business_key ?? '-', $dry ? $where : "{$status}" . ($where ? " ({$where})" : '')));
         }
 
         $this->newLine();
