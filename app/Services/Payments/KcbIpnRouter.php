@@ -109,19 +109,30 @@ class KcbIpnRouter
 
     /**
      * Re-check a quarantined IPN against the current source rules (e.g. after KCB's address
-     * was added to KCB_IPN_ALLOWED_IPS). If it now passes it is routed like a new IPN;
-     * otherwise it stays quarantined. Returns null when it was not eligible.
+     * was added to KCB_IPN_ALLOWED_IPS). It is released only when it matches something:
+     * a sale/pre-order paid by M-Pesa prompt, a card, or a single student. Anything that
+     * matches nothing stays quarantined for finance to check by hand.
+     *
+     * @return array{outcome: string, detail: string, ipn: KcbIpn}
+     *   outcome: 'untrusted' (still fails the source check), 'held' (no match, stays quarantined),
+     *            'would release' (dry run), or the status after routing (credited, linked, duplicate...)
      */
-    public function releaseQuarantined(KcbIpn $ipn, bool $dryRun = false): ?KcbIpn
+    public function releaseQuarantined(KcbIpn $ipn, bool $dryRun = false): array
     {
-        if ($ipn->status !== KcbIpn::STATUS_QUARANTINED || $ipn->is_historical || !$ipn->transaction_id || (float) $ipn->transaction_amount <= 0) {
-            return null;
+        if ($ipn->status !== KcbIpn::STATUS_QUARANTINED || $ipn->is_historical || !$ipn->transaction_id || (float) $ipn->transaction_amount <= 0
+            || $this->sourceProblem($ipn->source_ip, (string) $ipn->signature_status)) {
+            return ['outcome' => 'untrusted', 'detail' => (string) $ipn->status_reason, 'ipn' => $ipn];
         }
-        if ($this->sourceProblem($ipn->source_ip, (string) $ipn->signature_status)) {
-            return null;
+
+        [$kind, $detail] = $this->plan($ipn);
+        if ($kind === 'none') {
+            if (!$dryRun) {
+                $ipn->forceFill(['status_reason' => "From KCB, but {$detail}. Check it and assign by hand."])->save();
+            }
+            return ['outcome' => 'held', 'detail' => $detail, 'ipn' => $ipn];
         }
         if ($dryRun) {
-            return $ipn;
+            return ['outcome' => 'would release', 'detail' => $detail, 'ipn' => $ipn];
         }
 
         $locked = DB::transaction(function () use ($ipn) {
@@ -132,27 +143,39 @@ class KcbIpnRouter
             $row->forceFill(['status' => KcbIpn::STATUS_RECEIVED, 'status_reason' => null, 'suggestions' => null])->save();
             return $row;
         });
+        if (!$locked) {
+            return ['outcome' => 'untrusted', 'detail' => 'changed by someone else meanwhile', 'ipn' => $ipn];
+        }
 
-        return $locked ? $this->routeSafely($locked) : null;
+        $routed = $this->routeSafely($locked);
+        return ['outcome' => $routed->status, 'detail' => (string) $routed->status_reason, 'ipn' => $routed];
+    }
+
+    /** Where route() would send this IPN, in words, without changing anything. */
+    public function preview(KcbIpn $ipn): string
+    {
+        return $this->plan($ipn)[1];
     }
 
     /**
-     * Where route() would send this IPN, in words, without changing anything (for dry runs).
+     * What route() would do: ['link'|'duplicate'|'credit'|'none', description].
      */
-    public function preview(KcbIpn $ipn): string
+    private function plan(KcbIpn $ipn): array
     {
         if ($link = $this->findStkOrder($ipn)) {
-            return 'link to ' . class_basename($link) . ' #' . $link->id . ' (paid by M-Pesa prompt; no balance change)';
+            return ['link', 'link to ' . class_basename($link) . ' #' . $link->id . ' (paid by M-Pesa prompt; no balance change)'];
         }
         if ($reason = $this->alreadyRecorded($ipn)) {
-            return 'duplicate: ' . $reason;
+            return ['duplicate', 'duplicate: ' . $reason];
         }
+
+        $account = $ipn->account_reference === null ? 'no account number was entered' : "nothing matches \"{$ipn->account_reference}\"";
 
         if ($ipn->till_number === config('kcb.tills.school_fees')) {
             $students = $this->studentsByReference($ipn->account_reference);
             return $students->count() === 1
-                ? "credit school fees of {$students->first()->student_number}"
-                : 'finance queue: ' . ($ipn->account_reference === null ? 'no account number entered' : "no single student matches \"{$ipn->account_reference}\"");
+                ? ['credit', "credit school fees of {$students->first()->student_number}"]
+                : ['none', $students->count() > 1 ? 'the account number matches more than one student' : $account];
         }
 
         if ($ipn->till_number === config('kcb.tills.cafeteria')) {
@@ -160,12 +183,12 @@ class KcbIpnRouter
             $student = $admission ? HighSchoolStudent::where('admission_number', $admission)->first() : null;
             $card = $student?->cardAccount;
             if ($card && $card->is_active && !$card->is_blocked) {
-                return "credit card {$card->card_number} of admission {$student->admission_number}, " . CardWallet::walletFor($type) . ' wallet';
+                return ['credit', "credit card {$card->card_number} of admission {$student->admission_number}, " . CardWallet::walletFor($type) . ' wallet'];
             }
-            return 'finance queue: ' . ($ipn->account_reference === null ? 'no account number entered' : "no card or sale matches \"{$ipn->account_reference}\"");
+            return ['none', $account];
         }
 
-        return "finance queue: unknown till {$ipn->till_number}";
+        return ['none', "it was paid to an unknown till ({$ipn->till_number})"];
     }
 
     /**
@@ -462,11 +485,10 @@ class KcbIpnRouter
             return [null, null];
         }
         // Whole reference must be the admission number, so "C123/2026" (a college number) never matches.
-        // At most 5 digits as typed: the till's sale references are zero-padded to 6 ("000931" = sale 931)
-        // and must never be read as admission 931.
-        if (preg_match('/^([TC])?\s*(\d{1,5})$/i', trim($reference), $m)) {
-            $admission = ltrim($m[2], '0');
-            return [$admission !== '' ? $admission : '0', $m[1] !== '' ? strtoupper($m[1]) : null];
+        // Digits are used exactly as typed, never trimmed: the till's sale references are zero-padded
+        // ("000931" = sale 931) and must never be read as admission 931.
+        if (preg_match('/^([TC])?\s*(\d+)$/i', trim($reference), $m)) {
+            return [$m[2], $m[1] !== '' ? strtoupper($m[1]) : null];
         }
         return [null, null];
     }

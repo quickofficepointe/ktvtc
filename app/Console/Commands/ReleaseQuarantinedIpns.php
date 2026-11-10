@@ -30,32 +30,26 @@ class ReleaseQuarantinedIpns extends Command
         }
 
         $this->info('Allowed KCB addresses: ' . (implode(', ', config('kcb.ipn.allowed_ips', [])) ?: '(any)'));
-        $outcomes = [];
-        $kept = 0;
+        $counts = [];
 
         foreach ($rows as $ipn) {
-            $result = $router->releaseQuarantined($ipn, $dry);
-            if (!$result) {
-                $kept++;
-                continue;
-            }
-            $status = $dry ? 'would be routed' : $result->status;
-            $where = $dry ? $router->preview($ipn) : ($result->status_reason ?? '');
-            $outcomes[$status] = ($outcomes[$status] ?? 0) + 1;
+            $r = $router->releaseQuarantined($ipn, $dry);
+            $counts[$r['outcome']] = ($counts[$r['outcome']] ?? 0) + 1;
+            $label = match ($r['outcome']) {
+                'untrusted' => 'still quarantined: not from a trusted KCB address',
+                'held' => 'stays quarantined: ' . $r['detail'],
+                'would release' => $r['detail'],
+                default => $r['outcome'] . ($r['detail'] ? " ({$r['detail']})" : ''),
+            };
             $this->line(sprintf('  #%d  %s  KES %s  %s  -> %s', $ipn->id, $ipn->transaction_id, number_format((float) $ipn->transaction_amount, 2),
-                $ipn->business_key ?? '-', $dry ? $where : "{$status}" . ($where ? " ({$where})" : '')));
+                $ipn->business_key ?? '-', $label));
         }
 
         $this->newLine();
-        foreach ($outcomes as $status => $n) {
-            $this->info("{$n} {$status}");
-        }
-        $this->info("{$kept} still quarantined (they fail the current checks, or were recovered from history)");
-        if ($kept) {
-            $ips = KcbIpn::where('status', KcbIpn::STATUS_QUARANTINED)->selectRaw('source_ip, COUNT(*) n')->groupBy('source_ip')->pluck('n', 'source_ip');
-            foreach ($ips as $ip => $n) {
-                $this->line("  from {$ip}: {$n}");
-            }
+        $names = ['would release' => 'would be released', 'held' => 'stay quarantined (match nothing: finance checks them by hand)',
+                  'untrusted' => 'still quarantined (not from a trusted KCB address)'];
+        foreach ($counts as $outcome => $n) {
+            $this->info("{$n} " . ($names[$outcome] ?? $outcome));
         }
 
         return self::SUCCESS;
