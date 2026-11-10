@@ -93,7 +93,7 @@
                     </h3>
                     <p class="text-yellow-700 mb-4">Complete your application by paying the registration fee of KES 500.</p>
                     <a href="{{ route('application.payment.form', $application->id) }}"
-                       class="inline-block bg-yellow-600 text-white px-6 py-3 rounded-lg hover:bg-yellow-700 transition-colors font-semibold">
+                       class="inline-block bg-yellow-700 text-white px-6 py-3 rounded-lg hover:bg-yellow-800 transition-colors font-semibold">
                         Pay Registration Fee Now
                     </a>
                     <p class="text-sm text-yellow-600 mt-3">Your application will be processed after payment is confirmed.</p>
@@ -192,7 +192,7 @@
                             <p class="text-yellow-700 text-left">You'll receive a confirmation SMS and email within 24 hours</p>
                         </div>
                         <a href="{{ route('application.payment.form', $application->id) }}"
-                           class="mt-4 bg-yellow-600 text-white px-8 py-3 rounded-lg hover:bg-yellow-700 transition-colors font-semibold">
+                           class="mt-4 bg-yellow-700 text-white px-8 py-3 rounded-lg hover:bg-yellow-800 transition-colors font-semibold">
                             Pay Registration Fee Now
                         </a>
                     </div>

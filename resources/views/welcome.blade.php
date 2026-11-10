@@ -366,7 +366,7 @@
                     @if($course->cover_image_url)
                         <img src="{{ $course->cover_image_url }}" alt="{{ $course->name }}" class="w-full h-48 object-cover">
                     @else
-                        <div class="w-full h-48 bg-gradient-to-br from-primary to-red-600 flex items-center justify-center">
+                        <div class="w-full h-48 bg-gradient-to-br from-[#B91C1C] to-red-600 flex items-center justify-center">
                             <svg class="w-16 h-16 text-white opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
                         </div>
                     @endif
@@ -391,7 +391,7 @@
                 @endforeach
             </div>
             <div class="text-center mt-12">
-                <a href="{{ route('course.index') }}" class="bg-primary text-white font-semibold px-8 py-3 rounded-md hover:bg-red-700 transition-colors duration-200 inline-flex items-center">View All Courses <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg></a>
+                <a href="{{ route('course.index') }}" class="bg-[#BF1F30] text-white font-semibold px-8 py-3 rounded-md hover:bg-red-800 transition-colors duration-200 inline-flex items-center">View All Courses <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg></a>
             </div>
             @else
             <div class="text-center py-12"><svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg><h3 class="text-lg font-medium text-gray-900 mb-2">No courses available at the moment</h3><p class="text-gray-600">Please check back later for our course offerings.</p></div>

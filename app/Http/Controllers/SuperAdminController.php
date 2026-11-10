@@ -587,6 +587,10 @@ class SuperAdminController extends Controller
      */
     public function createBackup(Request $request)
     {
+        if (!function_exists('exec')) {
+            return back()->with('error', 'This server does not allow backups from the website. Back up the database from the hosting control panel or with mysqldump over SSH.');
+        }
+
         $filename = 'backup_' . date('Y-m-d_H-i-s') . '.sql';
         Storage::disk('backups')->makeDirectory('');
 
@@ -771,7 +775,8 @@ class SuperAdminController extends Controller
                     'percentage' => 0
                 ];
             } else {
-                $memory = shell_exec("free -m");
+                // Many hosts disable shell_exec; calling it then is a fatal Error, not an Exception
+                $memory = function_exists('shell_exec') ? shell_exec("free -m") : null;
                 if (empty($memory)) {
                     throw new \Exception('Unable to get memory usage');
                 }
@@ -811,7 +816,7 @@ class SuperAdminController extends Controller
     {
         try {
             if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-                $bootTime = shell_exec('systeminfo | find "System Boot Time"');
+                $bootTime = function_exists('shell_exec') ? shell_exec('systeminfo | find "System Boot Time"') : null;
                 if ($bootTime) {
                     $bootTime = trim(str_replace('System Boot Time:', '', $bootTime));
                     $bootTimestamp = strtotime($bootTime);

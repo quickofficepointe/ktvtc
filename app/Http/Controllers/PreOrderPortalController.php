@@ -71,7 +71,12 @@ class PreOrderPortalController extends Controller
             ->with('category');
 
         if ($shopId) {
-            $query->where('shop_id', $shopId);
+            $query->where(function ($q) use ($shopId) {
+                $q->where('shop_id', $shopId);
+                if ((int) $shopId === (int) $this->defaultShop()?->id) {
+                    $q->orWhereNull('shop_id');
+                }
+            });
         }
         if ($categoryId) {
             $query->where('category_id', $categoryId);
@@ -142,8 +147,21 @@ class PreOrderPortalController extends Controller
             return response()->json(['error' => 'Product is not available'], 400);
         }
 
+        $shop = $this->shopFor($product);
+        if (!$shop) {
+            return response()->json(['error' => "{$product->product_name} can't be ordered right now. Contact the cafeteria."], 400);
+        }
 
         $cart = session()->get('preorder_cart', []);
+
+        // An order goes to one counter, so one cart holds one shop's items
+        $cartProduct = $cart ? Product::find(reset($cart)['product_id']) : null;
+        $cartShop = $cartProduct ? $this->shopFor($cartProduct) : null;
+        if ($cartShop && $cartShop->id !== $shop->id) {
+            return response()->json([
+                'error' => "Your cart has items from {$cartShop->shop_name}. Place that order or clear the cart before adding items from {$shop->shop_name}.",
+            ], 400);
+        }
 
         $pid = $product->id;
         if (isset($cart[$pid])) {
@@ -157,7 +175,7 @@ class PreOrderPortalController extends Controller
                 'unit_price' => (float) $product->selling_price,
                 'quantity' => $request->quantity,
                 'image' => $product->image,
-                'shop_id' => $product->shop_id,
+                'shop_id' => $shop->id,
             ];
         }
 
@@ -260,21 +278,24 @@ class PreOrderPortalController extends Controller
             return response()->json(['error' => 'Your cart is empty'], 400);
         }
 
-        // Pick the shop from the first item (all items assumed same shop)
-        $firstItem = reset($cart);
-        $shop = Shop::find($firstItem['shop_id']);
-        if (!$shop) {
-            return response()->json(['error' => 'Shop not available'], 400);
-        }
-
-        // Recalculate the total from fresh product data
+        // Recalculate the total and the shop from fresh product data
         $subtotal = 0;
         $items = [];
+        $shop = null;
         foreach ($cart as $line) {
             $product = Product::find($line['product_id']);
             if (!$product || !$product->is_active) {
                 return response()->json(['error' => "Product {$line['product_name']} is no longer available"], 400);
             }
+
+            $lineShop = $this->shopFor($product);
+            if (!$lineShop) {
+                return response()->json(['error' => "{$product->product_name} can't be ordered right now. Remove it from your cart or contact the cafeteria."], 400);
+            }
+            if ($shop && $shop->id !== $lineShop->id) {
+                return response()->json(['error' => "Your cart has items from {$shop->shop_name} and {$lineShop->shop_name}. Please order from one at a time."], 400);
+            }
+            $shop = $lineShop;
 
             $lineTotal = (float) $product->selling_price * $line['quantity'];
             $subtotal += $lineTotal;
@@ -299,6 +320,20 @@ class PreOrderPortalController extends Controller
 
         // ── STAFF / COLLEGE → M-Pesa STK push ──
         return $this->checkoutViaMpesa($account, $shop, $items, $subtotal, $totalAmount);
+    }
+
+    /** The counter that prepares this product. Products with no shop set belong to the main cafeteria. */
+    protected function shopFor(Product $product): ?Shop
+    {
+        return $product->shop_id
+            ? Shop::where('is_active', true)->find($product->shop_id)
+            : $this->defaultShop();
+    }
+
+    protected function defaultShop(): ?Shop
+    {
+        return Shop::where('is_active', true)->where('shop_name', 'like', '%cafeteria%')->orderBy('id')->first()
+            ?? Shop::where('is_active', true)->orderBy('id')->first();
     }
 
     /**

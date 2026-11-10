@@ -107,6 +107,35 @@ class KcbIpnRouter
     }
 
     /**
+     * Re-check a quarantined IPN against the current source rules (e.g. after KCB's address
+     * was added to KCB_IPN_ALLOWED_IPS). If it now passes it is routed like a new IPN;
+     * otherwise it stays quarantined. Returns null when it was not eligible.
+     */
+    public function releaseQuarantined(KcbIpn $ipn, bool $dryRun = false): ?KcbIpn
+    {
+        if ($ipn->status !== KcbIpn::STATUS_QUARANTINED || $ipn->is_historical || !$ipn->transaction_id || (float) $ipn->transaction_amount <= 0) {
+            return null;
+        }
+        if ($this->sourceProblem($ipn->source_ip, (string) $ipn->signature_status)) {
+            return null;
+        }
+        if ($dryRun) {
+            return $ipn;
+        }
+
+        $locked = DB::transaction(function () use ($ipn) {
+            $row = KcbIpn::whereKey($ipn->id)->lockForUpdate()->first();
+            if (!$row || $row->status !== KcbIpn::STATUS_QUARANTINED) {
+                return null;
+            }
+            $row->forceFill(['status' => KcbIpn::STATUS_RECEIVED, 'status_reason' => null, 'suggestions' => null])->save();
+            return $row;
+        });
+
+        return $locked ? $this->routeSafely($locked) : null;
+    }
+
+    /**
      * The payment is already stored, so a failure while applying it must not leave it
      * stuck as "received" where nobody sees it: it goes to the finance queue instead.
      */
