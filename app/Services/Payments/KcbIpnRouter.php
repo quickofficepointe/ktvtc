@@ -268,6 +268,11 @@ class KcbIpnRouter
             if ($link = $this->findStkOrder($ipn)) {
                 $ipn->route = KcbIpn::ROUTE_STK_LINK;
                 $ipn->markOutcome(KcbIpn::STATUS_LINKED, 'Payment for ' . class_basename($link) . ' #' . $link->id, $link::class, $link->id);
+                // The bank confirms the money arrived: a till sale still waiting for M-Pesa's reply is paid
+                if ($link instanceof KcbBuniTransaction && $link->transaction_type === 'sale_payment') {
+                    $sales = app(\App\Services\KcbSalesService::class);
+                    $sales->confirmSalePaid($sales->saleForPrompt($link), $link->checkout_request_id, $ipn->transaction_id, $ipn->transaction_date, true);
+                }
                 return $ipn;
             }
 

@@ -240,154 +240,153 @@ class KcbSalesService extends KcbService
     }
 
     /**
-     * Handle sales payment callback
+     * The reply from M-Pesa to a payment prompt (cafeteria till sale or pre-order).
+     * A successful reply means the sale is paid; a failed one marks it failed.
      */
     public function handleSalePaymentCallback($callbackData)
     {
         Log::info('=== KCB SALE PAYMENT CALLBACK ===', $callbackData);
 
         $stkCallback = $callbackData['Body']['stkCallback'] ?? null;
-
-        if (!$stkCallback) {
-            Log::error('Invalid KCB Buni callback format for sale', $callbackData);
-            return false;
-        }
-
         $checkoutRequestId = $stkCallback['CheckoutRequestID'] ?? null;
         $resultCode = $stkCallback['ResultCode'] ?? null;
 
         if (!$checkoutRequestId || $resultCode === null) {
-            Log::warning('Missing required callback fields in sale callback', $stkCallback);
+            Log::error('Invalid KCB sale callback', $callbackData);
             return false;
         }
 
-        // Find transaction by checkout_request_id
-        $transaction = KcbBuniTransaction::where('checkout_request_id', $checkoutRequestId)
-            ->with('sale')
-            ->first();
+        $prompt = KcbBuniTransaction::where('checkout_request_id', $checkoutRequestId)->first();
+        $sale = $this->saleForPrompt($prompt, $checkoutRequestId);
 
-        if (!$transaction) {
-            Log::error('Transaction not found for sale callback', ['checkout_request_id' => $checkoutRequestId]);
+        if (!$prompt && !$sale) {
+            Log::error('Sale callback: no prompt or sale for this checkout id', ['checkout_request_id' => $checkoutRequestId]);
             return false;
         }
 
-        // Update transaction status
-        $updateData = [
-            'result_code' => $resultCode,
-            'result_description' => $stkCallback['ResultDesc'] ?? '',
-            'callback_data' => json_encode($callbackData),
-        ];
-
-        DB::beginTransaction();
+        $metadata = [];
+        foreach ($stkCallback['CallbackMetadata']['Item'] ?? [] as $item) {
+            if (isset($item['Name'], $item['Value'])) {
+                $metadata[$item['Name']] = $item['Value'];
+            }
+        }
+        $receipt = $metadata['MpesaReceiptNumber'] ?? null;
+        $paidAt = isset($metadata['TransactionDate']) ? $this->formatTransactionDate($metadata['TransactionDate']) : now();
 
         try {
-            if ($resultCode == 0) {
-                // Payment successful
-                $callbackMetadata = $stkCallback['CallbackMetadata']['Item'] ?? [];
-                $metadata = [];
-
-                foreach ($callbackMetadata as $item) {
-                    if (isset($item['Name']) && isset($item['Value'])) {
-                        $metadata[$item['Name']] = $item['Value'];
-                    }
-                }
-
-                $updateData['status'] = 'completed';
-                $updateData['mpesa_receipt_number'] = $metadata['MpesaReceiptNumber'] ?? null;
-                $updateData['transaction_date'] = isset($metadata['TransactionDate']) ?
-                    $this->formatTransactionDate($metadata['TransactionDate']) : now();
-
-                // Update sale
-                $sale = $transaction->sale;
-                if ($sale) {
-                    $sale->update([
-                        'payment_status' => 'paid',
-                        'mpesa_receipt' => $metadata['MpesaReceiptNumber'] ?? null,
-                        'transaction_id' => $metadata['MpesaReceiptNumber'] ?? null,
-                        'payment_confirmed_at' => now(),
-                        'kcb_response' => json_encode($callbackData),
-                    ]);
-
-                    // Update payment transaction
-                    $paymentTransaction = PaymentTransaction::where('sale_id', $sale->id)
-                        ->where('checkout_request_id', $checkoutRequestId)
-                        ->first();
-
-                    if ($paymentTransaction) {
-                        $paymentTransaction->update([
-                            'status' => 'completed',
-                            'mpesa_receipt' => $metadata['MpesaReceiptNumber'] ?? null,
-                            'transaction_id' => $metadata['MpesaReceiptNumber'] ?? null,
-                            'phone_number' => $metadata['PhoneNumber'] ?? $paymentTransaction->phone_number,
-                            'amount' => isset($metadata['Amount']) ? ($metadata['Amount'] / 100) : $paymentTransaction->amount,
-                            'completed_at' => now(),
-                            'kcb_response' => json_encode($callbackData),
-                        ]);
-                    }
-
-                    // 🔔 SEND SMS NOTIFICATIONS AFTER SUCCESSFUL PAYMENT
-                    $this->sendPaymentSmsNotifications($sale);
-
-                    // Update inventory for non-production items
-                    $this->updateInventoryAfterSale($sale);
-
-                    Log::info('Sale payment completed successfully', [
-                        'sale_id' => $sale->id,
-                        'sale_invoice' => $sale->invoice_number,
-                        'kcb_invoice' => $transaction->invoice_number,
-                        'receipt' => $updateData['mpesa_receipt_number']
-                    ]);
-                }
-
-            } else {
-                // Payment failed
-                $updateData['status'] = 'failed';
-
-                // Update sale
-                $sale = $transaction->sale;
-                if ($sale) {
-                    $sale->update([
-                        'payment_status' => 'failed',
-                        'kcb_response' => json_encode($callbackData),
-                    ]);
-
-                    // Update payment transaction
-                    $paymentTransaction = PaymentTransaction::where('sale_id', $sale->id)
-                        ->where('checkout_request_id', $checkoutRequestId)
-                        ->first();
-
-                    if ($paymentTransaction) {
-                        $paymentTransaction->update([
-                            'status' => 'failed',
-                            'kcb_response' => json_encode($callbackData),
-                        ]);
-                    }
-
-                    // 🔔 OPTIONAL: Send failure SMS to customer
-                    // $this->sendPaymentFailedSms($sale);
-                }
-
-                Log::warning('Sale payment failed', [
-                    'checkout_request_id' => $checkoutRequestId,
+            DB::transaction(function () use ($prompt, $sale, $resultCode, $stkCallback, $callbackData, $receipt, $paidAt, $checkoutRequestId) {
+                $prompt?->update([
                     'result_code' => $resultCode,
-                    'result_description' => $stkCallback['ResultDesc'] ?? 'Unknown error',
-                    'kcb_invoice' => $transaction->invoice_number
+                    'result_description' => $stkCallback['ResultDesc'] ?? '',
+                    'callback_data' => json_encode($callbackData),
+                    'status' => $resultCode == 0 ? 'completed' : 'failed',
+                    'mpesa_receipt_number' => $resultCode == 0 ? $receipt : $prompt->mpesa_receipt_number,
+                    'transaction_date' => $resultCode == 0 ? $paidAt : $prompt->transaction_date,
                 ]);
-            }
 
-            $transaction->update($updateData);
-            DB::commit();
-
-            return true;
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error processing sale payment callback: ' . $e->getMessage(), [
-                'checkout_request_id' => $checkoutRequestId,
-                'exception' => $e
-            ]);
+                if ($resultCode == 0) {
+                    $this->confirmSalePaid($sale, $checkoutRequestId, $receipt, $paidAt, true, json_encode($callbackData));
+                } else {
+                    $this->markSaleFailed($sale, $checkoutRequestId, json_encode($callbackData));
+                }
+            });
+        } catch (\Throwable $e) {
+            Log::error('Error processing sale payment callback: ' . $e->getMessage(), ['checkout_request_id' => $checkoutRequestId]);
             return false;
         }
+
+        return true;
+    }
+
+    /**
+     * The sale a payment prompt was for. The prompt table has no sale_id column, so the
+     * sale is found by the prompt's checkout id, then by the KCB invoice number.
+     */
+    public function saleForPrompt(?KcbBuniTransaction $prompt, ?string $checkoutRequestId = null): ?Sale
+    {
+        $checkoutRequestId ??= $prompt?->checkout_request_id;
+
+        return ($checkoutRequestId ? Sale::where('checkout_request_id', $checkoutRequestId)->first() : null)
+            ?? ($prompt?->invoice_number ? Sale::where('kcb_invoice_number', $prompt->invoice_number)->first() : null);
+    }
+
+    /**
+     * Mark a sale (and its pre-order, if any) paid. Does nothing if it is already paid, so a
+     * repeated reply or a later bank notification never texts or deducts stock twice.
+     *
+     * @param bool $notify text the customer / cafeteria and deduct stock (live payments only)
+     * @return bool true if the sale was changed
+     */
+    public function confirmSalePaid(?Sale $sale, ?string $checkoutRequestId, ?string $receipt, $paidAt = null, bool $notify = true, ?string $response = null): bool
+    {
+        $preOrder = $this->preOrderFor($sale, $checkoutRequestId);
+        $changed = false;
+
+        if ($sale && $sale->payment_status !== 'paid') {
+            $sale->update(array_filter([
+                'payment_status' => 'paid',
+                'order_status' => $sale->sale_type === 'preorder' ? 'confirmed' : null,
+                'mpesa_receipt' => $receipt ?? $sale->mpesa_receipt,
+                'transaction_id' => $receipt ?? $sale->transaction_id,
+                'payment_confirmed_at' => $paidAt ?? now(),
+                'kcb_response' => $response,
+            ], fn ($v) => $v !== null));
+
+            PaymentTransaction::where('sale_id', $sale->id)->when($checkoutRequestId, fn ($q) => $q->where('checkout_request_id', $checkoutRequestId))
+                ->where('status', '!=', 'completed')
+                ->update(['status' => 'completed', 'mpesa_receipt' => $receipt, 'transaction_id' => $receipt, 'completed_at' => now()]);
+            $changed = true;
+
+            if ($notify) {
+                DB::afterCommit(function () use ($sale, $preOrder) {
+                    if (!$preOrder) {
+                        $this->sendPaymentSmsNotifications($sale);
+                    }
+                    $this->updateInventoryAfterSale($sale->fresh(['items.product']));
+                });
+            }
+        }
+
+        if ($preOrder && in_array($preOrder->status, ['pending', 'processing', 'failed'], true)) {
+            $preOrder->update(['status' => 'paid', 'paid_at' => $paidAt ?? now(), 'mpesa_receipt' => $receipt ?? $preOrder->mpesa_receipt]);
+            $changed = true;
+            if ($notify) {
+                DB::afterCommit(function () use ($preOrder) {
+                    try {
+                        $sms = app(\App\Services\PreOrderSmsService::class);
+                        $sms->sendOrderPlacedNotification($preOrder->fresh('items', 'account'));
+                        $sms->sendNewOrderToCafeteria($preOrder->fresh('items', 'account'));
+                    } catch (\Throwable $e) {
+                        Log::warning('Pre-order paid SMS failed', ['pre_order_id' => $preOrder->id, 'error' => $e->getMessage()]);
+                    }
+                });
+            }
+        }
+
+        return $changed;
+    }
+
+    /** A failed or cancelled prompt: the sale (and pre-order) did not get paid. Paid ones are never touched. */
+    public function markSaleFailed(?Sale $sale, ?string $checkoutRequestId, ?string $response = null): bool
+    {
+        $changed = false;
+        if ($sale && $sale->payment_status === 'pending' && (!$checkoutRequestId || $sale->checkout_request_id === $checkoutRequestId)) {
+            $sale->update(array_filter(['payment_status' => 'failed', 'kcb_response' => $response]));
+            PaymentTransaction::where('sale_id', $sale->id)->where('status', 'pending')->update(['status' => 'failed']);
+            $changed = true;
+        }
+        $preOrder = $this->preOrderFor($sale, $checkoutRequestId);
+        if ($preOrder && $preOrder->status === 'processing') {
+            $preOrder->update(['status' => 'failed']);
+            $changed = true;
+        }
+        return $changed;
+    }
+
+    private function preOrderFor(?Sale $sale, ?string $checkoutRequestId): ?\App\Models\PreOrder
+    {
+        return ($checkoutRequestId ? \App\Models\PreOrder::where('checkout_request_id', $checkoutRequestId)->first() : null)
+            ?? ($sale && $sale->sale_type === 'preorder' ? \App\Models\PreOrder::where('kcb_invoice_number', $sale->invoice_number)->first() : null);
     }
 
     /**
@@ -562,9 +561,7 @@ class KcbSalesService extends KcbService
         Log::info('Checking sale payment status', ['checkout_request_id' => $checkoutRequestId]);
 
         try {
-            $transaction = \App\Models\KcbBuniTransaction::where('checkout_request_id', $checkoutRequestId)
-                ->with('sale')
-                ->first();
+            $transaction = \App\Models\KcbBuniTransaction::where('checkout_request_id', $checkoutRequestId)->first();
 
             if (!$transaction) {
                 return [
@@ -582,6 +579,8 @@ class KcbSalesService extends KcbService
                 'updated_at' => $transaction->updated_at
             ]);
 
+            $sale = $this->saleForPrompt($transaction);
+
             // Return in the exact format frontend expects
             $response = [
                 'status' => $transaction->status, // 'completed', 'failed', 'initiated'
@@ -589,9 +588,9 @@ class KcbSalesService extends KcbService
                 'result_description' => $transaction->result_description,
                 'mpesa_receipt_number' => $transaction->mpesa_receipt_number,
                 'kcb_invoice_number' => $transaction->invoice_number,
-                'sale_status' => $transaction->sale ? $transaction->sale->payment_status : null,
-                'sale_id' => $transaction->sale ? $transaction->sale->id : null,
-                'sale_invoice' => $transaction->sale ? $transaction->sale->invoice_number : null,
+                'sale_status' => $sale?->payment_status,
+                'sale_id' => $sale?->id,
+                'sale_invoice' => $sale?->invoice_number,
                 'message' => $this->getStatusMessage($transaction->status, $transaction->result_description)
             ];
 
