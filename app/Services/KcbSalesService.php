@@ -342,7 +342,7 @@ class KcbSalesService extends KcbService
                     if (!$preOrder) {
                         $this->sendPaymentSmsNotifications($sale);
                     }
-                    $this->updateInventoryAfterSale($sale->fresh(['items.product']));
+                    $this->takeStockForSale($sale->fresh());
                 });
             }
         }
@@ -373,6 +373,7 @@ class KcbSalesService extends KcbService
         if ($sale && $sale->payment_status === 'pending' && (!$checkoutRequestId || $sale->checkout_request_id === $checkoutRequestId)) {
             $sale->update(array_filter(['payment_status' => 'failed', 'kcb_response' => $response]));
             PaymentTransaction::where('sale_id', $sale->id)->where('status', 'pending')->update(['status' => 'failed']);
+            $this->restoreStockForUnpaidSale($sale, 'M-Pesa prompt not completed');
             $changed = true;
         }
         $preOrder = $this->preOrderFor($sale, $checkoutRequestId);
@@ -630,51 +631,91 @@ class KcbSalesService extends KcbService
     }
 
     /**
-     * Update inventory after successful sale
+     * Stock for a till sale comes off once, when it is paid. Older sales took stock when the
+     * M-Pesa prompt was sent ("Sale: <invoice>"); those count as already taken unless the stock
+     * was given back because the sale went unpaid.
      */
-    private function updateInventoryAfterSale(Sale $sale)
+    public function stockTakenFor(Sale $sale): bool
     {
+        $taken = (float) \App\Models\InventoryMovement::where('movement_type', 'sale')
+            ->where(fn ($q) => $q->where(fn ($w) => $w->where('reference_type', 'sale')->where('reference_id', $sale->id))
+                ->orWhere('reason', 'Sale: ' . $sale->invoice_number))
+            ->sum('quantity');
+        $givenBack = (float) \App\Models\InventoryMovement::where('movement_type', 'return_in')
+            ->whereIn('reason', ['Unpaid sale: ' . $sale->invoice_number, 'Sale cancelled: ' . $sale->invoice_number])
+            ->sum('quantity');
+
+        return $taken > $givenBack;
+    }
+
+    /** Take a paid sale's items off stock (once). */
+    public function takeStockForSale(Sale $sale): void
+    {
+        if ($sale->sale_type === 'preorder' || $this->stockTakenFor($sale)) {
+            return; // pre-orders come off stock when collected
+        }
+
         try {
-            foreach ($sale->items as $item) {
+            foreach ($sale->items()->with('product')->get() as $item) {
                 $product = $item->product;
-
-                // Only deduct inventory for trackable items (gift shop, not cafeteria food)
-                if ($product && $product->track_inventory && !$item->is_production_item && $sale->sale_type !== 'preorder') {
-                    // Create inventory movement
-                    \App\Models\InventoryMovement::create([
-                        'movement_number' => 'SALE-' . $sale->invoice_number . '-' . $item->id, // unique per line
-                        'product_id' => $product->id,
-                        'shop_id' => $sale->shop_id,
-                        'movement_type' => 'sale',
-                        'quantity' => $item->quantity,
-                        'unit' => $product->unit,
-                        'unit_cost' => $product->cost_price,
-                        'total_cost' => $product->cost_price * $item->quantity,
-                        'previous_stock' => $product->current_stock,
-                        'new_stock' => $product->current_stock - $item->quantity,
-                        'reference_number' => $sale->invoice_number,
-                        'reference_type' => 'sale',
-                        'reference_id' => $sale->id,
-                        'recorded_by' => $sale->cashier_id ?? $sale->created_by,
-                        'notes' => 'Auto-deducted from sale #' . $sale->invoice_number,
-                    ]);
-
-                    // Update product stock
-                    $product->decrement('current_stock', $item->quantity);
-
-                    Log::info('Inventory updated for sale item', [
-                        'product_id' => $product->id,
-                        'product_name' => $product->product_name,
-                        'quantity_sold' => $item->quantity,
-                        'new_stock' => $product->current_stock - $item->quantity
-                    ]);
+                if (!$product || !$product->track_inventory || $item->is_production_item) {
+                    continue;
                 }
+                \App\Models\InventoryMovement::create([
+                    'movement_number' => 'SALE-' . $sale->invoice_number . '-' . $item->id, // unique per line
+                    'product_id' => $product->id,
+                    'shop_id' => $sale->shop_id,
+                    'movement_type' => 'sale',
+                    'quantity' => $item->quantity,
+                    'unit' => $product->unit ?? 'piece',
+                    'unit_cost' => $product->cost_price,
+                    'total_cost' => $product->cost_price * $item->quantity,
+                    'previous_stock' => $product->current_stock,
+                    'new_stock' => $product->current_stock - $item->quantity,
+                    'reference_number' => $sale->invoice_number,
+                    'reference_type' => 'sale',
+                    'reference_id' => $sale->id,
+                    'recorded_by' => $sale->cashier_id ?? $sale->created_by ?? 1,
+                    'notes' => 'Paid sale #' . $sale->invoice_number,
+                ]);
+                $product->decrement('current_stock', $item->quantity);
             }
         } catch (\Exception $e) {
-            Log::error('Error updating inventory after sale: ' . $e->getMessage(), [
-                'sale_id' => $sale->id
-            ]);
+            // A stock problem must never stop a payment being recorded
+            Log::error('Error taking stock for sale: ' . $e->getMessage(), ['sale_id' => $sale->id]);
         }
+    }
+
+    /**
+     * Give back stock a sale took although it was never paid (prompt failed, cancelled, abandoned).
+     *
+     * @return int number of stock lines returned
+     */
+    public function restoreStockForUnpaidSale(Sale $sale, string $why = 'not paid'): int
+    {
+        if ($sale->payment_status === 'paid' || !$this->stockTakenFor($sale)) {
+            return 0;
+        }
+
+        // What this sale took and has not had back yet (by product)
+        $taken = \App\Models\InventoryMovement::where('movement_type', 'sale')
+            ->where(fn ($q) => $q->where(fn ($w) => $w->where('reference_type', 'sale')->where('reference_id', $sale->id))
+                ->orWhere('reason', 'Sale: ' . $sale->invoice_number))
+            ->selectRaw('product_id, SUM(quantity) qty')->groupBy('product_id')->pluck('qty', 'product_id');
+        $back = \App\Models\InventoryMovement::where('movement_type', 'return_in')
+            ->whereIn('reason', ['Unpaid sale: ' . $sale->invoice_number, 'Sale cancelled: ' . $sale->invoice_number])
+            ->selectRaw('product_id, SUM(quantity) qty')->groupBy('product_id')->pluck('qty', 'product_id');
+        $taken = $taken->map(fn ($q, $pid) => (object) ['product_id' => $pid, 'qty' => (float) $q - (float) ($back[$pid] ?? 0)])
+            ->filter(fn ($l) => $l->qty > 0);
+
+        $stock = app(\App\Services\StockService::class);
+        $n = 0;
+        foreach ($taken as $line) {
+            $result = $stock->updateStock($line->product_id, $sale->shop_id, (float) $line->qty, 'return_in',
+                'Unpaid sale: ' . $sale->invoice_number, 'Stock given back: sale ' . $why, auth()->id() ?? $sale->cashier_id ?? $sale->created_by);
+            $n += ($result['success'] ?? false) ? 1 : 0;
+        }
+        return $n;
     }
 
     /**

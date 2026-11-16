@@ -764,7 +764,7 @@ class SaleController extends Controller
                 'business_section_id' => $businessSectionId,
                 'shop_id' => $shopId,
                 'sale_type' => 'pos',
-                'channel' => 'gift_shop',
+                'channel' => in_array($request->input('channel'), ['cafeteria', 'gift_shop', 'student_store'], true) ? $request->input('channel') : 'cafeteria',
                 'customer_name' => $request->customer_name ?? 'Walk-in Customer',
                 'customer_phone' => $cleanPhone,
                 'customer_type' => 'visitor',
@@ -792,27 +792,17 @@ class SaleController extends Controller
             foreach ($itemsData as $itemData) {
                 $sale->items()->create($itemData);
 
+                // Stock comes off when the customer pays (KcbSalesService::takeStockForSale), not now:
+                // an unpaid prompt must not reduce stock. Just make sure there is enough.
                 if (!$itemData['is_production_item']) {
                     $product = Product::find($itemData['product_id']);
-                    if ($product && $product->track_inventory) {
-                        $result = $stockService->updateStock(
-                            $product->id,
-                            $shopId,
-                            $itemData['quantity'],
-                            'sale',
-                            'Sale: ' . $sale->invoice_number,
-                            'POS Sale',
-                            $user->id
-                        );
-
-                        if (!$result['success']) {
-                            throw new \Exception("Failed to update stock for {$product->product_name}: " . $result['message']);
-                        }
+                    if ($product && $product->track_inventory && (float) $product->current_stock < (float) $itemData['quantity']) {
+                        throw new \Exception("Only {$product->current_stock} {$product->product_name} left in stock.");
                     }
                 }
             }
 
-            Log::info('Sale items created and inventory updated', ['items_count' => count($itemsData)]);
+            Log::info('Sale items created (stock is taken when paid)', ['items_count' => count($itemsData)]);
 
             $kcbSalesService = app(KcbSalesService::class);
             $paymentResult = $kcbSalesService->initiateSalePayment($sale, $cleanPhone, $totalAmount);
@@ -992,8 +982,9 @@ class SaleController extends Controller
         try {
             $sale = Sale::findOrFail($saleId);
 
-            if ($sale->payment_status !== 'pending') {
-                throw new \Exception('Sale is not in pending status');
+            // Also after a failed prompt, e.g. the customer then paid cash
+            if (!in_array($sale->payment_status, ['pending', 'failed'], true)) {
+                throw new \Exception('Only a pending or failed sale can be marked paid');
             }
 
             $sale->update([
@@ -1016,6 +1007,8 @@ class SaleController extends Controller
                 'recorded_by' => auth()->id(),
                 'notes' => 'Manually marked as paid',
             ]);
+
+            app(KcbSalesService::class)->takeStockForSale($sale->fresh());
 
             DB::commit();
 
@@ -1060,21 +1053,8 @@ class SaleController extends Controller
                 'cancelled_by' => auth()->id(),
             ]);
 
-            foreach ($sale->items as $item) {
-                $product = $item->product;
-                if ($product && $product->track_inventory && !$item->is_production_item) {
-                    $stockService = app(StockService::class);
-                    $stockService->updateStock(
-                        $product->id,
-                        $sale->shop_id,
-                        $item->quantity,
-                        'return_in',
-                        'Sale cancelled: ' . $sale->invoice_number,
-                        'Restored from cancelled sale',
-                        auth()->id()
-                    );
-                }
-            }
+            // Give back stock only if this sale took any (prompts no longer take stock before payment)
+            app(KcbSalesService::class)->restoreStockForUnpaidSale($sale->fresh(), 'cancelled');
 
             DB::commit();
 

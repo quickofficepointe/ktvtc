@@ -1448,69 +1448,45 @@ class FinanceController extends Controller
     /**
      * Revenue Report
      */
-    public function revenueReport(Request $request)
+    public function revenueReport(Request $request, \App\Services\Dashboards\RevenueReport $report)
     {
-        $startDate = $request->get('start_date', now()->startOfMonth()->format('Y-m-d'));
-        $endDate = $request->get('end_date', now()->format('Y-m-d'));
+        $from = rescue(fn () => \Carbon\Carbon::parse($request->get('start_date')), now()->startOfMonth(), false);
+        $to = rescue(fn () => \Carbon\Carbon::parse($request->get('end_date')), now(), false);
+        if (!$request->filled('start_date')) {
+            $from = now()->startOfMonth();
+        }
+        if (!$request->filled('end_date')) {
+            $to = now();
+        }
+        if ($from->gt($to)) {
+            [$from, $to] = [$to, $from];
+        }
+        if ($from->diffInDays($to) > 366) {
+            $from = $to->copy()->subDays(366);
+        }
 
-        // Daily revenue breakdown - All sources
-        $dailyRevenue = FeePayment::select(
-                DB::raw('DATE(payment_date) as date'),
-                DB::raw('SUM(amount) as total'),
-                DB::raw('COUNT(*) as transactions'),
-                DB::raw("'school_fees' as source")
-            )
-            ->whereBetween('payment_date', [$startDate, $endDate])
-            ->where('status', 'completed')
-            ->groupBy('date')
+        $data = $report->build($from->copy()->startOfDay(), $to->copy()->startOfDay());
 
-            ->union(
-                PaymentTransaction::select(
-                    DB::raw('DATE(created_at) as date'),
-                    DB::raw('SUM(amount) as total'),
-                    DB::raw('COUNT(*) as transactions'),
-                    DB::raw("'cafeteria' as source")
-                )
-                ->whereBetween('created_at', [$startDate, $endDate])
-                ->where('status', 'completed')
-                ->whereHas('sale', function($q) {
-                    $q->where('sale_type', 'pos')
-                      ->orWhere('channel', 'cafeteria');
-                })
-                ->groupBy('date')
-            )
+        if ($request->get('export') === 'csv') {
+            $rows = [['Date', ...$data['money']->pluck('label'), 'Money received', ...$data['cafeteria']->pluck('label'), 'Cafeteria sales']];
+            foreach ($data['days'] as $d) {
+                $rows[] = [$d, ...$data['money']->map(fn ($s) => $s['days'][$d])->values(), $data['daily']->firstWhere('date', $d)['money'],
+                    ...$data['cafeteria']->map(fn ($s) => $s['days'][$d])->values(), $data['daily']->firstWhere('date', $d)['cafeteria']];
+            }
+            $rows[] = ['Total', ...$data['money']->pluck('total'), $data['moneyTotal'], ...$data['cafeteria']->pluck('total'), $data['cafeteriaTotal']];
+            $csv = collect($rows)->map(fn ($r) => collect($r)->map(fn ($v) => '"' . str_replace('"', '""', (string) $v) . '"')->implode(','))->implode("
+");
 
-            ->union(
-                EventApplication::select(
-                    DB::raw('DATE(created_at) as date'),
-                    DB::raw('SUM(total_amount) as total'),
-                    DB::raw('COUNT(*) as transactions'),
-                    DB::raw("'events' as source")
-                )
-                ->whereBetween('created_at', [$startDate, $endDate])
-                ->where('application_status', 'confirmed')
-                ->where('total_amount', '>', 0)
-                ->groupBy('date')
-            )
-            ->orderBy('date')
-            ->get();
+            return response($csv, 200, [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => 'attachment; filename="revenue-' . $from->toDateString() . '-to-' . $to->toDateString() . '.csv"',
+            ]);
+        }
 
-        // Revenue by payment method
-        $methodRevenue = FeePayment::whereBetween('payment_date', [$startDate, $endDate])
-            ->where('status', 'completed')
-            ->select('payment_method', DB::raw('SUM(amount) as total'), DB::raw('COUNT(*) as count'))
-            ->groupBy('payment_method')
-            ->get();
-
-        $totalRevenue = $dailyRevenue->sum('total');
-
-        return view('ktvtc.finance.reports.revenue', compact(
-            'startDate',
-            'endDate',
-            'dailyRevenue',
-            'methodRevenue',
-            'totalRevenue'
-        ));
+        return view('ktvtc.finance.reports.revenue', $data + [
+            'startDate' => $from->toDateString(),
+            'endDate' => $to->toDateString(),
+        ]);
     }
 
     /**
