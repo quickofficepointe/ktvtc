@@ -460,8 +460,15 @@
                 <p class="px-3 text-xs font-semibold text-white/70 uppercase tracking-wider">Reports</p>
             </li>
             <li>
+                <a href="{{ route('cafeteria.reports.cafeteria') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('cafeteria.reports.cafeteria*') ? 'active' : '' }}">
+                    <i class="fas fa-file-invoice-dollar w-5 mr-3 text-center"></i>
+                    <span>Sales &amp; Stock Report</span>
+                </a>
+            </li>
+            <li>
                 <a href="{{ route('cafeteria.reports.dashboard') }}"
-                   class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('cafeteria.reports.*') ? 'active' : '' }}">
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('cafeteria.reports.*') && !request()->routeIs('cafeteria.reports.cafeteria*') ? 'active' : '' }}">
                     <i class="fas fa-chart-pie w-5 mr-3 text-center"></i>
                     <span>Reports</span>
                 </a>

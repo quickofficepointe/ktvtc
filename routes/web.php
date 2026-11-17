@@ -1062,6 +1062,8 @@ Route::middleware(['auth', 'verified', 'role.cafeteria'])
         Route::get('/export/all', [ReportController::class, 'exportAllReports'])->name('export.all');
         Route::get('/export/{type}', [ReportController::class, 'exportReport'])->name('export');
         Route::get('/dashboard', [ReportController::class, 'dashboard'])->name('dashboard');
+        Route::get('/cafeteria', [\App\Http\Controllers\Reports\CafeteriaReportController::class, 'show'])->name('cafeteria');
+        Route::get('/cafeteria/pdf', [\App\Http\Controllers\Reports\CafeteriaReportController::class, 'pdf'])->name('cafeteria.pdf');
         Route::get('/quick-stats', [ReportController::class, 'quickStats'])->name('quick-stats');
         Route::post('/schedule', [ReportController::class, 'scheduleReport'])->name('schedule');
     });
@@ -1175,6 +1177,8 @@ Route::middleware(['auth', 'verified', 'role.finance'])
     Route::prefix('reports')->name('reports.')->group(function () {
         Route::get('/profit-loss', [FinanceController::class, 'profitLossReport'])->name('profit-loss');
         Route::get('/revenue', [FinanceController::class, 'revenueReport'])->name('revenue');
+        Route::get('/cafeteria', [\App\Http\Controllers\Reports\CafeteriaReportController::class, 'show'])->name('cafeteria');
+        Route::get('/cafeteria/pdf', [\App\Http\Controllers\Reports\CafeteriaReportController::class, 'pdf'])->name('cafeteria.pdf');
         Route::get('/expenses', [FinanceController::class, 'expensesReport'])->name('expenses');
         Route::get('/balance-sheet', [FinanceController::class, 'balanceSheet'])->name('balance-sheet');
         Route::get('/cashflow', [FinanceController::class, 'cashflowReport'])->name('cashflow');

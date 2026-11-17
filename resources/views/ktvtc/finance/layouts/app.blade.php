@@ -496,6 +496,13 @@
                 </a>
             </li>
             <li>
+                <a href="{{ route('finance.reports.cafeteria') }}"
+                   class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.reports.cafeteria*') ? 'active' : '' }}">
+                    <i class="fas fa-utensils w-5 mr-3 text-center"></i>
+                    <span>Cafeteria Report</span>
+                </a>
+            </li>
+            <li>
                 <a href="{{ route('finance.reports.expenses') }}"
                    class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.reports.expenses') ? 'active' : '' }}">
                     <i class="fas fa-shopping-cart w-5 mr-3 text-center"></i>
