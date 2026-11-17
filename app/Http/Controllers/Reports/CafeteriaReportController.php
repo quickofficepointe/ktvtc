@@ -39,6 +39,7 @@ class CafeteriaReportController extends Controller
     {
         [$from, $to] = $this->period($request);
         $part = array_key_exists($request->query('part'), self::PARTS) ? $request->query('part') : 'full';
+        @ini_set('memory_limit', '512M'); // long tables in dompdf need more than the default
         $data = $report->build($from, $to);
 
         $title = self::PARTS[$part];

@@ -67,6 +67,7 @@ class FeesReportController extends Controller
 
     private function render(string $view, array $data, Request $request, string $file)
     {
+        @ini_set('memory_limit', '512M'); // long tables in dompdf need more than the default
         $pdf = Pdf::loadView($view, $data + ['generatedBy' => $request->user()?->name, 'generatedAt' => now()])->setPaper('a4', 'portrait');
         $pdf->render();
         $canvas = $pdf->getDomPDF()->getCanvas();
