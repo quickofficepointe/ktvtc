@@ -15,14 +15,13 @@ class SmsService
     private $baseUrl;
     private $senderId;
 
-    // Admin phone numbers
-    private $adminPhones = [
-        '0708112014',
-        '0792248340'
-    ];
+    // Cafeteria order alerts (config/sms_alerts.php)
+    private $adminPhones = [];
 
     public function __construct()
     {
+        $this->adminPhones = $this->phonesFor('cafeteria');
+
         $this->apiKey = config('services.sms.api_key', env('SMS_API_KEY', '95fdeea310e7d411d62f3913fbc7be83'));
         $this->partnerID = config('services.sms.partner_id', env('SMS_PARTNER_ID', '12632'));
         $this->baseUrl = config('services.sms.base_url', env('SMS_BASE_URL', 'https://quicksms.advantasms.com/api/services'));
@@ -825,8 +824,24 @@ class SmsService
     /**
      * Get admin phone numbers
      */
+    /** Staff phones for a department's alerts: cafeteria, fees, applications or admin. */
+    public function phonesFor(string $group): array
+    {
+        return (array) config('sms_alerts.' . $group, []);
+    }
+
+    /** Send one alert to every phone of a department. */
+    public function alert(string $group, string $message): int
+    {
+        $sent = 0;
+        foreach ($this->phonesFor($group) as $phone) {
+            $sent += ($this->sendSingleSms($phone, $message)['success'] ?? false) ? 1 : 0;
+        }
+        return $sent;
+    }
+
     public function getAdminPhones()
     {
-        return $this->adminPhones;
+        return $this->phonesFor('admin');
     }
 }

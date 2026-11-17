@@ -50,7 +50,7 @@ class KcbIpnRouter
         if ($data->transactionId && $existing = KcbIpn::where('transaction_id', $data->transactionId)->first()) {
             // A KCB retry of a payment whose routing failed last time: try again
             return $existing->status === KcbIpn::STATUS_RECEIVED && !$existing->is_historical
-                ? $this->routeSafely($existing)
+                ? $this->alertStaff($this->routeSafely($existing))
                 : $existing;
         }
 
@@ -97,14 +97,57 @@ class KcbIpnRouter
             $ipn->suggestions = $this->suggestionsFor($ipn);
             $ipn->markOutcome(KcbIpn::STATUS_QUARANTINED, $problem);
             Log::warning('KCB IPN quarantined', ['ipn_id' => $ipn->id, 'reason' => $problem]);
-            return $ipn;
+            return $this->alertStaff($ipn);
         }
 
         if ($historical) {
             return $this->routeHistorical($ipn);
         }
 
-        return $this->routeSafely($ipn);
+        return $this->alertStaff($this->routeSafely($ipn));
+    }
+
+    /**
+     * SMS the fees office (config sms_alerts.fees) straight away when a school fee payment arrives,
+     * and whenever a payment on either till could not be matched and needs assigning by hand.
+     * An SMS problem never affects the payment itself.
+     */
+    private function alertStaff(KcbIpn $ipn): KcbIpn
+    {
+        rescue(function () use ($ipn) {
+            if ($ipn->is_historical) {
+                return;
+            }
+            $fees = $ipn->till_number === config('kcb.tills.school_fees');
+            $unmatched = in_array($ipn->status, [KcbIpn::STATUS_UNALLOCATED, KcbIpn::STATUS_QUARANTINED], true);
+            $feesPaid = $fees && $ipn->status === KcbIpn::STATUS_CREDITED;
+            if (!$unmatched && !$feesPaid) {
+                return;
+            }
+
+            $payer = trim(preg_replace('/\s+/', ' ', "{$ipn->first_name} {$ipn->middle_name} {$ipn->last_name}")) ?: 'Unknown';
+            $phone = $ipn->debit_msisdn && preg_match('/^\+?\d{9,13}$/', $ipn->debit_msisdn) ? " ({$ipn->debit_msisdn})" : '';
+            $till = $fees ? 'School fees' : ($ipn->till_number === config('kcb.tills.cafeteria') ? 'Cafeteria' : 'Till ' . $ipn->till_number);
+            $lines = [
+                $feesPaid ? 'KTVTC FEES RECEIVED' : 'KTVTC PAYMENT NOT MATCHED',
+                $till . ': KES ' . number_format((float) $ipn->transaction_amount, 2),
+                'From: ' . $payer . $phone,
+                'Receipt: ' . $ipn->transaction_id,
+                'Account typed: ' . ($ipn->account_reference !== null && $ipn->account_reference !== '' ? $ipn->account_reference : '(none)'),
+            ];
+            if ($feesPaid) {
+                $student = $ipn->matched_record_type === FeePayment::class ? FeePayment::with('student')->find($ipn->matched_record_id)?->student : null;
+                $lines[] = 'Credited to: ' . ($student ? trim($student->student_number . ' ' . $student->full_name) : $ipn->status_reason);
+            } else {
+                $lines[] = 'Why: ' . Str::limit((string) $ipn->status_reason, 90);
+                $lines[] = 'Assign it in Finance > Unallocated payments.';
+            }
+            $lines[] = optional($ipn->transaction_date)->format('d/m/Y H:i') ?? now()->format('d/m/Y H:i');
+
+            app(\App\Services\SmsService::class)->alert('fees', implode(PHP_EOL, $lines));
+        }, null, false);
+
+        return $ipn;
     }
 
     /**

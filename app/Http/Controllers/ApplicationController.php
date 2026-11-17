@@ -241,7 +241,7 @@ class ApplicationController extends Controller
             $message = $this->generateAdminApplicationNotificationMessage($application, $course, $campusName);
 
             // Send to all admin phones
-            $adminPhones = $this->smsService->getAdminPhones();
+            $adminPhones = $this->smsService->phonesFor('applications');
             $results = [];
 
             foreach ($adminPhones as $adminPhone) {

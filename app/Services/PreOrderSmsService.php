@@ -170,7 +170,7 @@ class PreOrderSmsService
                  . "Open the cafeteria portal to accept.";
 
         $results = [];
-        foreach ($this->sms->getAdminPhones() as $adminPhone) {
+        foreach ($this->sms->phonesFor('cafeteria') as $adminPhone) {
             $results[$adminPhone] = $this->sms->sendSingleSms($adminPhone, $message);
         }
 

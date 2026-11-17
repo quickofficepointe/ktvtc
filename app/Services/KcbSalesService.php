@@ -410,9 +410,7 @@ class KcbSalesService extends KcbService
 
                     // Send admin notification
                     $adminSms = $this->generateCafeteriaAdminSms($sale);
-                    foreach ($smsService->getAdminPhones() as $adminPhone) {
-                        $smsService->sendSingleSms($adminPhone, $adminSms);
-                    }
+                    $smsService->alert('cafeteria', $adminSms);
                     break;
 
                 case 'fee_payment':
@@ -422,9 +420,7 @@ class KcbSalesService extends KcbService
 
                     // Send accounts/admin notification
                     $accountsSms = $this->generateFeeAdminSms($sale);
-                    foreach ($smsService->getAdminPhones() as $adminPhone) {
-                        $smsService->sendSingleSms($adminPhone, $accountsSms);
-                    }
+                    $smsService->alert('fees', $accountsSms);
                     break;
 
                 case 'event_payment':

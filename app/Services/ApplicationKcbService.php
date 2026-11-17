@@ -235,9 +235,7 @@ class ApplicationKcbService
             $adminMessage .= "Intake: {$application->intake_period}\n";
             $adminMessage .= "Time: " . now()->format('d/m/Y H:i');
 
-            foreach ($this->smsService->getAdminPhones() as $adminPhone) {
-                $this->smsService->sendSingleSms($adminPhone, $adminMessage);
-            }
+            $this->smsService->alert('applications', $adminMessage);
 
         } catch (\Exception $e) {
             Log::error('Failed to send payment success SMS: ' . $e->getMessage(), [
