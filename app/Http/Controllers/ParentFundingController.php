@@ -70,22 +70,50 @@ class ParentFundingController extends Controller
         // Get pending funding requests
         $pendingFunding = CardFundingRequest::where('card_account_id', $card->id)
             ->whereIn('status', ['pending', 'processing'])
+            ->where('created_at', '>=', now()->subMinutes(30)) // older prompts have long expired
             ->orderBy('created_at', 'desc')
             ->first();
 
         // Splits an old combined balance into transport/canteen before showing it
         app(CardWallet::class)->balanceOf($card, CardWallet::CANTEEN);
+        $card->refresh();
         $feeTiers = WithdrawalFeeTier::orderBy('min_amount')->get(['min_amount', 'max_amount', 'fee']);
+
+        // Recent activity in plain words, with the change it made to the wallet
+        $labels = [
+            'funding' => 'Top-up', 'purchase' => 'Bought at the canteen', 'disbursement' => 'Fare given',
+            'transfer' => 'Moved between wallets', 'adjustment' => 'Adjustment by the school', 'reversal' => 'Correction', 'refund' => 'Refund',
+        ];
+        $activity = $recentTransactions->map(function ($t) use ($labels) {
+            $delta = round((float) $t->balance_after - (float) $t->balance_before, 2);
+            $meta = is_array($t->metadata) ? $t->metadata : (json_decode($t->metadata ?? '', true) ?: []);
+            $items = collect($meta['items'] ?? [])->map(fn ($i) => ($i['product_name'] ?? 'Item') . ' ×' . (float) ($i['quantity'] ?? 1))->implode(', ');
+            return [
+                'label' => $labels[$t->transaction_type] ?? ucfirst($t->transaction_type),
+                'wallet' => $t->wallet === CardWallet::TRANSPORT ? 'Transport' : 'Canteen',
+                'detail' => $items ?: null,
+                'at' => $t->created_at,
+                'delta' => $delta != 0.0 ? $delta : ($t->transaction_type === 'funding' ? (float) $t->amount : -abs((float) $t->amount)),
+            ];
+        });
+
+        $lowAt = (float) $card->low_balance_threshold > 0 ? (float) $card->low_balance_threshold : 50;
+        $wallet = request('wallet') === 'transport' ? 'transport' : (request('wallet') === 'canteen' ? 'canteen'
+            : ((float) $card->transport_balance < (float) $card->canteen_balance ? 'transport' : 'canteen'));
 
         return view('parent.funding-portal', compact(
             'feeTiers',
             'student',
             'card',
-            'recentTransactions',
-            'totalFunded',
-            'totalSpent',
-            'pendingFunding'
-        ));
+            'activity',
+            'pendingFunding',
+            'lowAt',
+            'wallet'
+        ) + [
+            'helpPhone' => config('kcb.finance_phone'),
+            'till' => config('kcb.tills.cafeteria', '8118445'),
+            'paybill' => config('kcb.paybill', '522533'),
+        ]);
     }
 
     /**

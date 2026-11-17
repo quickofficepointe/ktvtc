@@ -2,664 +2,283 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fund {{ $student->full_name }}'s Card - Kenswed Senior School</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#991b1b">
+    <title>Top up {{ $student->full_name }}'s card · Kenswed Senior School</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        * { font-family: 'Inter', sans-serif; }
-        
-        .loading-spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
-        }
+        html, body { font-family: Inter, system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { overflow-x: hidden; }
+        .wallet[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--ring), 0 10px 25px -10px rgba(0,0,0,.25); }
+        .wallet[aria-pressed="true"] .tick { opacity: 1; }
+        .chip[aria-pressed="true"] { background: var(--accent); color: #fff; box-shadow: none; }
+        .spinner { width: 22px; height: 22px; border: 3px solid rgba(255,255,255,.35); border-top-color: #fff; border-radius: 50%; animation: spin .9s linear infinite; display: inline-block; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        
-        .balance-card {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-        .balance-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-        }
-        
-        .fund-btn {
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-        .fund-btn:hover:not(:disabled) { transform: scale(1.02); }
-        .fund-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-        
-        .toast {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 9999;
-            max-width: 450px;
-            animation: slideInRight 0.5s ease;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-        }
-        @keyframes slideInRight {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        .toast.hide {
-            animation: slideOutRight 0.5s ease forwards;
-        }
-        @keyframes slideOutRight {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
-        }
-        
-        .status-pending {
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.6; }
-            100% { opacity: 1; }
-        }
-        
-        .amount-btn {
-            transition: all 0.2s ease;
-            cursor: pointer;
-        }
-        .amount-btn:active { transform: scale(0.95); }
-        .amount-btn.selected { background: #3B82F6 !important; color: white !important; }
-        .amount-btn.green.selected { background: #16A34A !important; color: white !important; }
-        
-        .transaction-row:hover { background-color: #f9fafb; }
-        
-        @media (max-width: 640px) {
-            .container { padding-left: 12px; padding-right: 12px; }
-            .balance-card { padding: 16px !important; }
-            .balance-card h2 { font-size: 1.5rem !important; }
-        }
+        @keyframes ring { 0%,100% { transform: rotate(0); } 20% { transform: rotate(-12deg); } 40% { transform: rotate(12deg); } 60% { transform: rotate(-6deg); } }
+        .ringing { animation: ring 1.6s ease-in-out infinite; transform-origin: 50% 80%; }
+        input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     </style>
     @include('partials.image-fallback')
 </head>
-<body class="bg-gray-100 min-h-screen">
+@php
+    $tBal = (float) $card->transport_balance;
+    $cBal = (float) $card->canteen_balance;
+    $fmt = fn ($v) => number_format((float) $v, fmod((float) $v, 1.0) == 0.0 ? 0 : 2);
+@endphp
+<body class="bg-stone-100 min-h-screen text-stone-900">
+<div class="max-w-md mx-auto min-h-screen bg-stone-50 sm:shadow-xl pb-10" style="--accent: #2563eb; --ring: #2563eb;" id="app">
 
-    {{-- Toast Notification --}}
-    <div id="toast" class="toast hidden">
-        <div id="toast-content" class="bg-white rounded-lg shadow-lg p-4 border-l-4">
-            <div class="flex items-center">
-                <div id="toast-icon" class="flex-shrink-0">
-                    <i class="fas fa-check-circle text-green-500 text-xl"></i>
+    {{-- Header --}}
+    <header class="bg-gradient-to-br from-red-700 to-red-900 text-white px-5 pt-6 pb-16 rounded-b-[28px]">
+        <div class="flex items-center gap-2.5">
+            <img src="{{ asset('Assets/images/Kenswed_logo.png') }}" alt="" class="w-9 h-9 rounded-full bg-white p-0.5 object-contain">
+            <span class="text-sm font-medium text-red-100">Kenswed Senior School</span>
+        </div>
+        <p class="mt-5 text-sm text-red-100">Top up card for</p>
+        <h1 class="text-2xl font-extrabold leading-tight">{{ $student->full_name }}</h1>
+        <p class="text-sm text-red-100">{{ $student->class }}{{ $student->stream ? ' ' . $student->stream : '' }} · Adm {{ $student->admission_number }}</p>
+    </header>
+
+    {{-- Wallets --}}
+    <section class="-mt-11 px-4 grid grid-cols-2 gap-3" aria-label="Choose what to top up">
+        @foreach(['transport' => ['Transport', 'fa-bus', '#2563eb', 'text-blue-600', $tBal], 'canteen' => ['Canteen', 'fa-utensils', '#16a34a', 'text-green-600', $cBal]] as $key => [$label, $icon, $color, $iconClass, $bal])
+            <button type="button" class="wallet text-left rounded-2xl p-4 bg-white ring-1 ring-stone-200 transition active:scale-[.98]"
+                    data-wallet="{{ $key }}" data-color="{{ $color }}" aria-pressed="{{ $wallet === $key ? 'true' : 'false' }}" style="--ring: {{ $color }}">
+                <span class="flex items-center justify-between">
+                    <i class="fas {{ $icon }} {{ $iconClass }}"></i>
+                    <i class="tick fas fa-circle-check opacity-0 transition" style="color: {{ $color }}"></i>
+                </span>
+                <span class="block text-xs text-stone-500 mt-2">{{ $label }}</span>
+                <span class="block text-lg font-extrabold {{ $bal < $lowAt ? 'text-amber-600' : 'text-stone-900' }}" data-balance="{{ $key }}">KES {{ $fmt($bal) }}</span>
+                @if($bal < $lowAt)<span class="block text-[11px] font-semibold text-amber-600 -mt-0.5">Low balance</span>@endif
+            </button>
+        @endforeach
+    </section>
+
+    {{-- Pending request from earlier --}}
+    @if($pendingFunding)
+        <div class="mx-4 mt-4 rounded-2xl bg-amber-50 ring-1 ring-amber-200 p-4 flex items-center gap-3">
+            <i class="fas fa-hourglass-half text-amber-600"></i>
+            <div class="flex-1 text-sm">
+                <p class="font-semibold text-amber-900">A payment of KES {{ $fmt($pendingFunding->amount) }} is still waiting</p>
+                <p class="text-amber-800 text-xs">Sent {{ $pendingFunding->created_at->diffForHumans() }}</p>
+            </div>
+            <button type="button" onclick="startWaiting('{{ $pendingFunding->checkout_request_id }}', {{ (float) $pendingFunding->amount }})" class="px-3 py-2 rounded-xl bg-amber-600 text-white text-xs font-semibold">Check</button>
+        </div>
+    @endif
+
+    {{-- Top-up form --}}
+    <form id="topup" class="px-4 mt-5" novalidate>
+        <input type="hidden" name="student_id" value="{{ $student->id }}">
+
+        <p class="text-sm font-semibold text-stone-700 mb-2">Amount <span class="font-normal text-stone-500" id="forWhat"></span></p>
+        <div class="grid grid-cols-4 gap-2" id="chips">
+            @foreach([100, 200, 500, 1000] as $a)
+                <button type="button" class="chip py-3 rounded-xl bg-white ring-1 ring-stone-200 font-semibold transition active:scale-95" data-amount="{{ $a }}" aria-pressed="false">{{ number_format($a) }}</button>
+            @endforeach
+        </div>
+        <div class="mt-2 relative">
+            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-stone-400 font-semibold">KES</span>
+            <input type="number" inputmode="numeric" id="amount" min="10" max="50000" placeholder="Other amount"
+                   class="w-full rounded-xl ring-1 ring-stone-200 bg-white pl-14 pr-4 py-3.5 text-base outline-none focus:ring-2 focus:ring-[var(--accent)]">
+        </div>
+        <p id="feeNote" class="hidden mt-3 rounded-xl bg-blue-50 text-blue-900 text-xs leading-relaxed p-3"></p>
+        <p id="amountError" class="hidden mt-2 text-xs text-red-600"></p>
+
+        <p class="text-sm font-semibold text-stone-700 mt-5 mb-2">M-Pesa number to pay from</p>
+        <div class="flex items-center rounded-xl ring-1 ring-stone-200 bg-white px-4 focus-within:ring-2 focus-within:ring-[var(--accent)]">
+            <i class="fas fa-mobile-screen text-stone-400 mr-3"></i>
+            <input type="tel" inputmode="tel" id="phone" autocomplete="tel" value="{{ $student->parent_phone }}" placeholder="0712 345 678"
+                   class="flex-1 py-3.5 text-base outline-none bg-transparent">
+        </div>
+        <p id="phoneError" class="hidden mt-2 text-xs text-red-600"></p>
+
+        <button type="submit" id="payBtn"
+                class="mt-6 w-full py-4 rounded-2xl bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-bold text-base shadow-lg shadow-green-600/30 transition active:scale-[.99]">
+            <i class="fas fa-lock mr-2"></i><span id="payLabel">Choose an amount</span>
+        </button>
+        <p class="text-center text-xs text-stone-500 mt-3">You'll get an M-Pesa prompt on this number — enter your PIN to pay.</p>
+    </form>
+
+    {{-- Recent activity --}}
+    <details class="mx-4 mt-6 bg-white rounded-2xl ring-1 ring-stone-200 group">
+        <summary class="list-none cursor-pointer px-4 py-3.5 flex items-center justify-between text-sm font-semibold text-stone-700">
+            <span><i class="fas fa-clock-rotate-left mr-2 text-stone-400"></i>Recent activity</span>
+            <i class="fas fa-chevron-down text-xs text-stone-400 group-open:rotate-180 transition"></i>
+        </summary>
+        <div class="px-4 pb-3 divide-y divide-stone-100">
+            @forelse($activity as $a)
+                <div class="py-3 flex items-start gap-3 text-sm">
+                    <span class="mt-0.5 w-8 h-8 shrink-0 rounded-full flex items-center justify-center {{ $a['delta'] >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700' }}">
+                        <i class="fas {{ $a['delta'] >= 0 ? 'fa-arrow-down' : 'fa-arrow-up' }} text-xs"></i>
+                    </span>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium">{{ $a['label'] }} <span class="text-xs text-stone-400">· {{ $a['wallet'] }}</span></p>
+                        @if($a['detail'])<p class="text-xs text-stone-500 truncate">{{ $a['detail'] }}</p>@endif
+                        <p class="text-xs text-stone-400">{{ $a['at']->format('D j M, g:i a') }}</p>
+                    </div>
+                    <span class="font-semibold {{ $a['delta'] >= 0 ? 'text-green-700' : 'text-stone-800' }}">{{ $a['delta'] >= 0 ? '+' : '−' }}{{ $fmt(abs($a['delta'])) }}</span>
                 </div>
-                <div class="ml-3 flex-1">
-                    <p id="toast-message" class="text-sm text-gray-700">Success!</p>
-                </div>
-                <button onclick="hideToast()" class="ml-2 text-gray-400 hover:text-gray-600 transition">
-                    <i class="fas fa-times"></i>
-                </button>
+            @empty
+                <p class="py-4 text-sm text-stone-500 text-center">No activity yet.</p>
+            @endforelse
+        </div>
+    </details>
+
+    {{-- Pay by hand --}}
+    <details class="mx-4 mt-3 bg-white rounded-2xl ring-1 ring-stone-200 group">
+        <summary class="list-none cursor-pointer px-4 py-3.5 flex items-center justify-between text-sm font-semibold text-stone-700">
+            <span><i class="fas fa-circle-question mr-2 text-stone-400"></i>No prompt? Pay by M-Pesa instead</span>
+            <i class="fas fa-chevron-down text-xs text-stone-400 group-open:rotate-180 transition"></i>
+        </summary>
+        <div class="px-4 pb-4 text-sm text-stone-600">
+            <p>M-Pesa → Lipa na M-Pesa → <b>Pay Bill</b></p>
+            <div class="mt-2 rounded-xl bg-stone-50 ring-1 ring-stone-200 divide-y divide-stone-200">
+                <p class="px-3 py-2 flex justify-between"><span>Business number</span><b>{{ $paybill }}</b></p>
+                <p class="px-3 py-2 flex justify-between"><span>Account · canteen</span><b>{{ $till }}#{{ $student->admission_number }}</b></p>
+                <p class="px-3 py-2 flex justify-between"><span>Account · transport</span><b>{{ $till }}#T{{ $student->admission_number }}</b></p>
+            </div>
+            <p class="mt-2 text-xs text-stone-500">For transport, add the M-Pesa withdrawal charge to the fare.</p>
+            @if($helpPhone)<p class="pt-3">Need help? Call the school on <a href="tel:{{ $helpPhone }}" class="text-red-700 font-semibold">{{ $helpPhone }}</a></p>@endif
+        </div>
+    </details>
+
+    <p class="text-center text-[11px] text-stone-400 mt-8">© {{ date('Y') }} Kenswed Senior School</p>
+</div>
+
+{{-- Waiting / result sheet --}}
+<div id="sheet" class="hidden fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center">
+    <div class="w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-6 pb-8 text-center">
+        <div id="sheetWaiting">
+            <span class="inline-flex w-16 h-16 rounded-full bg-red-50 text-red-700 items-center justify-center"><i class="fas fa-mobile-screen-button text-3xl ringing"></i></span>
+            <h2 class="mt-4 text-xl font-extrabold">Check your phone</h2>
+            <p class="mt-1 text-stone-600 text-sm">Enter your M-Pesa PIN to pay <b id="sheetAmount"></b>.</p>
+            <p class="mt-4 text-xs text-stone-400 flex items-center justify-center gap-2"><span class="spinner" style="border-color: #e7e5e4; border-top-color: #b91c1c; width: 16px; height: 16px; border-width: 2px;"></span> Waiting for M-Pesa…</p>
+        </div>
+        <div id="sheetDone" class="hidden">
+            <span class="inline-flex w-16 h-16 rounded-full bg-green-600 text-white items-center justify-center"><i class="fas fa-check text-3xl"></i></span>
+            <h2 class="mt-4 text-xl font-extrabold">Payment received</h2>
+            <p class="mt-1 text-stone-600 text-sm" id="doneText">The card will show the new balance in a moment. You'll also get an SMS.</p>
+            <button type="button" onclick="location.reload()" class="mt-6 w-full py-3.5 rounded-2xl bg-stone-900 text-white font-semibold">Done</button>
+        </div>
+        <div id="sheetFailed" class="hidden">
+            <span class="inline-flex w-16 h-16 rounded-full bg-red-600 text-white items-center justify-center"><i class="fas fa-xmark text-3xl"></i></span>
+            <h2 class="mt-4 text-xl font-extrabold">Not paid</h2>
+            <p class="mt-1 text-stone-600 text-sm" id="failText">The payment was cancelled or timed out. Nothing was taken.</p>
+            <button type="button" onclick="closeSheet()" class="mt-6 w-full py-3.5 rounded-2xl bg-red-700 text-white font-semibold">Try again</button>
+        </div>
+        <div id="sheetSlow" class="hidden">
+            <span class="inline-flex w-16 h-16 rounded-full bg-amber-500 text-white items-center justify-center"><i class="fas fa-hourglass-half text-2xl"></i></span>
+            <h2 class="mt-4 text-xl font-extrabold">Still waiting</h2>
+            <p class="mt-1 text-stone-600 text-sm">If you paid, the card will update shortly and you'll get an SMS. If not, try again.</p>
+            <div class="mt-6 grid grid-cols-2 gap-3">
+                <button type="button" onclick="closeSheet()" class="py-3.5 rounded-2xl bg-stone-100 font-semibold">Close</button>
+                <button type="button" onclick="location.reload()" class="py-3.5 rounded-2xl bg-stone-900 text-white font-semibold">Refresh</button>
             </div>
         </div>
     </div>
+</div>
 
-    <div class="container mx-auto px-4 py-6 max-w-5xl">
-        {{-- Header --}}
-        <div class="bg-gradient-to-r from-red-700 to-red-800 rounded-2xl shadow-xl p-6 mb-8 text-white">
-            <div class="flex flex-col md:flex-row items-center justify-between">
-                <div class="flex items-center">
-                    <img src="{{ asset('Assets/images/Kenswed_logo.png') }}" 
-                         alt="Kenswed Senior School" 
-                         class="w-16 h-16 rounded-full bg-white p-1 mr-4 shadow-lg">
-                    <div>
-                        <h1 class="text-2xl md:text-3xl font-bold">Card Funding Portal</h1>
-                        <p class="text-red-100 text-sm">Kenswed Senior School</p>
-                    </div>
-                </div>
-                <div class="mt-4 md:mt-0 text-right">
-                    <p class="text-sm text-red-100">Student Portal</p>
-                    <p class="text-lg font-semibold">{{ $student->full_name }}</p>
-                    <p class="text-sm text-red-100">Admission: {{ $student->admission_number }}</p>
-                </div>
-            </div>
-        </div>
+<script>
+    const feeTiers = @json($feeTiers);
+    const state = { wallet: @json($wallet), amount: 0 };
+    const $ = id => document.getElementById(id);
 
-        {{-- Student Info --}}
-        <div class="bg-white rounded-2xl shadow-lg p-6 mb-8">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="flex items-center">
-                    <div class="bg-red-100 rounded-full p-3 mr-3">
-                        <i class="fas fa-user-graduate text-red-700 text-xl"></i>
-                    </div>
-                    <div>
-                        <p class="text-xs text-gray-500">Student Name</p>
-                        <p class="font-semibold text-gray-800">{{ $student->full_name }}</p>
-                    </div>
-                </div>
-                <div class="flex items-center">
-                    <div class="bg-red-100 rounded-full p-3 mr-3">
-                        <i class="fas fa-users text-red-700 text-xl"></i>
-                    </div>
-                    <div>
-                        <p class="text-xs text-gray-500">Class</p>
-                        <p class="font-semibold text-gray-800">{{ $student->class }}</p>
-                    </div>
-                </div>
-                <div class="flex items-center">
-                    <div class="bg-red-100 rounded-full p-3 mr-3">
-                        <i class="fas fa-id-card text-red-700 text-xl"></i>
-                    </div>
-                    <div>
-                        <p class="text-xs text-gray-500">Admission Number</p>
-                        <p class="font-semibold text-gray-800">{{ $student->admission_number }}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+    // Safaricom withdrawal charge added to transport top-ups (the fare is withdrawn in cash later)
+    function withdrawalFee(amount) {
+        if (!amount || amount <= 0) return 0;
+        let tier = feeTiers.find(t => amount >= parseFloat(t.min_amount) && amount <= parseFloat(t.max_amount));
+        if (!tier && feeTiers.length && amount > parseFloat(feeTiers[feeTiers.length - 1].max_amount)) tier = feeTiers[feeTiers.length - 1];
+        return tier ? parseFloat(tier.fee) : 0;
+    }
+    const kes = v => Number(v).toLocaleString('en-KE', { maximumFractionDigits: 2 });
+    const total = () => state.amount + (state.wallet === 'transport' ? withdrawalFee(state.amount) : 0);
 
-        {{-- Balance Cards --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {{-- Transport Balance --}}
-            <div class="balance-card bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl shadow-lg p-6 text-white">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-blue-100 text-sm">Transport Balance</p>
-                        <p class="text-3xl font-bold mt-1" id="transportBalance">
-                            KES {{ number_format($card->transport_balance ?? 0, 2) }}
-                        </p>
-                        <p class="text-blue-200 text-xs mt-1">
-                            <i class="fas fa-history mr-1"></i>
-                            Total Funded: KES {{ number_format($totalFunded ?? 0, 2) }}
-                        </p>
-                    </div>
-                    <div class="bg-white/20 rounded-full p-3">
-                        <i class="fas fa-bus text-3xl"></i>
-                    </div>
-                </div>
-                <div class="mt-4">
-                    <div class="w-full bg-blue-900/30 rounded-full h-2">
-                        <div class="bg-white rounded-full h-2 transition-all duration-1000" 
-                             style="width: {{ min(($card->transport_balance ?? 0) / 5000 * 100, 100) }}%">
-                        </div>
-                    </div>
-                    <p class="text-blue-200 text-xs mt-1">
-                        {{ ($card->transport_balance ?? 0) > 0 ? 'Available for transport' : 'Low balance' }}
-                    </p>
-                </div>
-            </div>
+    function render() {
+        document.querySelectorAll('.wallet').forEach(b => b.setAttribute('aria-pressed', b.dataset.wallet === state.wallet ? 'true' : 'false'));
+        const color = document.querySelector(`.wallet[data-wallet="${state.wallet}"]`).dataset.color;
+        $('app').style.setProperty('--accent', color);
+        $('forWhat').textContent = state.wallet === 'transport' ? '· transport (bus fare)' : '· canteen (meals & snacks)';
+        document.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', Number(c.dataset.amount) === state.amount && !$('amount').value ? 'true' : 'false'));
 
-            {{-- Canteen Balance --}}
-            <div class="balance-card bg-gradient-to-br from-green-500 to-green-700 rounded-2xl shadow-lg p-6 text-white">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-green-100 text-sm">Canteen Balance</p>
-                        <p class="text-3xl font-bold mt-1" id="canteenBalance">
-                            KES {{ number_format($card->canteen_balance ?? 0, 2) }}
-                        </p>
-                        <p class="text-green-200 text-xs mt-1">
-                            <i class="fas fa-history mr-1"></i>
-                            Total Spent: KES {{ number_format($totalSpent ?? 0, 2) }}
-                        </p>
-                    </div>
-                    <div class="bg-white/20 rounded-full p-3">
-                        <i class="fas fa-utensils text-3xl"></i>
-                    </div>
-                </div>
-                <div class="mt-4">
-                    <div class="w-full bg-green-900/30 rounded-full h-2">
-                        <div class="bg-white rounded-full h-2 transition-all duration-1000" 
-                             style="width: {{ min(($card->canteen_balance ?? 0) / 5000 * 100, 100) }}%">
-                        </div>
-                    </div>
-                    <p class="text-green-200 text-xs mt-1">
-                        {{ ($card->canteen_balance ?? 0) > 0 ? 'Available for meals' : 'Low balance' }}
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        {{-- Recent Transactions --}}
-        @if($recentTransactions->count() > 0)
-        <div class="bg-white rounded-2xl shadow-lg p-6 mb-8">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">
-                <i class="fas fa-history text-red-700 mr-2"></i>
-                Recent Transactions
-            </h3>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-gray-200">
-                            <th class="text-left py-2 px-3 text-gray-600 font-medium">Date</th>
-                            <th class="text-left py-2 px-3 text-gray-600 font-medium">Type</th>
-                            <th class="text-right py-2 px-3 text-gray-600 font-medium">Amount</th>
-                            <th class="text-right py-2 px-3 text-gray-600 font-medium">Balance</th>
-                            <th class="text-left py-2 px-3 text-gray-600 font-medium">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($recentTransactions as $transaction)
-                        <tr class="transaction-row border-b border-gray-100">
-                            <td class="py-2 px-3 text-gray-700">
-                                {{ $transaction->created_at->format('d/m/Y H:i') }}
-                            </td>
-                            <td class="py-2 px-3">
-                                <span class="px-2 py-1 rounded-full text-xs font-medium 
-                                    {{ $transaction->transaction_type == 'funding' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700' }}">
-                                    <i class="fas {{ $transaction->transaction_type == 'funding' ? 'fa-arrow-down' : 'fa-arrow-up' }} mr-1"></i>
-                                    {{ ucfirst($transaction->transaction_type) }}
-                                </span>
-                            </td>
-                            <td class="text-right py-2 px-3 font-medium text-gray-700">
-                                {{ $transaction->transaction_type == 'funding' ? '+' : '-' }}
-                                KES {{ number_format($transaction->amount, 2) }}
-                            </td>
-                            <td class="text-right py-2 px-3 text-gray-700">
-                                KES {{ number_format($transaction->balance_after, 2) }}
-                            </td>
-                            <td class="py-2 px-3">
-                                <span class="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                                    <i class="fas fa-check-circle mr-1"></i>
-                                    Completed
-                                </span>
-                            </td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        @endif
-
-        {{-- Funding Options --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {{-- Fund Transport --}}
-            <div class="bg-white rounded-2xl shadow-lg p-6">
-                <div class="flex items-center mb-4">
-                    <div class="bg-blue-100 rounded-full p-3 mr-3">
-                        <i class="fas fa-bus text-blue-700 text-xl"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-800">Fund Transport</h3>
-                        <p class="text-xs text-gray-500">Add money for bus/shuttle fare</p>
-                    </div>
-                </div>
-                
-                <form id="transportForm" class="space-y-4">
-                    @csrf
-                    <input type="hidden" name="student_id" value="{{ $student->id }}">
-                    <input type="hidden" name="funding_type" value="transport">
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Amount (KES)</label>
-                        <div class="flex gap-2 flex-wrap mb-2">
-                            <button type="button" class="amount-btn bg-gray-100 hover:bg-blue-100 text-gray-700 px-4 py-1.5 rounded-full text-sm font-medium transition" data-amount="100">100</button>
-                            <button type="button" class="amount-btn bg-gray-100 hover:bg-blue-100 text-gray-700 px-4 py-1.5 rounded-full text-sm font-medium transition" data-amount="200">200</button>
-                            <button type="button" class="amount-btn bg-gray-100 hover:bg-blue-100 text-gray-700 px-4 py-1.5 rounded-full text-sm font-medium transition" data-amount="500">500</button>
-                            <button type="button" class="amount-btn bg-gray-100 hover:bg-blue-100 text-gray-700 px-4 py-1.5 rounded-full text-sm font-medium transition" data-amount="1000">1000</button>
-                            <button type="button" class="amount-btn bg-gray-100 hover:bg-blue-100 text-gray-700 px-4 py-1.5 rounded-full text-sm font-medium transition" data-amount="2000">2000</button>
-                            <button type="button" class="amount-btn bg-gray-100 hover:bg-blue-100 text-gray-700 px-4 py-1.5 rounded-full text-sm font-medium transition" data-amount="5000">5000</button>
-                        </div>
-                        <input type="number" 
-                               id="transportAmount" 
-                               name="amount" 
-                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                               placeholder="Enter amount (min 10)"
-                               min="10"
-                               max="50000"
-                               required>
-                        <p class="text-xs text-gray-500 mt-1">Minimum: KES 10, Maximum: KES 50,000</p>
-                        <div id="transportFeeNote" class="hidden mt-2 rounded-lg bg-blue-50 text-blue-900 text-sm p-3"></div>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">M-Pesa Phone Number</label>
-                        <input type="tel" 
-                               id="transportPhone" 
-                               name="phone_number" 
-                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                               placeholder="0712345678"
-                               pattern="[0-9]{10,12}"
-                               value="{{ $student->parent_phone }}"
-                               required>
-                        <p class="text-xs text-gray-500 mt-1">Enter the phone number registered with M-Pesa</p>
-                    </div>
-                    
-                    <button type="submit" 
-                            class="fund-btn w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-all duration-200 flex items-center justify-center">
-                        <i class="fas fa-mobile-alt mr-2"></i>
-                        <span>Fund Transport</span>
-                    </button>
-                </form>
-            </div>
-
-            {{-- Fund Canteen --}}
-            <div class="bg-white rounded-2xl shadow-lg p-6">
-                <div class="flex items-center mb-4">
-                    <div class="bg-green-100 rounded-full p-3 mr-3">
-                        <i class="fas fa-utensils text-green-700 text-xl"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-800">Fund Canteen</h3>
-                        <p class="text-xs text-gray-500">Add money for meals and snacks</p>
-                    </div>
-                </div>
-                
-                <form id="canteenForm" class="space-y-4">
-                    @csrf
-                    <input type="hidden" name="student_id" value="{{ $student->id }}">
-                    <input type="hidden" name="funding_type" value="canteen">
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Amount (KES)</label>
-                        <div class="flex gap-2 flex-wrap mb-2">
-                            <button type="button" class="amount-btn green bg-gray-100 hover:bg-green-100 text-gray-700 px-4 py-1.5 rounded-full text-sm font-medium transition" data-amount="100">100</button>
-                            <button type="button" class="amount-btn green bg-gray-100 hover:bg-green-100 text-gray-700 px-4 py-1.5 rounded-full text-sm font-medium transition" data-amount="200">200</button>
-                            <button type="button" class="amount-btn green bg-gray-100 hover:bg-green-100 text-gray-700 px-4 py-1.5 rounded-full text-sm font-medium transition" data-amount="500">500</button>
-                            <button type="button" class="amount-btn green bg-gray-100 hover:bg-green-100 text-gray-700 px-4 py-1.5 rounded-full text-sm font-medium transition" data-amount="1000">1000</button>
-                            <button type="button" class="amount-btn green bg-gray-100 hover:bg-green-100 text-gray-700 px-4 py-1.5 rounded-full text-sm font-medium transition" data-amount="2000">2000</button>
-                            <button type="button" class="amount-btn green bg-gray-100 hover:bg-green-100 text-gray-700 px-4 py-1.5 rounded-full text-sm font-medium transition" data-amount="5000">5000</button>
-                        </div>
-                        <input type="number" 
-                               id="canteenAmount" 
-                               name="amount" 
-                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
-                               placeholder="Enter amount (min 10)"
-                               min="10"
-                               max="50000"
-                               required>
-                        <p class="text-xs text-gray-500 mt-1">Minimum: KES 10, Maximum: KES 50,000</p>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">M-Pesa Phone Number</label>
-                        <input type="tel" 
-                               id="canteenPhone" 
-                               name="phone_number" 
-                               class="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
-                               placeholder="0712345678"
-                               pattern="[0-9]{10,12}"
-                               value="{{ $student->parent_phone }}"
-                               required>
-                        <p class="text-xs text-gray-500 mt-1">Enter the phone number registered with M-Pesa</p>
-                    </div>
-                    
-                    <button type="submit" 
-                            class="fund-btn w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-xl transition-all duration-200 flex items-center justify-center">
-                        <i class="fas fa-mobile-alt mr-2"></i>
-                        <span>Fund Canteen</span>
-                    </button>
-                </form>
-            </div>
-        </div>
-
-        {{-- Pending Funding Status --}}
-        @if($pendingFunding)
-        <div class="mt-6 bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-4 status-pending">
-            <div class="flex items-center">
-                <div class="bg-yellow-100 rounded-full p-2 mr-3">
-                    <i class="fas fa-spinner fa-spin text-yellow-700 text-xl"></i>
-                </div>
-                <div class="flex-1">
-                    <p class="font-semibold text-yellow-800">Pending Funding Request</p>
-                    <p class="text-sm text-yellow-700">
-                        There is a pending funding request of <strong>KES {{ number_format($pendingFunding->amount, 2) }}</strong> 
-                        ({{ $pendingFunding->funding_type == 'T' ? 'Transport' : 'Canteen' }})
-                    </p>
-                    <p class="text-xs text-yellow-600 mt-1">
-                        Status: {{ ucfirst($pendingFunding->status) }} - Please wait for M-Pesa confirmation
-                    </p>
-                </div>
-                <button onclick="checkPendingStatus('{{ $pendingFunding->checkout_request_id }}')" 
-                        class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center">
-                    <i class="fas fa-sync-alt mr-2"></i>
-                    Check Status
-                </button>
-            </div>
-        </div>
-        @endif
-
-        {{-- Quick Tips --}}
-        <div class="mt-8 bg-blue-50 border-2 border-blue-200 rounded-2xl p-4">
-            <h4 class="font-semibold text-blue-800 mb-2 flex items-center">
-                <i class="fas fa-info-circle mr-2"></i>
-                Quick Tips
-            </h4>
-            <ul class="text-sm text-blue-700 space-y-1">
-                <li><i class="fas fa-check-circle text-green-500 mr-2"></i> You'll receive an M-Pesa prompt on your phone after clicking "Fund"</li>
-                <li><i class="fas fa-check-circle text-green-500 mr-2"></i> Enter your M-Pesa PIN to complete the transaction</li>
-                <li><i class="fas fa-check-circle text-green-500 mr-2"></i> Funds reflect immediately after successful payment</li>
-                <li><i class="fas fa-check-circle text-green-500 mr-2"></i> Each top-up is confirmed to the parent by SMS</li>
-                <li><i class="fas fa-check-circle text-green-500 mr-2"></i> For help, contact the school finance office</li>
-            </ul>
-        </div>
-    </div>
-
-    {{-- Footer --}}
-    <footer class="bg-red-700 text-white py-6 mt-12">
-        <div class="container mx-auto px-4 text-center">
-            <p class="text-sm">&copy; {{ date('Y') }} Kenswed Senior School. All rights reserved.</p>
-            <p class="text-xs text-red-200 mt-1">Powered by Quick Office Pointe</p>
-        </div>
-    </footer>
-
-    <script>
-        // Safaricom withdrawal charge added to transport top-ups (cash fare is withdrawn later)
-        const feeTiers = @json($feeTiers);
-        function withdrawalFee(amount) {
-            if (!amount || amount <= 0) return 0;
-            let tier = feeTiers.find(t => amount >= parseFloat(t.min_amount) && amount <= parseFloat(t.max_amount));
-            if (!tier && feeTiers.length && amount > parseFloat(feeTiers[feeTiers.length - 1].max_amount)) tier = feeTiers[feeTiers.length - 1];
-            return tier ? parseFloat(tier.fee) : 0;
+        const fee = state.wallet === 'transport' ? withdrawalFee(state.amount) : 0;
+        if (state.amount >= 10 && fee > 0) {
+            $('feeNote').innerHTML = `You'll be asked to pay <b>KES ${kes(state.amount + fee)}</b>: KES ${kes(state.amount)} fare + KES ${kes(fee)} M-Pesa withdrawal charge (the fare is given to your child in cash).`;
+            $('feeNote').classList.remove('hidden');
+        } else {
+            $('feeNote').classList.add('hidden');
         }
-        function updateTransportFeeNote() {
-            const input = document.getElementById('transportAmount');
-            const note = document.getElementById('transportFeeNote');
-            const amount = parseFloat(input.value);
-            const fee = withdrawalFee(amount);
-            if (!amount || amount < 10) { note.classList.add('hidden'); return; }
-            note.innerHTML = `You will be prompted for <strong>KES ${(amount + fee).toLocaleString()}</strong>: `
-                + `KES ${amount.toLocaleString()} fare + KES ${fee.toLocaleString()} M-Pesa withdrawal charge. `
-                + `The charge covers withdrawing the fare in cash for your child.`;
-            note.classList.remove('hidden');
-        }
+        $('payLabel').textContent = state.amount >= 10 ? `Pay KES ${kes(total())} with M-Pesa` : 'Choose an amount';
+    }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('transportAmount').addEventListener('input', updateTransportFeeNote);
+    document.querySelectorAll('.wallet').forEach(b => b.addEventListener('click', () => { state.wallet = b.dataset.wallet; render(); }));
+    document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => { $('amount').value = ''; state.amount = Number(c.dataset.amount); $('amountError').classList.add('hidden'); render(); }));
+    $('amount').addEventListener('input', e => { state.amount = Math.round(Number(e.target.value) || 0); render(); });
 
-            // Amount quick-select buttons
-            document.querySelectorAll('.amount-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const amount = this.dataset.amount;
-                    const parentForm = this.closest('form');
-                    const amountInput = parentForm.querySelector('input[name="amount"]');
-                    amountInput.value = amount;
-                    if (amountInput.id === 'transportAmount') updateTransportFeeNote();
-                    
-                    // Highlight selected
-                    const siblings = this.parentElement.querySelectorAll('.amount-btn');
-                    siblings.forEach(s => s.classList.remove('selected'));
-                    this.classList.add('selected');
-                    
-                    amountInput.focus();
-                });
-            });
+    function cleanPhone(v) {
+        let d = String(v).replace(/\D/g, '');
+        if (d.startsWith('254')) d = '0' + d.slice(3);
+        if (d.length === 9 && /^[71]/.test(d)) d = '0' + d;
+        return d;
+    }
 
-            // Auto-fill parent phone if available
-            const parentPhone = "{{ $student->parent_phone }}";
-            if (parentPhone) {
-                document.getElementById('transportPhone').value = parentPhone;
-                document.getElementById('canteenPhone').value = parentPhone;
-            }
-        });
+    $('topup').addEventListener('submit', async e => {
+        e.preventDefault();
+        const phone = cleanPhone($('phone').value);
+        let ok = true;
+        if (!(state.amount >= 10 && state.amount <= 50000)) { $('amountError').textContent = 'Choose an amount between KES 10 and 50,000.'; $('amountError').classList.remove('hidden'); ok = false; }
+        if (!/^0[17]\d{8}$/.test(phone)) { $('phoneError').textContent = 'Enter a Safaricom number like 0712 345 678.'; $('phoneError').classList.remove('hidden'); ok = false; } else { $('phoneError').classList.add('hidden'); }
+        if (!ok) return;
 
-        // Transport Form Submit
-        document.getElementById('transportForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const submitBtn = this.querySelector('button[type="submit"]');
-            handleFundingSubmit(this, submitBtn, 'transport');
-        });
-
-        // Canteen Form Submit
-        document.getElementById('canteenForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const submitBtn = this.querySelector('button[type="submit"]');
-            handleFundingSubmit(this, submitBtn, 'canteen');
-        });
-
-        function handleFundingSubmit(form, submitBtn, type) {
-            const formData = new FormData(form);
-            const endpoint = type === 'transport' 
-                ? '/parent/fund/transport' 
-                : '/parent/fund/canteen';
-            
-            // Get CSRF token from meta tag
-            const csrfToken = document.querySelector('meta[name="csrf-token"]');
-            const token = csrfToken ? csrfToken.content : '';
-            
-            // Send the form as JSON
-            const data = {};
-            formData.forEach((value, key) => {
-                data[key] = value;
-            });
-            
-            // Show loading state
-            const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<span class="loading-spinner mr-2"></span> Processing...';
-            submitBtn.disabled = true;
-
-            console.log('Sending request to:', endpoint);
-            console.log('Data:', data);
-
-            fetch(endpoint, {
+        const btn = $('payBtn');
+        btn.disabled = true; $('payLabel').innerHTML = '<span class="spinner align-middle"></span>';
+        try {
+            const res = await fetch(state.wallet === 'transport' ? '{{ route('parent.fund.transport') }}' : '{{ route('parent.fund.canteen') }}', {
                 method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': token,
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify(data)
-            })
-            .then(response => {
-                console.log('Response status:', response.status);
-                if (!response.ok) {
-                    return response.text().then(text => {
-                        console.error('Error response:', text);
-                        throw new Error(`HTTP ${response.status}`);
-                    });
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log('Response data:', data);
-                if (data.success) {
-                    showToast('success', data.message);
-                    if (data.checkout_request_id) {
-                        pollStatus(data.checkout_request_id);
-                    }
-                } else {
-                    showToast('error', data.message || 'Something went wrong');
-                }
-            })
-            .catch(error => {
-                console.error('Fetch error:', error);
-                showToast('error', 'Network error: ' + error.message);
-            })
-            .finally(() => {
-                submitBtn.innerHTML = originalText;
-                submitBtn.disabled = false;
+                headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ student_id: {{ $student->id }}, amount: state.amount, phone_number: phone }),
             });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success && data.checkout_request_id) {
+                startWaiting(data.checkout_request_id, data.amount || total());
+            } else {
+                showFailed(data.message || 'The payment could not be started. Please try again.');
+            }
+        } catch (err) {
+            showFailed('No connection. Check your internet and try again.');
+        } finally {
+            btn.disabled = false; render();
         }
+    });
 
-        // Poll for status
-        function pollStatus(checkoutRequestId) {
-            let attempts = 0;
-            const maxAttempts = 30;
-            
-            const interval = setInterval(() => {
-                attempts++;
-                
-                fetch('/parent/fund/status/' + checkoutRequestId)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'completed') {
-                        clearInterval(interval);
-                        showToast('success', 'Payment successful. The card has been funded.');
-                        setTimeout(() => window.location.reload(), 3000);
-                    } else if (data.status === 'failed') {
-                        clearInterval(interval);
-                        showToast('error', 'Payment failed: ' + (data.result_description || 'Unknown error'));
-                    } else {
-                        if (attempts % 3 === 0) {
-                            showToast('info', '⏳ Waiting for payment confirmation...');
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Status check error:', error);
-                    if (attempts >= maxAttempts) {
-                        clearInterval(interval);
-                        showToast('info', '⏳ Payment still processing. Check status later.');
-                    }
-                });
-                
-                if (attempts >= maxAttempts) {
-                    clearInterval(interval);
-                    showToast('info', '⏳ Payment taking longer than expected. Check status later.');
-                }
-            }, 5000);
-        }
+    function show(which) {
+        $('sheet').classList.remove('hidden');
+        ['sheetWaiting', 'sheetDone', 'sheetFailed', 'sheetSlow'].forEach(id => $(id).classList.toggle('hidden', id !== which));
+    }
+    function closeSheet() { $('sheet').classList.add('hidden'); clearInterval(window.poller); }
+    function showFailed(msg) { $('failText').textContent = msg; show('sheetFailed'); }
 
-        // Check pending status
-        function checkPendingStatus(checkoutRequestId) {
-            showToast('info', 'Checking payment status...');
-            pollStatus(checkoutRequestId);
-        }
+    function startWaiting(checkoutId, amount) {
+        $('sheetAmount').textContent = 'KES ' + kes(amount);
+        show('sheetWaiting');
+        clearInterval(window.poller);
+        let tries = 0;
+        window.poller = setInterval(async () => {
+            tries++;
+            try {
+                const r = await fetch('/parent/fund/status/' + encodeURIComponent(checkoutId), { headers: { 'Accept': 'application/json' } });
+                const d = await r.json();
+                if (d.status === 'completed') { clearInterval(window.poller); show('sheetDone'); return; }
+                if (d.status === 'failed') { clearInterval(window.poller); showFailed(d.result_description ? 'M-Pesa says: ' + d.result_description : 'The payment was cancelled or timed out. Nothing was taken.'); return; }
+            } catch (e) { /* keep trying */ }
+            if (tries >= 36) { clearInterval(window.poller); show('sheetSlow'); } // about 3 minutes
+        }, 5000);
+    }
 
-        // Toast notification
-        function showToast(type, message) {
-            const toast = document.getElementById('toast');
-            const toastMessage = document.getElementById('toast-message');
-            const toastIcon = document.getElementById('toast-icon');
-            const toastContent = document.getElementById('toast-content');
-            
-            // Reset classes
-            toastContent.className = 'bg-white rounded-lg shadow-lg p-4 border-l-4';
-            
-            const icons = {
-                success: { icon: 'fa-check-circle', color: 'text-green-500', border: 'border-green-500' },
-                error: { icon: 'fa-exclamation-circle', color: 'text-red-500', border: 'border-red-500' },
-                info: { icon: 'fa-info-circle', color: 'text-blue-500', border: 'border-blue-500' }
-            };
-            
-            const selected = icons[type] || icons.info;
-            toastContent.className += ` ${selected.border}`;
-            toastIcon.innerHTML = `<i class="fas ${selected.icon} ${selected.color} text-xl"></i>`;
-            
-            toastMessage.textContent = message;
-            toast.classList.remove('hidden', 'hide');
-            
-            clearTimeout(window.toastTimeout);
-            window.toastTimeout = setTimeout(() => {
-                hideToast();
-            }, 8000);
-        }
-
-        function hideToast() {
-            const toast = document.getElementById('toast');
-            toast.classList.add('hide');
-            setTimeout(() => {
-                toast.classList.add('hidden');
-                toast.classList.remove('hide');
-            }, 500);
-        }
-
-        // Click outside to close
-        document.getElementById('toast').addEventListener('click', hideToast);
-    </script>
+    render();
+</script>
 </body>
 </html>
