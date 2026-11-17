@@ -1179,6 +1179,9 @@ Route::middleware(['auth', 'verified', 'role.finance'])
         Route::get('/revenue', [FinanceController::class, 'revenueReport'])->name('revenue');
         Route::get('/cafeteria', [\App\Http\Controllers\Reports\CafeteriaReportController::class, 'show'])->name('cafeteria');
         Route::get('/cafeteria/pdf', [\App\Http\Controllers\Reports\CafeteriaReportController::class, 'pdf'])->name('cafeteria.pdf');
+        Route::get('/fees', [\App\Http\Controllers\Reports\FeesReportController::class, 'show'])->name('fees');
+        Route::get('/fees/pdf', [\App\Http\Controllers\Reports\FeesReportController::class, 'pdf'])->name('fees.pdf');
+        Route::get('/fees/statement/{student}', [\App\Http\Controllers\Reports\FeesReportController::class, 'statement'])->whereNumber('student')->name('fees.statement');
         Route::get('/expenses', [FinanceController::class, 'expensesReport'])->name('expenses');
         Route::get('/balance-sheet', [FinanceController::class, 'balanceSheet'])->name('balance-sheet');
         Route::get('/cashflow', [FinanceController::class, 'cashflowReport'])->name('cashflow');
