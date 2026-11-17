@@ -1138,6 +1138,31 @@ class SaleController extends Controller
         }
     }
 
+    /** The sale this payment already belongs to: the prompt's own sale, or one with the same M-Pesa receipt. */
+    private function saleAlreadyRecorded(Request $request): ?Sale
+    {
+        $checkout = trim((string) $request->input('checkout_request_id'));
+        $receipt = strtoupper(trim((string) $request->input('mpesa_receipt')));
+
+        $sale = $checkout !== '' ? Sale::where('checkout_request_id', $checkout)->first() : null;
+        if ($sale) {
+            if ($sale->payment_status !== 'paid') {
+                // The till saw the payment succeed before KCB's callback arrived
+                $sales = app(KcbSalesService::class);
+                $prompt = \App\Models\KcbBuniTransaction::where('checkout_request_id', $checkout)->first();
+                if ($prompt && ($prompt->status === 'completed' || $receipt !== '')) {
+                    $sales->confirmSalePaid($sale, $checkout, $receipt ?: $prompt->mpesa_receipt_number ?? null, now(), true);
+                }
+            }
+            return $sale->fresh();
+        }
+
+        if ($receipt !== '' && in_array($request->input('payment_method'), ['mpesa', 'mpesa_manual'], true)) {
+            return Sale::where('mpesa_receipt', $receipt)->first();
+        }
+        return null;
+    }
+
     public function store(Request $request)
     {
         Log::info('=== CREATE SALE ===');
@@ -1187,6 +1212,17 @@ class SaleController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
+        // A payment already recorded as a sale (the M-Pesa prompt creates its own sale) must not
+        // become a second sale: hand back the existing one for the receipt instead.
+        if ($existing = $this->saleAlreadyRecorded($request)) {
+            Log::info('Sale already recorded for this payment; not creating another', ['sale_id' => $existing->id]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Sale completed successfully',
+                'sale' => $existing->load(['businessSection', 'shop', 'items', 'cashier']),
+            ]);
+        }
+
         $processedData = $request->all();
 
         if (isset($processedData['items']) && is_array($processedData['items'])) {
@@ -1200,6 +1236,7 @@ class SaleController extends Controller
                     }
                 }
             }
+            unset($item); // keep the reference from overwriting the last item in the loops below
         }
 
         DB::beginTransaction();

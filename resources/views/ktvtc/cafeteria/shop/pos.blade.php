@@ -1719,6 +1719,8 @@
             })),
             payment_method: backendPaymentMethod,
             mpesa_receipt: method === 'mpesa_stk' || method === 'mpesa_manual' ? details.mpesa_receipt : null,
+            // The prompt already created this sale; the server returns it instead of making a second one
+            checkout_request_id: method === 'mpesa_stk' ? currentSTKCheckoutId : null,
             swiss_reference: method === 'swiss_app' ? details.swiss_reference : null,
             _token: csrfToken
         };
