@@ -93,13 +93,16 @@ class Application extends Model
 public function payment()
 {
     return $this->hasOne(KcbBuniTransaction::class, 'application_id')
+        ->where('transaction_type', 'application_fee')
         ->where('status', 'completed')
         ->latest();
 }
 
+/** KES 500 fee prompts. application_id is shared with event payments, so filter by type. */
 public function payments()
 {
-    return $this->hasMany(KcbBuniTransaction::class, 'application_id');
+    return $this->hasMany(KcbBuniTransaction::class, 'application_id')
+        ->where('transaction_type', 'application_fee');
 }
     /**
      * Get the course that the application belongs to.

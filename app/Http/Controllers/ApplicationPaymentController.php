@@ -106,10 +106,11 @@ class ApplicationPaymentController extends Controller
     public function checkPaymentStatus(Request $request)
     {
         $request->validate([
-            'checkout_request_id' => 'required|string'
+            'checkout_request_id' => 'required_without:application_id|nullable|string',
+            'application_id' => 'required_without:checkout_request_id|nullable|integer',
         ]);
 
-        $result = $this->applicationKcbService->checkPaymentStatus($request->checkout_request_id);
+        $result = $this->applicationKcbService->checkPaymentStatus($request->checkout_request_id, $request->application_id);
 
         return response()->json($result);
     }

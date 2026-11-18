@@ -27,6 +27,22 @@ class ApplicationKcbService
         try {
             Log::info('Initiating application payment', ['application_id' => $application->id]);
 
+            // A prompt sent moments ago may still be on the phone: don't send a second one
+            $recent = KcbBuniTransaction::where('application_id', $application->id)
+                ->where('transaction_type', 'application_fee')
+                ->where('status', 'initiated')
+                ->where('created_at', '>=', now()->subSeconds(90))
+                ->latest('id')->first();
+            if ($recent) {
+                return [
+                    'success' => true,
+                    'transaction' => $recent,
+                    'merchant_request_id' => $recent->merchant_request_id,
+                    'checkout_request_id' => $recent->checkout_request_id,
+                    'message' => 'A payment request was just sent to ' . $recent->phone_number . '. Please check your phone.',
+                ];
+            }
+
             // Generate invoice number for application
             $invoiceNumber = $this->generateApplicationInvoiceNumber($application);
 
@@ -109,8 +125,11 @@ class ApplicationKcbService
      */
     private function generateApplicationInvoiceNumber(Application $application)
     {
-        // Format: 7664166-APP-{applicationId}-{timestamp}
-        return '7664166-APP-' . $application->id . '-' . time();
+        // Format: 7664166-APP-{applicationId}-{timestamp}{nn}; never repeated, so the bank's IPN finds the one prompt it paid
+        do {
+            $invoice = '7664166-APP-' . $application->id . '-' . time() . random_int(10, 99);
+        } while (KcbBuniTransaction::where('invoice_number', $invoice)->exists());
+        return $invoice;
     }
 
     /**
@@ -135,10 +154,8 @@ class ApplicationKcbService
             return false;
         }
 
-        // Find transaction by checkout_request_id
         $transaction = KcbBuniTransaction::where('checkout_request_id', $checkoutRequestId)
-            ->with('application.course')
-            ->with('application.campus')
+            ->where('transaction_type', 'application_fee')
             ->first();
 
         if (!$transaction) {
@@ -146,64 +163,81 @@ class ApplicationKcbService
             return false;
         }
 
-        // Update transaction status
-        $updateData = [
-            'result_code' => $resultCode,
-            'result_description' => $stkCallback['ResultDesc'] ?? '',
-            'callback_data' => json_encode($callbackData),
-        ];
+        if ($transaction->status === 'completed') {
+            return true; // already recorded (callback repeated, or the bank's IPN came first)
+        }
 
         if ($resultCode == 0) {
-            // Payment successful
-            $callbackMetadata = $stkCallback['CallbackMetadata']['Item'] ?? [];
             $metadata = [];
-
-            foreach ($callbackMetadata as $item) {
-                if (isset($item['Name']) && isset($item['Value'])) {
+            foreach ($stkCallback['CallbackMetadata']['Item'] ?? [] as $item) {
+                if (isset($item['Name'], $item['Value'])) {
                     $metadata[$item['Name']] = $item['Value'];
                 }
             }
-
-            $updateData['status'] = 'completed';
-            $updateData['mpesa_receipt_number'] = $metadata['MpesaReceiptNumber'] ?? null;
-            $updateData['transaction_date'] = isset($metadata['TransactionDate']) ?
-                $this->formatTransactionDate($metadata['TransactionDate']) : now();
-
-            // Update transaction
-            $transaction->update($updateData);
-
-            // Update application (optional - you might want to mark as paid)
-            $application = $transaction->application;
-            if ($application) {
-                // You could add a 'payment_status' field to applications table if needed
-                Log::info('Application payment completed successfully', [
-                    'application_id' => $application->id,
-                    'application_number' => $application->application_number,
-                    'receipt' => $updateData['mpesa_receipt_number']
-                ]);
-
-                // Send SMS notifications
-                $this->sendPaymentSuccessSms($application, $transaction);
-            }
-
-        } else {
-            // Payment failed
-            $updateData['status'] = 'failed';
-            $transaction->update($updateData);
-
-            Log::warning('Application payment failed', [
-                'checkout_request_id' => $checkoutRequestId,
-                'result_code' => $resultCode,
-                'result_description' => $stkCallback['ResultDesc'] ?? 'Unknown error'
-            ]);
-
-            // Send failure SMS
-            $application = $transaction->application;
-            if ($application) {
-                $this->sendPaymentFailedSms($application);
-            }
+            $this->markPaid(
+                $transaction,
+                $metadata['MpesaReceiptNumber'] ?? null,
+                isset($metadata['TransactionDate']) ? $this->formatTransactionDate((string) $metadata['TransactionDate']) : now(),
+                ['result_code' => $resultCode, 'result_description' => $stkCallback['ResultDesc'] ?? '', 'callback_data' => $callbackData]
+            );
+            return true;
         }
 
+        $transaction->update([
+            'status' => 'failed',
+            'result_code' => $resultCode,
+            'result_description' => $stkCallback['ResultDesc'] ?? '',
+            'callback_data' => $callbackData,
+        ]);
+
+        Log::warning('Application payment failed', [
+            'checkout_request_id' => $checkoutRequestId,
+            'result_code' => $resultCode,
+            'result_description' => $stkCallback['ResultDesc'] ?? 'Unknown error'
+        ]);
+
+        // Cancelled on the phone (1032) needs no SMS: they are looking at the page
+        if ($resultCode != 1032 && $application = $transaction->courseApplication) {
+            $this->sendPaymentFailedSms($application);
+        }
+
+        return true;
+    }
+
+    /**
+     * Record the KES 500 as paid, once. Used by the STK callback and, as a backup,
+     * by the bank's IPN for the same invoice. Texts the applicant and admissions.
+     */
+    public function markPaid(KcbBuniTransaction $transaction, ?string $receipt, $paidAt = null, array $extra = [], bool $notify = true): bool
+    {
+        $updated = DB::transaction(function () use ($transaction, $receipt, $paidAt, $extra) {
+            $locked = KcbBuniTransaction::whereKey($transaction->id)->lockForUpdate()->first();
+            if (!$locked || $locked->status === 'completed') {
+                return false;
+            }
+            $locked->update($extra + [
+                'status' => 'completed',
+                'mpesa_receipt_number' => $receipt ?: $locked->mpesa_receipt_number,
+                'transaction_date' => $paidAt ?: now(),
+            ]);
+            $transaction->setRawAttributes($locked->getAttributes(), true);
+            return true;
+        });
+
+        if (!$updated) {
+            return false;
+        }
+
+        $application = $transaction->courseApplication()->with(['course', 'campus'])->first();
+        Log::info('Application payment completed', [
+            'application_id' => $transaction->application_id,
+            'application_number' => $application?->application_number,
+            'receipt' => $transaction->mpesa_receipt_number,
+        ]);
+
+        if ($application && $notify) {
+            $this->sendPaymentSuccessSms($application, $transaction);
+        }
         return true;
     }
 
@@ -218,7 +252,7 @@ class ApplicationKcbService
             $applicantMessage .= "App No: {$application->application_number}\n";
             $applicantMessage .= "Amount: KES 500\n";
             $applicantMessage .= "Receipt: {$transaction->mpesa_receipt_number}\n";
-            $applicantMessage .= "Course: {$application->course->name}\n";
+            $applicantMessage .= "Course: " . ($application->course->name ?? '-') . "\n";
             $applicantMessage .= "Your application is now complete. We'll contact you soon.\n";
             $applicantMessage .= "Thank you! www.ktvtc.ac.ke";
 
@@ -230,8 +264,8 @@ class ApplicationKcbService
             $adminMessage .= "Name: {$application->first_name} {$application->last_name}\n";
             $adminMessage .= "Amount: KES 500\n";
             $adminMessage .= "Receipt: {$transaction->mpesa_receipt_number}\n";
-            $adminMessage .= "Course: {$application->course->name}\n";
-            $adminMessage .= "Campus: {$application->campus->name}\n";
+            $adminMessage .= "Course: " . ($application->course->name ?? '-') . "\n";
+            $adminMessage .= "Campus: " . ($application->campus->name ?? '-') . "\n";
             $adminMessage .= "Intake: {$application->intake_period}\n";
             $adminMessage .= "Time: " . now()->format('d/m/Y H:i');
 
@@ -276,29 +310,21 @@ class ApplicationKcbService
     }
 
     /**
-     * Check payment status
+     * Status of a prompt (by checkout request id), or of the application's latest prompt.
+     * The page polls this; the callback (or the bank's IPN) is what moves it on.
      */
-    public function checkPaymentStatus($checkoutRequestId)
+    public function checkPaymentStatus(?string $checkoutRequestId, $applicationId = null)
     {
-        $transaction = KcbBuniTransaction::where('checkout_request_id', $checkoutRequestId)
-            ->with('application')
-            ->first();
+        $query = KcbBuniTransaction::where('transaction_type', 'application_fee')->with('courseApplication');
+        $transaction = $checkoutRequestId
+            ? $query->where('checkout_request_id', $checkoutRequestId)->first()
+            : ($applicationId ? $query->where('application_id', $applicationId)->orderByRaw("status = 'completed' desc")->latest('id')->first() : null);
 
         if (!$transaction) {
             return [
                 'success' => false,
                 'message' => 'Transaction not found'
             ];
-        }
-
-        // If still pending, check with KCB
-        if ($transaction->status === 'initiated') {
-            $statusResponse = $this->kcbService->checkTransactionStatus($checkoutRequestId);
-
-            if (isset($statusResponse['response']['Body']['stkCallback'])) {
-                $callbackData = $statusResponse['response'];
-                // You could update the transaction here if needed
-            }
         }
 
         return [
@@ -308,7 +334,7 @@ class ApplicationKcbService
             'result_description' => $transaction->result_description,
             'mpesa_receipt_number' => $transaction->mpesa_receipt_number,
             'application_id' => $transaction->application_id,
-            'application_number' => $transaction->application->application_number ?? null,
+            'application_number' => $transaction->courseApplication->application_number ?? null,
             'amount' => $transaction->amount,
             'message' => $this->getStatusMessage($transaction->status, $transaction->result_description)
         ];
@@ -337,6 +363,7 @@ class ApplicationKcbService
     public function hasCompletedPayment(Application $application)
     {
         return KcbBuniTransaction::where('application_id', $application->id)
+            ->where('transaction_type', 'application_fee')
             ->where('status', 'completed')
             ->exists();
     }
@@ -346,9 +373,7 @@ class ApplicationKcbService
      */
     public function getLatestPayment(Application $application)
     {
-        return KcbBuniTransaction::where('application_id', $application->id)
-            ->latest()
-            ->first();
+        return $application->payments()->latest('id')->first();
     }
 
     /**
@@ -356,8 +381,6 @@ class ApplicationKcbService
      */
     public function getApplicationPayments(Application $application)
     {
-        return KcbBuniTransaction::where('application_id', $application->id)
-            ->orderBy('created_at', 'desc')
-            ->get();
+        return $application->payments()->orderBy('created_at', 'desc')->get();
     }
 }

@@ -37,11 +37,18 @@ class KcbBuniTransaction extends Model
     ];
 
     /**
-     * Get the event application for this transaction
+     * The event application paid by an 'event_registration' transaction.
+     * application_id is shared: for 'application_fee' rows use courseApplication().
      */
     public function application(): BelongsTo
     {
         return $this->belongsTo(EventApplication::class, 'application_id');
+    }
+
+    /** The online course application paid by an 'application_fee' transaction. */
+    public function courseApplication(): BelongsTo
+    {
+        return $this->belongsTo(Application::class, 'application_id');
     }
       public function sale(): BelongsTo
     {

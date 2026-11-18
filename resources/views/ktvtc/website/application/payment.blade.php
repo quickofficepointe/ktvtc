@@ -83,10 +83,6 @@
                            class="inline-block bg-[#B91C1C] text-white px-8 py-3 rounded-lg hover:bg-[#991B1B] transition-colors">
                             Continue to Application
                         </a>
-                        <button onclick="window.location.reload()"
-                                class="inline-block border border-[#B91C1C] text-[#B91C1C] px-8 py-3 rounded-lg hover:bg-red-50 transition-colors">
-                            Pay Another
-                        </button>
                     </div>
                 </div>
 
@@ -244,7 +240,7 @@ function checkPaymentStatus() {
         } else if (pollingAttempts >= MAX_POLLING_ATTEMPTS) {
             // Timeout after 90 seconds
             clearInterval(paymentInterval);
-            showError('Payment timeout. Please check your M-Pesa messages or try again.');
+            showError('We have not heard back from M-Pesa yet. If you received an M-Pesa message for KES 500, do not pay again: refresh this page in a minute. Otherwise try again.');
         }
         // If pending, continue checking
     })

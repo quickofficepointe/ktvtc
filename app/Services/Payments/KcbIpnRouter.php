@@ -316,6 +316,10 @@ class KcbIpnRouter
                     $sales = app(\App\Services\KcbSalesService::class);
                     $sales->confirmSalePaid($sales->saleForPrompt($link), $link->checkout_request_id, $ipn->transaction_id, $ipn->transaction_date, true);
                 }
+                // Same for an application's KES 500 whose STK callback never arrived
+                if ($link instanceof KcbBuniTransaction && $link->transaction_type === 'application_fee') {
+                    app(\App\Services\ApplicationKcbService::class)->markPaid($link, $ipn->transaction_id, $ipn->transaction_date);
+                }
                 return $ipn;
             }
 
