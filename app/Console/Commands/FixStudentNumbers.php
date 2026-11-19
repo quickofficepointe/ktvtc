@@ -24,21 +24,26 @@ class FixStudentNumbers extends Command
     public function handle(): int
     {
         $dry = $this->option('dry-run');
-        $fix = fn ($n) => preg_replace('~/{2,}~', '/', trim((string) $n));
+        $fix = fn ($n) => \App\Support\StudentNumber::clean((string) $n);
 
-        $courses = Course::where('code', 'like', '%/')->orWhere('code', 'like', '/%')->get();
+        $courses = Course::where('code', 'like', '%/%')->get();
         $students = Student::withTrashed()->where('student_number', 'like', '%//%')->get();
         $enrollments = Enrollment::withTrashed()->where('student_number', 'like', '%//%')->get();
         $users = User::where('username', 'like', '%//%')->get();
 
-        $clashes = $students->filter(fn ($s) => Student::withTrashed()->where('student_number', $fix($s->student_number))->where('id', '!=', $s->id)->exists());
+        // A clean number already used by SOMEONE ELSE blocks the fix (the same student's own copy is fine)
+        $clashes = $students->filter(fn ($s) => Student::withTrashed()->where('student_number', $fix($s->student_number))->where('id', '!=', $s->id)->exists())->pluck('student_number')
+            ->merge($enrollments->filter(fn ($e) => Enrollment::withTrashed()->where('student_number', $fix($e->student_number))->where('student_id', '!=', $e->student_id)->exists()
+                || Student::withTrashed()->where('student_number', $fix($e->student_number))->where('id', '!=', $e->student_id)->exists())->pluck('student_number'))
+            ->merge($users->filter(fn ($u) => User::where('username', $fix($u->username))->whereKeyNot($u->id)->exists())->pluck('username'))
+            ->unique();
         if ($clashes->isNotEmpty()) {
-            $this->error('These would clash with an existing number; fix them by hand first: ' . $clashes->pluck('student_number')->implode(', '));
+            $this->error('These would clash with an existing number; fix them by hand first: ' . $clashes->implode(', '));
             return self::FAILURE;
         }
 
         $this->table(['What', 'Count', 'Example'], [
-            ['Course codes', $courses->count(), $courses->first() ? "{$courses->first()->code} -> " . trim($courses->first()->code, '/ ') : ''],
+            ['Course codes', $courses->count(), $courses->first() ? "{$courses->first()->code} -> " . \App\Support\StudentNumber::courseCode($courses->first()->code) : ''],
             ['Student numbers', $students->count(), $students->first() ? "{$students->first()->student_number} -> " . $fix($students->first()->student_number) : ''],
             ['Enrollment numbers', $enrollments->count(), $enrollments->first()->student_number ?? ''],
             ['Login usernames', $users->count(), $users->first()->username ?? ''],
@@ -55,7 +60,7 @@ class FixStudentNumbers extends Command
         }
 
         DB::transaction(function () use ($courses, $students, $enrollments, $users, $fix) {
-            $courses->each(fn ($c) => $c->forceFill(['code' => trim($c->code, '/ ')])->save());
+            $courses->each(fn ($c) => $c->forceFill(['code' => $c->code])->save()); // Course::setCodeAttribute strips the slash
             $students->each(fn ($s) => $s->forceFill(['student_number' => $fix($s->student_number)])->save());
             $enrollments->each(fn ($e) => $e->forceFill(['student_number' => $fix($e->student_number)])->saveQuietly());
             $users->each(fn ($u) => $u->forceFill(['username' => $fix($u->username)])->save());

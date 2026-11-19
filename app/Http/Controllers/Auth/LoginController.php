@@ -47,6 +47,11 @@ class LoginController extends Controller
             'login'    => 'required|string',
             'password' => 'required|string',
         ]);
+
+        // Student numbers once had a doubled slash (BT//962/2026); either spelling signs in
+        if (!filter_var($request->input('login'), FILTER_VALIDATE_EMAIL)) {
+            $request->merge(['login' => \App\Support\StudentNumber::clean($request->input('login'))]);
+        }
     }
 
     /**
@@ -130,8 +135,9 @@ class LoginController extends Controller
             if ($student) {
                 $studentNumber = $student->student_number ?? $student->legacy_student_code;
                 $defaultPassword = strtoupper($studentNumber ?? '');
+                $oldDefault = \App\Support\StudentNumber::oldSpelling($defaultPassword); // texted before the "//" fix
 
-                if ($studentNumber && Hash::check($defaultPassword, $user->password)) {
+                if ($studentNumber && (Hash::check($defaultPassword, $user->password) || ($oldDefault && Hash::check($oldDefault, $user->password)))) {
                     return redirect()->route('student.force-password-change');
                 }
             }

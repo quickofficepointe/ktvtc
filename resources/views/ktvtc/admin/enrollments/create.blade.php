@@ -495,7 +495,7 @@
             const year = $('#intake_year').val() || new Date().getFullYear();
 
             if (courseCode && studentNumber) {
-                $('#previewStudentNumber').text(courseCode.toUpperCase() + '/' + studentNumber + '/' + year);
+                $('#previewStudentNumber').text((courseCode.toUpperCase() + '/' + studentNumber + '/' + year).replace(/\/{2,}/g, '/'));
                 $('#coursePreview').removeClass('hidden');
             } else {
                 $('#coursePreview').addClass('hidden');

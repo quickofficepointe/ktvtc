@@ -8,6 +8,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Student extends Model
 {
+    /** Never two slashes in a row ("BT//962/2026" => "BT/962/2026"). */
+    public function setStudentNumberAttribute($value): void
+    {
+        $this->attributes['student_number'] = \App\Support\StudentNumber::clean($value);
+    }
+
     use HasFactory, SoftDeletes;
 
     protected $table = 'students';

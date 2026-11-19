@@ -10,6 +10,12 @@ use Carbon\Carbon;
 
 class Course extends Model
 {
+    /** Stored without slashes ("bt/" => "BT"): the student number adds its own. */
+    public function setCodeAttribute($value): void
+    {
+        $this->attributes['code'] = \App\Support\StudentNumber::courseCode($value);
+    }
+
     use HasFactory;
 
     protected $fillable = [

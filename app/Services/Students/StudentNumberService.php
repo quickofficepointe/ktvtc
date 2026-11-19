@@ -41,7 +41,7 @@ class StudentNumberService
 
     public function format(string $code, int $running, int $year): string
     {
-        return "{$code}/{$running}/{$year}";
+        return \App\Support\StudentNumber::clean("{$code}/{$running}/{$year}");
     }
 
     /**

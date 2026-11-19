@@ -13,6 +13,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
+    /** Student logins are student numbers: never two slashes in a row. */
+    public function setUsernameAttribute($value): void
+    {
+        $this->attributes['username'] = \App\Support\StudentNumber::clean($value);
+    }
+
     use HasFactory, Notifiable, SoftDeletes;
 
     public const ROLE_SUPER_ADMIN = 0;
