@@ -112,6 +112,20 @@ class StudentFeesController extends Controller
         // Generate invoice number: 7664166#STUDENT_NUMBER
         $invoiceNumber = '7664166#' . $student->student_number;
 
+        // A prompt sent in the last 90 seconds may still be on the phone: M-Pesa rejects a second
+        // one ("Error occurred while sending push request") and the student may pay twice
+        $recent = KcbBuniTransaction::where('invoice_number', $invoiceNumber)->where('transaction_type', 'school_fees')
+            ->where('status', 'initiated')->where('created_at', '>=', now()->subSeconds(90))->latest('id')->first();
+        if ($recent) {
+            return response()->json([
+                'success' => true,
+                'transaction' => $recent,
+                'merchant_request_id' => $recent->merchant_request_id,
+                'checkout_request_id' => $recent->checkout_request_id,
+                'message' => 'A payment request was just sent to ' . $recent->phone_number . '. Please check your phone.',
+            ]);
+        }
+
         // Validate and format phone number
         $formattedPhone = $this->kcbService->validatePhoneNumber($request->phone);
         if (!$formattedPhone) {
@@ -273,8 +287,11 @@ class StudentFeesController extends Controller
      */
     public function checkStatus($transactionId)
     {
-        $transaction = KcbBuniTransaction::where('checkout_request_id', $transactionId)
-            ->orWhere('id', $transactionId)
+        // Only this student's own fee prompts
+        $student = Auth::user()->student;
+        $transaction = KcbBuniTransaction::where('transaction_type', 'school_fees')
+            ->where('invoice_number', '7664166#' . ($student->student_number ?? ''))
+            ->where(fn ($q) => $q->where('checkout_request_id', $transactionId)->orWhere('id', $transactionId))
             ->first();
 
         if (!$transaction) {

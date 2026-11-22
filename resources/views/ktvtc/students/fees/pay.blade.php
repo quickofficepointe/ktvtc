@@ -83,7 +83,7 @@
                             <p class="font-semibold mb-2">Payment Instructions:</p>
                             <ul class="list-disc list-inside space-y-1 text-xs">
                                 <li>You will receive a prompt on your phone to enter your M-Pesa PIN</li>
-                                <li>Payment will be processed via KCB Paybill <span class="font-mono font-bold">7664166</span></li>
+                                <li>No prompt? Pay by M-Pesa Paybill <span class="font-mono font-bold">{{ config('kcb.paybill', '522533') }}</span>, account <span class="font-mono font-bold">7664166#{{ $enrollment->student->student_number ?? auth()->user()->student->student_number }}</span></li>
                                 <li>Your account will be updated automatically upon successful payment</li>
                                 <li>You will receive an SMS confirmation after payment</li>
                             </ul>
@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function pollPaymentStatus(checkoutRequestId) {
         let attempts = 0;
-        const maxAttempts = 30;
+        const maxAttempts = 40; // 40 x 3s = 2 minutes: time to find the phone and type the PIN
 
         const interval = setInterval(async () => {
             attempts++;
@@ -199,10 +199,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 if (data.status === 'completed') {
                     clearInterval(interval);
-                    showStatus('Payment successful! Redirecting to fee statement...', 'success');
+                    showStatus('Payment received' + (data.mpesa_receipt_number ? ' (M-Pesa ' + data.mpesa_receipt_number + ')' : '') + '. Your balance updates as soon as the bank confirms it, usually within a minute. Taking you to your fee statement…', 'success');
                     setTimeout(() => {
                         window.location.href = '{{ route("student.fees.index") }}';
-                    }, 2000);
+                    }, 5000);
                 } else if (data.status === 'failed') {
                     clearInterval(interval);
                     showStatus(data.message || 'Payment failed. Please try again.', 'error');
@@ -211,7 +211,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     payButton.classList.remove('opacity-50');
                 } else if (attempts >= maxAttempts) {
                     clearInterval(interval);
-                    showStatus('Payment is taking longer than expected. Please check your transaction history.', 'warning');
+                    showStatus('No reply from M-Pesa yet. If you got an M-Pesa message, do NOT pay again: your fee statement will show the payment shortly. Otherwise you can try again.', 'warning');
                     payButton.disabled = false;
                     loadingSpinner.classList.add('hidden');
                     payButton.classList.remove('opacity-50');
@@ -225,7 +225,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     payButton.classList.remove('opacity-50');
                 }
             }
-        }, 1000);
+        }, 3000);
     }
 
     function showStatus(message, type) {
