@@ -8,53 +8,35 @@
     <div>
         <h1 class="text-2xl font-bold text-gray-800">My Students</h1>
         <p class="text-sm text-gray-500">
-            Enrolled students in your courses and their fee status.
+            Students registered for a term in which you teach a unit, with how much of that term's fee is paid{{ $show === 'current' ? ': running now or ended in the last 30 days' : ', all intakes' }}.
         </p>
+    </div>
+    <div class="flex gap-2 text-sm">
+        <a href="{{ request()->fullUrlWithQuery(['show' => null, 'page' => null]) }}" class="px-3 py-2 rounded-md border {{ $show === 'current' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700' }}">Current</a>
+        <a href="{{ request()->fullUrlWithQuery(['show' => 'all', 'page' => null]) }}" class="px-3 py-2 rounded-md border {{ $show === 'all' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700' }}">All intakes</a>
     </div>
 </div>
 
 {{-- Filters --}}
 <div class="bg-white rounded-lg shadow p-4 mb-6">
-    <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <div>
-            <label class="block text-xs text-gray-500 uppercase mb-1">Term</label>
-            <select name="term_id" class="w-full border-gray-300 rounded-md text-sm">
-                <option value="">All terms</option>
-                @foreach ($terms as $t)
-                    <option value="{{ $t->id }}" @selected($t->id == $termId)>
-                        {{ $t->name }} — {{ $t->academic_year }}
-                    </option>
-                @endforeach
-            </select>
-        </div>
-
+    <form method="GET" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        @if($show === 'all')<input type="hidden" name="show" value="all">@endif
         <div>
             <label class="block text-xs text-gray-500 uppercase mb-1">Course</label>
             <select name="course_id" class="w-full border-gray-300 rounded-md text-sm">
                 <option value="">All my courses</option>
                 @foreach ($courses as $c)
-                    <option value="{{ $c->id }}" @selected(request('course_id') == $c->id)>
-                        {{ $c->name }} ({{ $c->code }})
-                    </option>
+                    <option value="{{ $c->id }}" @selected(request('course_id') == $c->id)>{{ $c->name }}</option>
                 @endforeach
             </select>
         </div>
-
         <div>
             <label class="block text-xs text-gray-500 uppercase mb-1">Search</label>
-            <input name="search" value="{{ request('search') }}"
-                   placeholder="Name or student no."
-                   class="w-full border-gray-300 rounded-md text-sm">
+            <input name="search" value="{{ request('search') }}" placeholder="Name or student no." class="w-full border-gray-300 rounded-md text-sm">
         </div>
-
         <div class="flex items-end gap-2">
-            <button class="bg-primary hover:bg-secondary text-white text-sm font-medium px-4 py-2 rounded-md">
-                <i class="fas fa-filter mr-1"></i> Filter
-            </button>
-            <a href="{{ route('trainers.students.index') }}"
-               class="text-sm text-gray-500 hover:text-gray-700 px-3 py-2">
-                Reset
-            </a>
+            <button class="bg-primary hover:bg-secondary text-white text-sm font-medium px-4 py-2 rounded-md"><i class="fas fa-filter mr-1"></i> Filter</button>
+            <a href="{{ route('trainers.students.index') }}" class="text-sm text-gray-500 hover:text-gray-700 px-3 py-2">Reset</a>
         </div>
     </form>
 </div>
@@ -65,64 +47,47 @@
         <table class="min-w-full text-sm">
             <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
                 <tr>
-                    <th class="text-left px-4 py-3">Student No.</th>
-                    <th class="text-left px-4 py-3">Name</th>
+                    <th class="text-left px-4 py-3">Student</th>
                     <th class="text-left px-4 py-3">Course</th>
                     <th class="text-left px-4 py-3">Term</th>
-                    <th class="text-right px-4 py-3">Total Fees</th>
-                    <th class="text-right px-4 py-3">Paid</th>
-                    <th class="text-right px-4 py-3">Balance</th>
-                    <th class="text-right px-4 py-3">Progress</th>
+                    <th class="text-left px-4 py-3">Your units</th>
+                    <th class="text-left px-4 py-3">Phone</th>
+                    <th class="text-right px-4 py-3">Term fee paid</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-                @forelse ($enrollments as $e)
+                @forelse ($registrations as $r)
                     <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3 font-mono text-xs text-gray-700">
-                            {{ $e->student_number }}
-                        </td>
                         <td class="px-4 py-3">
-                            <div class="font-medium text-gray-800">{{ $e->student_name }}</div>
-                            @if ($e->student)
-                                <div class="text-xs text-gray-500">{{ $e->student->email }}</div>
-                            @endif
+                            <div class="font-medium text-gray-800">{{ $r->student->full_name ?? trim(($r->student->first_name ?? '') . ' ' . ($r->student->last_name ?? '')) }}</div>
+                            <div class="font-mono text-xs text-gray-500">{{ $r->student->student_number ?? $r->enrollment->student_number ?? '' }}</div>
+                        </td>
+                        <td class="px-4 py-3 text-gray-700">{{ $r->course->name ?? $r->enrollment->course_name ?? '' }}</td>
+                        <td class="px-4 py-3 text-gray-700">
+                            Term {{ $r->term_number }}
+                            <div class="text-xs text-gray-500">{{ $r->starts_on?->format('j M') }} – {{ $r->ends_on?->format('j M Y') }}</div>
                         </td>
                         <td class="px-4 py-3 text-gray-700">
-                            {{ $e->course->name ?? $e->course_name }}
-                            <div class="text-xs text-gray-500">{{ $e->course_code }}</div>
+                            @foreach ($unitsByTerm[$r->course_id . ':' . $r->term_number] ?? [] as $u)
+                                <a href="{{ route('trainers.results.unit', $u) }}" class="block text-primary hover:underline">{{ trim($u->code . ' ' . $u->title) }}</a>
+                            @endforeach
                         </td>
-                        <td class="px-4 py-3 text-gray-700">
-                            {{ $e->term->name ?? '—' }}
-                        </td>
-                        <td class="px-4 py-3 text-right text-gray-700">
-                            {{ number_format($e->total_fees, 2) }}
-                        </td>
-                        <td class="px-4 py-3 text-right text-green-700">
-                            {{ number_format($e->amount_paid, 2) }}
-                        </td>
-                        <td class="px-4 py-3 text-right font-semibold
-                            {{ $e->balance > 0 ? 'text-red-600' : 'text-green-600' }}">
-                            {{ number_format($e->balance, 2) }}
-                        </td>
+                        <td class="px-4 py-3 text-gray-700">{{ $r->student->phone ?? '' }}</td>
                         <td class="px-4 py-3">
+                            @php $pct = $termPaid[$r->id] ?? 0; @endphp
                             <div class="flex items-center justify-end gap-2">
                                 <div class="w-20 bg-gray-200 rounded-full h-2">
-                                    @php $pct = $e->percentage_paid; @endphp
-                                    <div class="h-2 rounded-full
-                                        @if ($pct >= 100) bg-green-500
-                                        @elseif ($pct >= 50) bg-amber-500
-                                        @else bg-red-500 @endif"
-                                        style="width: {{ $pct }}%"></div>
+                                    <div class="h-2 rounded-full {{ $pct >= 100 ? 'bg-green-500' : ($pct >= 50 ? 'bg-amber-500' : 'bg-red-500') }}" style="width: {{ min(100, $pct) }}%"></div>
                                 </div>
-                                <span class="text-xs text-gray-500">{{ $pct }}%</span>
+                                <span class="text-xs text-gray-500 w-10 text-right">{{ round($pct) }}%</span>
                             </div>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="px-4 py-10 text-center text-gray-400">
+                        <td colspan="6" class="px-4 py-10 text-center text-gray-400">
                             <i class="fas fa-inbox text-3xl mb-2 block"></i>
-                            No students found for the selected filters.
+                            No students yet. Students appear here once they are registered for a term in which you teach a unit.
                         </td>
                     </tr>
                 @endforelse
@@ -130,10 +95,8 @@
         </table>
     </div>
 
-    @if ($enrollments->hasPages())
-        <div class="px-4 py-3 border-t bg-gray-50">
-            {{ $enrollments->links() }}
-        </div>
+    @if ($registrations->hasPages())
+        <div class="px-4 py-3 border-t bg-gray-50">{{ $registrations->links() }}</div>
     @endif
 </div>
 

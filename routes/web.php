@@ -193,10 +193,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 Route::middleware('auth')->get('/home', function () {
     $user = Auth::user();
-    // Students go straight to their portal; a photo and bio are optional for them
+    session()->reflash(); // keep "saved" messages for the page this sends the user on to
+    // Staff need a phone number on file (photo and bio are optional); students go straight in
     $isStudent = (int) $user->role === \App\Models\User::ROLE_STUDENT;
-    if (!$isStudent && (!$user->phone_number || !$user->bio || !$user->profile_picture)) {
-        return redirect()->route('profile.edit');
+    if (!$isStudent && !$user->phone_number) {
+        return redirect()->route('profile.edit')->with('warning', 'Please add your phone number.');
     }
     // Unapproved staff used to be sent to the student area, which sent them back here (endless loop)
     if (!$user->is_approved && (int) $user->role !== \App\Models\User::ROLE_STUDENT) {

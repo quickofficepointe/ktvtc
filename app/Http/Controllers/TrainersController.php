@@ -3,9 +3,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AcademicTerm;
-use App\Models\Attachment;
-use App\Models\Enrollment;
+use App\Models\CourseUnit;
+use App\Models\TermRegistration;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -24,41 +23,47 @@ class TrainersController extends Controller
     }
 
 
+    /**
+     * Students registered for a term this trainer teaches a unit in: running now or ended in
+     * the last 30 days (same count as the dashboard), or every intake with ?show=all.
+     */
     public function students(Request $request)
     {
-        $trainer   = Auth::user();
-        $courseIds = $trainer->trainerCourseIds();
+        $units = CourseUnit::with('course:id,name,code')->active()->where('trainer_id', Auth::id())
+            ->orderBy('course_id')->orderBy('term_number')->get();
+        $show = $request->query('show') === 'all' ? 'all' : 'current';
 
-        $terms = AcademicTerm::orderByDesc('academic_year')
-            ->orderBy('term_number')
-            ->get();
-
-        $termId = $request->input('term_id')
-            ?? AcademicTerm::where('is_current', true)->value('id');
-
-        $enrollments = Enrollment::with(['student', 'course', 'term'])
-            ->forCourses($courseIds)
-            ->when($termId, fn ($q) => $q->where('term_id', $termId))
-            ->when($request->filled('course_id'),
-                fn ($q) => $q->where('course_id', $request->course_id))
+        $registrations = TermRegistration::with(['student:id,first_name,last_name,student_number,phone', 'enrollment', 'course:id,name'])
+            ->where('status', '!=', 'cancelled')
+            ->where('registration_type', '!=', TermRegistration::TYPE_EXEMPT)
+            ->where(function ($q) use ($units) {
+                $q->whereRaw('1 = 0');
+                foreach ($units as $u) {
+                    $q->orWhere(fn ($w) => $w->where('course_id', $u->course_id)->where('term_number', $u->term_number));
+                }
+            })
+            ->when($show === 'current', fn ($q) => $q->whereDate('ends_on', '>=', today()->subDays(30)))
+            ->when($request->filled('course_id'), fn ($q) => $q->where('course_id', $request->course_id))
             ->when($request->filled('search'), function ($q) use ($request) {
                 $s = $request->search;
-                $q->where(function ($sub) use ($s) {
-                    $sub->where('student_name', 'like', "%{$s}%")
-                        ->orWhere('student_number', 'like', "%{$s}%");
-                });
+                $q->whereHas('student', fn ($w) => $w->where('student_number', 'like', "%{$s}%")
+                    ->orWhere('first_name', 'like', "%{$s}%")->orWhere('last_name', 'like', "%{$s}%"));
             })
-            ->orderBy('student_name')
-            ->paginate(25)
-            ->withQueryString();
+            ->orderBy('course_id')->orderBy('term_number')->orderBy('starts_on')
+            ->paginate(50)->withQueryString();
 
-        $courses = $trainer->activeCoursesAsTrainer()->orderBy('name')->get();
+        // Share of each term's fee paid (payments clear the oldest term first)
+        $ledger = app(\App\Services\Terms\TermLedger::class);
+        $termPaid = [];
+        foreach ($registrations->getCollection()->pluck('enrollment')->filter()->unique('id') as $enrollment) {
+            foreach ($ledger->forEnrollment($enrollment) as $row) {
+                $termPaid[$row['registration']->id] = $row['percent'];
+            }
+        }
 
-        return view('ktvtc.trainers.students', compact(
-            'enrollments',
-            'terms',
-            'courses',
-            'termId'
-        ));
+        $unitsByTerm = $units->groupBy(fn ($u) => $u->course_id . ':' . $u->term_number);
+        $courses = $units->pluck('course')->filter()->unique('id')->sortBy('name')->values();
+
+        return view('ktvtc.trainers.students', compact('registrations', 'unitsByTerm', 'courses', 'show', 'termPaid'));
     }
 }

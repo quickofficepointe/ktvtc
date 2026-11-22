@@ -1,10 +1,12 @@
-@extends('ktvtc.students.layout.studentlayout')
+@extends($layout ?? 'ktvtc.students.layout.studentlayout')
+
+@section('title', 'My Profile')
 
 @section('content')
-<div class="min-h-screen flex items-center justify-center bg-white px-4 py-10">
+<div class="flex justify-center px-4 py-6">
   <div class="w-full max-w-lg bg-white border border-gray-200 shadow-lg rounded-2xl p-8">
 
-    <h2 class="text-center text-lg font-semibold text-black mb-6">Complete Your Profile</h2>
+    <h2 class="text-center text-lg font-semibold text-black mb-6">My Profile</h2>
 
     <form action="{{ route('profile.update') }}" method="POST" enctype="multipart/form-data" class="space-y-5">
       @csrf
@@ -42,7 +44,7 @@
 
       <!-- Profile Picture -->
       <div>
-        <label for="profile_picture" class="block text-sm font-medium text-gray-700 mb-2">Profile Picture</label>
+        <label for="profile_picture" class="block text-sm font-medium text-gray-700 mb-2">Profile Picture <span class="font-normal text-gray-500">(optional)</span></label>
 
         <!-- Existing -->
         @if(auth()->user()->profile_picture)
@@ -66,6 +68,22 @@
 
         <p class="text-xs text-gray-500 mt-1">Max 3MB. Allowed formats: JPG, JPEG, PNG, WEBP.</p>
         @error('profile_picture') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
+      </div>
+
+      <!-- Password -->
+      <div class="border-t border-gray-200 pt-5">
+        <h3 class="text-sm font-semibold text-gray-800 mb-1"><i class="fas fa-lock text-red-600 mr-1"></i> Change password</h3>
+        <p class="text-xs text-gray-500 mb-3">Leave blank to keep your current password. A new password needs at least 8 characters.</p>
+        <div class="space-y-3">
+          <input id="current_password" name="current_password" type="password" autocomplete="current-password" placeholder="Current password (the one you signed in with)"
+            class="block w-full px-3 py-2 rounded-lg border border-gray-300 text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600">
+          @error('current_password') <p class="text-sm text-red-600">{{ $message }}</p> @enderror
+          <input id="password" name="password" type="password" autocomplete="new-password" placeholder="New password"
+            class="block w-full px-3 py-2 rounded-lg border border-gray-300 text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600">
+          @error('password') <p class="text-sm text-red-600">{{ $message }}</p> @enderror
+          <input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" placeholder="Type the new password again"
+            class="block w-full px-3 py-2 rounded-lg border border-gray-300 text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600">
+        </div>
       </div>
 
       <!-- Submit -->

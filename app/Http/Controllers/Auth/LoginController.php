@@ -115,6 +115,7 @@ class LoginController extends Controller
      */
     protected function authenticated(Request $request, $user)
     {
+        $firstSignIn = $user->last_login_at === null;
         $user->update([
             'last_login_at' => now(),
             'last_login_ip' => $request->ip(),
@@ -141,6 +142,11 @@ class LoginController extends Controller
                     return redirect()->route('student.force-password-change');
                 }
             }
+        }
+
+        // Staff accounts start with a password someone else chose and texted: ask for their own
+        if ($firstSignIn && !$user->student_id && (int) $user->role !== \App\Models\User::ROLE_STUDENT) {
+            return redirect()->route('profile.edit')->with('warning', 'Welcome! Please choose your own password below. The one you received by SMS is only for your first sign-in.');
         }
 
         return redirect()->intended($this->redirectPath());
