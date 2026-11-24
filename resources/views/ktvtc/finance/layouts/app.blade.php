@@ -460,7 +460,7 @@
                 <a href="{{ route('finance.transactions.mpesa') }}"
                    class="flex items-center px-3 py-2.5 rounded-lg nav-link touch-target {{ request()->routeIs('finance.transactions.mpesa') ? 'active' : '' }}">
                     <i class="fas fa-mobile-alt w-5 mr-3 text-center"></i>
-                    <span>M-Pesa Transactions</span>
+                    <span>M-Pesa Prompts</span>
                 </a>
             </li>
             <li>

@@ -182,7 +182,8 @@ class Student extends Model
      */
     public function getFullNameAttribute()
     {
-        return trim("{$this->first_name} {$this->middle_name} {$this->last_name}");
+        // No double space when there is no middle name ("Peter  Kariuki" on texts and receipts)
+        return trim(preg_replace('/\s+/', ' ', "{$this->first_name} {$this->middle_name} {$this->last_name}"));
     }
 
     /**

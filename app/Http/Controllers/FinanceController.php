@@ -71,8 +71,8 @@ class FinanceController extends Controller
         }
 
         // Apply search filter
-        if ($request->filled('q')) {
-            $search = $request->q;
+        $search = trim((string) ($request->input('search') ?? $request->input('q', '')));
+        if ($search !== '') {
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'like', "%{$search}%")
                   ->orWhere('last_name', 'like', "%{$search}%")
@@ -87,6 +87,17 @@ class FinanceController extends Controller
         if ($request->filled('campus_id') && $user->role == 2) {
             $query->where('campus_id', $request->campus_id);
         }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        $open = fn ($e) => $e->whereNotIn('status', ['dropped', 'transferred']);
+        match ($request->input('balance_filter')) {
+            'has_balance', 'overdue' => $query->whereHas('enrollments', fn ($e) => $open($e)->whereColumn('amount_paid', '<', 'total_fees')),
+            'fully_paid'             => $query->whereHas('enrollments', fn ($e) => $open($e)->where('total_fees', '>', 0))
+                                              ->whereDoesntHave('enrollments', fn ($e) => $open($e)->whereColumn('amount_paid', '<', 'total_fees')),
+            default                  => null,
+        };
 
         // Get students with pagination
         $students = $query->with(['campus', 'enrollments'])
@@ -1219,11 +1230,29 @@ class FinanceController extends Controller
      */
     public function mpesaTransactions(Request $request)
     {
-        $transactions = KcbBuniTransaction::with(['sale'])
-            ->latest()
-            ->paginate(20);
+        // STK (PIN) prompts sent from the system; read-only (money is credited from KCB's IPN)
+        $query = KcbBuniTransaction::query()
+            ->when($request->filled('date_from'), fn ($q) => $q->whereDate('created_at', '>=', $request->date_from))
+            ->when($request->filled('date_to'), fn ($q) => $q->whereDate('created_at', '<=', $request->date_to))
+            ->when($request->filled('type'), fn ($q) => $q->where('transaction_type', $request->type))
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
+            ->when($request->filled('search'), function ($q) use ($request) {
+                $s = trim($request->search);
+                $q->where(fn ($w) => $w->where('phone_number', 'like', "%{$s}%")
+                    ->orWhere('invoice_number', 'like', "%{$s}%")
+                    ->orWhere('mpesa_receipt_number', 'like', "%{$s}%"));
+            });
 
-        return view('ktvtc.finance.transactions.mpesa', compact('transactions'));
+        $stats = [
+            'all'         => (clone $query)->count(),
+            'completed'   => (clone $query)->where('status', 'completed')->count(),
+            'failed'      => (clone $query)->where('status', 'failed')->count(),
+            'initiated'   => (clone $query)->where('status', 'initiated')->count(),
+            'paid_amount' => (float) (clone $query)->where('status', 'completed')->sum('amount'),
+        ];
+        $transactions = $query->latest()->paginate(20)->withQueryString();
+
+        return view('ktvtc.finance.transactions.mpesa', compact('transactions', 'stats'));
     }
 
     /**
@@ -1420,7 +1449,7 @@ class FinanceController extends Controller
 
         // Expenses from purchase orders
         $expenses = PurchaseOrder::whereBetween('order_date', [$startDate, $endDate])
-            ->where('status', 'completed')
+            ->whereIn('status', PurchaseOrder::SPENT_STATUSES)
             ->sum('total_amount');
 
         // Calculate profit metrics
@@ -1499,12 +1528,12 @@ class FinanceController extends Controller
 
         // Purchase expenses
         $purchaseExpenses = PurchaseOrder::whereBetween('order_date', [$startDate, $endDate])
-            ->where('status', 'completed')
+            ->whereIn('status', PurchaseOrder::SPENT_STATUSES)
             ->sum('total_amount');
 
         // Supplier expense breakdown
         $supplierExpenses = PurchaseOrder::whereBetween('order_date', [$startDate, $endDate])
-            ->where('status', 'completed')
+            ->whereIn('status', PurchaseOrder::SPENT_STATUSES)
             ->select('supplier_id', DB::raw('SUM(total_amount) as total'))
             ->groupBy('supplier_id')
             ->with('supplier')
@@ -1518,7 +1547,7 @@ class FinanceController extends Controller
                 DB::raw('COUNT(*) as count')
             )
             ->whereBetween('order_date', [$startDate, $endDate])
-            ->where('status', 'completed')
+            ->whereIn('status', PurchaseOrder::SPENT_STATUSES)
             ->groupBy('month')
             ->orderBy('month')
             ->get();
@@ -1576,7 +1605,7 @@ class FinanceController extends Controller
 
         // Cash outflows (purchases)
         $cashOutflows = PurchaseOrder::whereBetween('order_date', [$startDate, $endDate])
-            ->where('status', 'completed')
+            ->whereIn('status', PurchaseOrder::SPENT_STATUSES)
             ->sum('total_amount');
 
         // Net cash flow

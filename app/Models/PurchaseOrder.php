@@ -11,6 +11,9 @@ class PurchaseOrder extends Model
 {
     use SoftDeletes;
 
+    // Orders whose goods arrived: what finance counts as money spent (the column has no 'completed')
+    public const SPENT_STATUSES = ['received', 'closed'];
+
     protected $fillable = [
         'po_number',
         'supplier_id',
