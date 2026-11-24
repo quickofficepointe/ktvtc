@@ -182,7 +182,7 @@ class Enrollment extends Model
         parent::boot();
 
         static::creating(function ($enrollment) {
-            // Lock fees on creation
+            // Lock fees on creation (a KES 0 lock is ignored until a real fee is set; see canModifyFees)
             $enrollment->fee_locked = true;
             $enrollment->fee_locked_at = now();
 
@@ -211,7 +211,8 @@ class Enrollment extends Model
         });
 
         static::updating(function ($enrollment) {
-            if ($enrollment->isDirty('total_fees') && $enrollment->fee_locked) {
+            // A lock taken while the fee was still 0 protects nothing, so the first real fee may be set
+            if ($enrollment->isDirty('total_fees') && $enrollment->fee_locked && (float) $enrollment->getOriginal('total_fees') > 0) {
                 throw new \Exception('Fees are locked for this enrollment and cannot be changed.');
             }
         });
@@ -297,7 +298,8 @@ class Enrollment extends Model
 
     public function canModifyFees(): bool
     {
-        if ($this->fee_locked) {
+        // Enrollments are locked when created, often before any fee is known; a lock on KES 0 does not block setting the fee
+        if ($this->fee_locked && (float) $this->getOriginal('total_fees') > 0) {
             return false;
         }
 
