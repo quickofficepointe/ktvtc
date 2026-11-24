@@ -384,7 +384,7 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">Amount Received (KES)</label>
                         <input type="number"
                                id="cashReceived"
-                               step="100"
+                               step="0.01"
                                min="0"
                                class="w-full border border-gray-300 rounded-lg py-3 px-4 text-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition">
                     </div>

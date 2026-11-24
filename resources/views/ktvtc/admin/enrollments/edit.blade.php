@@ -204,7 +204,7 @@
                                    id="total_fees"
                                    value="{{ old('total_fees', $enrollment->total_fees) }}"
                                    min="0"
-                                   step="100"
+                                   step="0.01"
                                    required
                                    class="w-full pl-12 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
                         </div>
@@ -218,7 +218,7 @@
                                    id="amount_paid"
                                    value="{{ old('amount_paid', $enrollment->amount_paid) }}"
                                    min="0"
-                                   step="100"
+                                   step="0.01"
                                    class="w-full pl-12 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
                         </div>
                     </div>

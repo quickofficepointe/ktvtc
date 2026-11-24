@@ -241,7 +241,7 @@
                             <span class="absolute left-3 top-2 text-gray-500">KES</span>
                             <input type="number" name="exam_fee" id="exam_fee"
                                    value="{{ old('exam_fee', 0) }}"
-                                   min="0" step="100"
+                                   min="0" step="0.01"
                                    class="w-full pl-12 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
                         </div>
                     </div>
@@ -253,7 +253,7 @@
                             <span class="absolute left-3 top-2 text-gray-500">KES</span>
                             <input type="number" name="registration_fee"
                                    value="{{ old('registration_fee', 0) }}"
-                                   min="0" step="100"
+                                   min="0" step="0.01"
                                    class="w-full pl-12 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
                         </div>
                     </div>
@@ -277,7 +277,7 @@
                             <span class="absolute left-3 top-2 text-gray-500">KES</span>
                             <input type="number" name="fee_paid" id="fee_paid"
                                    value="{{ old('fee_paid', 0) }}"
-                                   min="0" step="100"
+                                   min="0" step="0.01"
                                    class="w-full pl-12 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
                         </div>
                     </div>
