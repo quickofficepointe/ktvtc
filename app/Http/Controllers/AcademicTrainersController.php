@@ -43,7 +43,16 @@ class AcademicTrainersController extends Controller
 
         $unassigned = CourseUnit::where('is_active', true)->whereNull('trainer_id')->count();
 
-        return view('ktvtc.academics.trainers.index', compact('trainers', 'units', 'marks', 'ratings', 'unassigned'));
+        // "Already registered?": people with an account who are not trainers yet (real students are left out)
+        $found = collect();
+        if (strlen($find = trim((string) $request->input('find'))) >= 2) {
+            $found = User::where('role', '!=', User::ROLE_TRAINERS)
+                ->where(fn ($q) => $q->whereNull('student_id')->orWhere('role', '!=', User::ROLE_STUDENT))
+                ->where(fn ($w) => $w->where('name', 'like', "%{$find}%")->orWhere('email', 'like', "%{$find}%")->orWhere('phone_number', 'like', "%{$find}%"))
+                ->orderBy('name')->limit(15)->get();
+        }
+
+        return view('ktvtc.academics.trainers.index', compact('trainers', 'units', 'marks', 'ratings', 'unassigned', 'found'));
     }
 
     public function show(User $trainer)
@@ -58,9 +67,49 @@ class AcademicTrainersController extends Controller
         return view('ktvtc.academics.trainers.show', compact('trainer', 'courses', 'mine'));
     }
 
+    /**
+     * Someone who already has an account becomes a trainer. Only self-registered accounts (no
+     * student record, no staff role) can be converted: an account has one role, so turning an
+     * admin or a student into a trainer would take away what they use it for.
+     */
+    public static function canBecomeTrainer(User $user): bool
+    {
+        return (int) $user->role === User::ROLE_STUDENT && !$user->student_id;
+    }
+
+    public function makeTrainer(User $user, SmsService $sms)
+    {
+        if ((int) $user->role === User::ROLE_TRAINERS) {
+            return redirect()->route('academics.trainers.show', $user)->with('success', "{$user->name} is already a trainer.");
+        }
+        if (!self::canBecomeTrainer($user)) {
+            return back()->with('error', "{$user->name}'s account is used as " . (User::getRoles()[(int) $user->role] ?? 'another role')
+                . '. One account has one role, so add them as a trainer with a different email.');
+        }
+
+        $password = $this->newPassword();
+        $user->forceFill(['role' => User::ROLE_TRAINERS, 'is_active' => true, 'is_approved' => true, 'bio' => $user->bio ?: 'Trainer',
+            'password' => Hash::make($password), 'last_login_at' => null])->save();
+        if (!$user->email_verified_at) {
+            $user->markEmailAsVerified();
+        }
+
+        $texted = $this->textLogin($sms, $user, $password);
+
+        return redirect()->route('academics.trainers.show', $user)->with('success', "{$user->name} is now a trainer. "
+            . ($texted ? "New login details texted to {$user->phone_number}." : "Give them their email ({$user->email}) and this first password yourself: {$password}"));
+    }
+
     /** Add a trainer account and text the login details. */
     public function store(Request $request, SmsService $sms)
     {
+        // An email that is already registered: say whose it is, so they can be found and made a trainer
+        if ($request->filled('email') && $existing = User::where('email', $request->input('email'))->first()) {
+            $role = User::getRoles()[(int) $existing->role] ?? 'another role';
+            return redirect()->route('academics.trainers.index', ['find' => $existing->email])->withInput()
+                ->with('error', "{$request->input('email')} is already registered to {$existing->name} ({$role}). Find them under \"Already registered?\" below.");
+        }
+
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',

@@ -56,6 +56,49 @@
             <button class="w-full bg-red-700 hover:bg-red-800 text-white rounded-lg py-2"><i class="fas fa-user-plus mr-1"></i> Add trainer</button>
         </form>
         <p class="text-xs text-gray-500 mt-3">After adding, open the trainer to give them their units.</p>
+
+        <div class="border-t mt-5 pt-4" id="already-registered">
+            <p class="font-semibold text-gray-800 text-sm">Already registered?</p>
+            <p class="text-xs text-gray-500 mb-2">Search anyone who already has an account (e.g. signed up on the website) and make them a trainer.</p>
+            <form method="GET" action="{{ route('academics.trainers.index') }}#already-registered" class="flex gap-2">
+                <input type="text" name="find" value="{{ request('find') }}" minlength="2" placeholder="Name, email or phone" class="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                <button class="border border-gray-300 hover:bg-gray-50 rounded-lg px-3 py-2 text-sm" aria-label="Search"><i class="fas fa-search"></i></button>
+            </form>
+            @if(request()->filled('find'))
+                <ul class="mt-3 divide-y text-sm">
+                    @forelse($found as $u)
+                        @php
+                            $role = \App\Models\User::getRoles()[(int) $u->role] ?? 'Unknown';
+                            $ok = \App\Http\Controllers\AcademicTrainersController::canBecomeTrainer($u);
+                        @endphp
+                        <li class="py-2">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="min-w-0">
+                                    <p class="font-medium text-gray-900 break-words">{{ $u->name }}</p>
+                                    <p class="text-xs text-gray-500 break-all">{{ $u->email }}{{ $u->phone_number ? ' · ' . $u->phone_number : '' }}</p>
+                                    <p class="text-xs {{ $ok ? 'text-gray-500' : 'text-amber-700' }}">
+                                        @if($ok)
+                                            Signed up {{ $u->created_at?->format('d M Y') }}{{ $u->is_approved ? '' : ' · not approved yet' }}
+                                        @else
+                                            Already {{ $role }}. One account has one role: add them as a trainer with a different email.
+                                        @endif
+                                    </p>
+                                </div>
+                                @if($ok)
+                                    <form method="POST" action="{{ route('academics.trainers.make', $u) }}"
+                                          onsubmit="return confirm('Make {{ addslashes($u->name) }} a trainer? Their account becomes a trainer account with a new first password.')">
+                                        @csrf
+                                        <button class="whitespace-nowrap bg-red-700 hover:bg-red-800 text-white rounded-lg px-3 py-1.5 text-xs"><i class="fas fa-user-check mr-1"></i>Make trainer</button>
+                                    </form>
+                                @endif
+                            </div>
+                        </li>
+                    @empty
+                        <li class="py-2 text-gray-500">Nobody found. Add them as a new trainer above.</li>
+                    @endforelse
+                </ul>
+            @endif
+        </div>
     </x-dash.panel>
 </div>
 </div>

@@ -355,6 +355,8 @@ Route::middleware(['auth', 'verified', 'role.any:11,2'])
         Route::put('/trainers/{trainer}', [AcademicTrainersController::class, 'update'])->name('trainers.update');
         Route::post('/trainers/{trainer}/units', [AcademicTrainersController::class, 'assignUnits'])->name('trainers.units');
         Route::post('/trainers/{trainer}/send-login', [AcademicTrainersController::class, 'sendLogin'])->name('trainers.send-login');
+        // Someone already registered (self-signed-up account) becomes a trainer
+        Route::post('/trainers/make/{user}', [AcademicTrainersController::class, 'makeTrainer'])->whereNumber('user')->name('trainers.make');
 
         Route::post('/evaluations/questions', [EvaluationAdminController::class, 'storeQuestion'])->name('evaluations.questions.store');
         Route::put('/evaluations/questions/{question}', [EvaluationAdminController::class, 'updateQuestion'])->name('evaluations.questions.update');
