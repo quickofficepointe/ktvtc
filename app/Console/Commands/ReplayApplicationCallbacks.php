@@ -52,18 +52,19 @@ class ReplayApplicationCallbacks extends Command
 
             $meta = collect($cb['CallbackMetadata']['Item'] ?? [])->filter(fn ($i) => isset($i['Name'], $i['Value']))
                 ->mapWithKeys(fn ($i) => [$i['Name'] => $i['Value']]);
-            $code = (int) ($cb['ResultCode'] ?? -1);
+            $code = $cb['ResultCode'] ?? null; // may be text, e.g. "E3008"
+            $paid = KcbBuniTransaction::isSuccess($code);
             $receipt = $meta['MpesaReceiptNumber'] ?? null;
             $paidAt = isset($meta['TransactionDate'])
                 ? rescue(fn () => Carbon::createFromFormat('YmdHis', (string) $meta['TransactionDate']), now(), false)
                 : null;
 
-            $rows[] = [$tx->id, $tx->application_id, $tx->phone_number, $code === 0 ? 'paid' : 'failed', $receipt ?? '-', $paidAt?->format('Y-m-d H:i') ?? '-'];
+            $rows[] = [$tx->id, $tx->application_id, $tx->phone_number, $paid ? 'paid' : 'failed', $receipt ?? '-', $paidAt?->format('Y-m-d H:i') ?? '-'];
 
             if ($dry) {
                 continue;
             }
-            if ($code === 0) {
+            if ($paid) {
                 $service->markPaid($tx, $receipt, $paidAt, [
                     'result_code' => $code,
                     'result_description' => $cb['ResultDesc'] ?? '',

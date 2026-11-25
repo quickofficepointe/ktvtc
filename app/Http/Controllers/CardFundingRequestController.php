@@ -214,7 +214,7 @@ class CardFundingRequestController extends Controller
     {
         $resultCode = $callback['ResultCode'] ?? null;
 
-        if ($resultCode == 0) {
+        if (\App\Models\KcbBuniTransaction::isSuccess($resultCode)) {
             return $this->completeHighSchoolFunding($transaction, $callback, $data);
         } else {
             return $this->failHighSchoolFunding($transaction, $callback, $data);
@@ -313,7 +313,7 @@ class CardFundingRequestController extends Controller
         $resultCode = $callback['ResultCode'] ?? null;
         $resultDesc = $callback['ResultDesc'] ?? '';
 
-        if ($resultCode == 0) {
+        if (\App\Models\KcbBuniTransaction::isSuccess($resultCode)) {
             $metadata = $callback['CallbackMetadata']['Item'] ?? [];
             $mpesaReceipt = null;
             foreach ($metadata as $item) {

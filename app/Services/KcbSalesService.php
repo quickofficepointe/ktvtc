@@ -279,12 +279,12 @@ class KcbSalesService extends KcbService
                     'result_code' => $resultCode,
                     'result_description' => $stkCallback['ResultDesc'] ?? '',
                     'callback_data' => json_encode($callbackData),
-                    'status' => $resultCode == 0 ? 'completed' : 'failed',
-                    'mpesa_receipt_number' => $resultCode == 0 ? $receipt : $prompt->mpesa_receipt_number,
-                    'transaction_date' => $resultCode == 0 ? $paidAt : $prompt->transaction_date,
+                    'status' => \App\Models\KcbBuniTransaction::isSuccess($resultCode) ? 'completed' : 'failed',
+                    'mpesa_receipt_number' => \App\Models\KcbBuniTransaction::isSuccess($resultCode) ? $receipt : $prompt->mpesa_receipt_number,
+                    'transaction_date' => \App\Models\KcbBuniTransaction::isSuccess($resultCode) ? $paidAt : $prompt->transaction_date,
                 ]);
 
-                if ($resultCode == 0) {
+                if (\App\Models\KcbBuniTransaction::isSuccess($resultCode)) {
                     $this->confirmSalePaid($sale, $checkoutRequestId, $receipt, $paidAt, true, json_encode($callbackData));
                 } else {
                     $this->markSaleFailed($sale, $checkoutRequestId, json_encode($callbackData));

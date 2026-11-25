@@ -239,7 +239,7 @@ class EventPaymentService
             'callback_data' => json_encode($callbackData),
         ];
 
-        if ($resultCode == 0) {
+        if (\App\Models\KcbBuniTransaction::isSuccess($resultCode)) {
             // Payment successful
             $callbackMetadata = $stkCallback['CallbackMetadata']['Item'] ?? [];
             $metadata = [];

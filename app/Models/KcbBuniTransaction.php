@@ -28,6 +28,15 @@ class KcbBuniTransaction extends Model
         'response_data'
     ];
 
+    /**
+     * Did M-Pesa accept the payment? Only an explicit "0" counts: a missing code (null == 0 in PHP)
+     * or a text code such as "E3008" ((int) "E3008" === 0) must never read as paid.
+     */
+    public static function isSuccess($code): bool
+    {
+        return $code !== null && $code !== '' && trim((string) $code) === '0';
+    }
+
     protected $casts = [
         'amount' => 'decimal:2',
         'callback_data' => 'array',

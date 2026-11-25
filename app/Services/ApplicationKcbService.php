@@ -167,7 +167,7 @@ class ApplicationKcbService
             return true; // already recorded (callback repeated, or the bank's IPN came first)
         }
 
-        if ($resultCode == 0) {
+        if (\App\Models\KcbBuniTransaction::isSuccess($resultCode)) {
             $metadata = [];
             foreach ($stkCallback['CallbackMetadata']['Item'] ?? [] as $item) {
                 if (isset($item['Name'], $item['Value'])) {

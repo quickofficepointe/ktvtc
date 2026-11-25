@@ -230,7 +230,7 @@ class StudentFeesController extends Controller
                 'callback_data' => json_encode($request->all()),
             ];
 
-            if ($resultCode == 0) {
+            if (\App\Models\KcbBuniTransaction::isSuccess($resultCode)) {
                 // Payment successful
                 $callbackMetadata = $stkCallback['CallbackMetadata']['Item'] ?? [];
                 $metadata = [];

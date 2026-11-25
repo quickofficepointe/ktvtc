@@ -636,7 +636,7 @@ class PreOrderPortalController extends Controller
                 return response()->json(['success' => true, 'message' => 'Already paid']);
             }
 
-            if ($resultCode == 0) {
+            if (\App\Models\KcbBuniTransaction::isSuccess($resultCode)) {
                 // Success — extract M-Pesa receipt
                 $items = $stk['CallbackMetadata']['Item'] ?? [];
                 $receipt = null;
