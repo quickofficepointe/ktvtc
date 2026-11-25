@@ -85,7 +85,7 @@
                                 <li>You will receive a prompt on your phone to enter your M-Pesa PIN</li>
                                 <li>No prompt? Pay by M-Pesa Paybill <span class="font-mono font-bold">{{ config('kcb.paybill', '522533') }}</span>, account <span class="font-mono font-bold">7664166#{{ $enrollment->student->student_number ?? auth()->user()->student->student_number }}</span></li>
                                 <li>Your account will be updated automatically upon successful payment</li>
-                                <li>You will receive an SMS confirmation after payment</li>
+                                <li>Your receipt appears on your Fee Statement as soon as the payment is confirmed</li>
                             </ul>
                         </div>
                     </div>

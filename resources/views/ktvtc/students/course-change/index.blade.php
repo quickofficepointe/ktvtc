@@ -9,7 +9,7 @@
         <p class="text-sm text-gray-500 mt-1">
             Your request goes to <strong>Academics</strong> (who decide which term you start in), then <strong>Finance</strong>
             (who decide how much of what you have paid moves to the new course), then <strong>Admissions</strong> for final approval.
-            Once approved you get a new registration number for the new course by SMS.
+            Once approved you get a new registration number for the new course; it shows here and on your dashboard.
         </p>
     </div>
 
