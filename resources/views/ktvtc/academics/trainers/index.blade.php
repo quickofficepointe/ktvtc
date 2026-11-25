@@ -43,7 +43,7 @@
         </div>
     </x-dash.panel>
 
-    <x-dash.panel title="Add a trainer" subtitle="Their login details are texted to them">
+    <x-dash.panel title="Add a trainer" subtitle="They get a first password: by SMS, or shown here for you to give them if SMS is off">
         <form method="POST" action="{{ route('academics.trainers.store') }}" class="space-y-3 text-sm">
             @csrf
             <input name="name" value="{{ old('name') }}" required placeholder="Full name" class="w-full border border-gray-300 rounded-lg px-3 py-2">
