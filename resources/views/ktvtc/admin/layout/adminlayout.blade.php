@@ -570,6 +570,13 @@
                     <span class="nav-text">Enrollments</span>
                 </a>
 
+                <!-- Portal quiz scores and how-to video -->
+                <a href="{{ route('admin.quiz-scores.index') }}"
+                   class="admin-nav-link flex items-center px-4 py-3 rounded-xl {{ request()->routeIs('admin.quiz-scores.*') ? 'active' : '' }}">
+                    <i class="fas fa-question-circle mr-3 text-lg"></i>
+                    <span class="nav-text">Quiz Scores</span>
+                </a>
+
                 <!-- Course change requests (admissions give the final approval) -->
                 <a href="{{ route('course-changes.index') }}"
                    class="admin-nav-link flex items-center px-4 py-3 rounded-xl {{ request()->routeIs('course-changes.*') ? 'active' : '' }}">

@@ -29,8 +29,8 @@ class ForcePasswordChangeController extends Controller
         $user->password = Hash::make($request->password);
         $user->save();
 
-        // Redirect to student dashboard with success message
-        return redirect()->route('student.dashboard')
+        // Via home: the how-to video comes next if not yet watched, then the dashboard
+        return redirect()->route('home')
                          ->with('success', 'Password changed successfully. Please keep it secure.');
     }
 }

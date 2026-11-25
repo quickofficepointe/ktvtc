@@ -224,6 +224,12 @@
                         <span>Portal Quiz</span>
                     </a>
                 </li>
+                <li>
+                    <a href="{{ route('welcome-video.show') }}" class="flex items-center px-3 py-3 text-sm rounded-lg nav-link">
+                        <i class="fas fa-play-circle w-5 mr-3"></i>
+                        <span>How-to Video</span>
+                    </a>
+                </li>
 
                 <li>
                     <a href="{{ route('profile.edit') }}"

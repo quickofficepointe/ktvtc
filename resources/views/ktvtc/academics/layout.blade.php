@@ -90,6 +90,7 @@
                 @endforeach
                 <li class="pt-4"><p class="px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white/70">Account</p></li>
                 <li><a href="{{ route('profile.edit') }}" class="flex items-center px-3 py-2.5 text-sm rounded-md nav-link"><i class="fas fa-user-cog w-5 mr-3 text-center"></i>Profile</a></li>
+                <li><a href="{{ route('welcome-video.show') }}" class="flex items-center px-3 py-2.5 text-sm rounded-md nav-link"><i class="fas fa-play-circle w-5 mr-3 text-center"></i>How-to Video</a></li>
                 <li>
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf

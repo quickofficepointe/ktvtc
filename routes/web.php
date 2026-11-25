@@ -206,6 +206,10 @@ Route::middleware('auth')->get('/home', function () {
     if (!$user->is_approved) {
         return redirect()->route('student.dashboard');
     }
+    // Everyone watches the how-to video for their role once (shown again each sign-in until finished)
+    if (\App\Support\WelcomeVideo::due($user)) {
+        return redirect()->route('welcome-video.show');
+    }
    switch ($user->role) {
     case 0:  return redirect()->route('super-admin.dashboard');
     case 1:  return redirect()->route('mschool.dashboard');
@@ -222,6 +226,13 @@ Route::middleware('auth')->get('/home', function () {
     default: return redirect()->route('student.dashboard');
 }
 })->name('home');
+
+// First-sign-in how-to video (also available later to watch again)
+Route::middleware('auth')->prefix('welcome-video')->name('welcome-video.')->group(function () {
+    Route::get('/', [App\Http\Controllers\WelcomeVideoController::class, 'show'])->name('show');
+    Route::post('/watched', [App\Http\Controllers\WelcomeVideoController::class, 'watched'])->name('watched');
+    Route::post('/skip', [App\Http\Controllers\WelcomeVideoController::class, 'skip'])->name('skip');
+});
 
 // ============================================================================
 // SUPER ADMIN ROUTES
@@ -466,6 +477,9 @@ Route::middleware(['auth', 'verified', 'role.admin'])
     ->group(function () {
 
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+
+    // Students' portal quiz scores and who has watched the how-to video
+    Route::get('/quiz-scores', [App\Http\Controllers\AdminQuizScoresController::class, 'index'])->name('quiz-scores.index');
 
     // User Management
     Route::prefix('users')->name('users.')->group(function () {

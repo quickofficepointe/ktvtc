@@ -154,6 +154,11 @@
                     </a>
                 </li>
                 <li>
+                    <a href="{{ route('welcome-video.show') }}" class="flex items-center px-3 py-3 text-sm rounded-md nav-link">
+                        <i class="fas fa-play-circle mr-3"></i> How-to Video
+                    </a>
+                </li>
+                <li>
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
                         <button type="submit"

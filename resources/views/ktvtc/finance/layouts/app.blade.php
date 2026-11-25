@@ -338,6 +338,9 @@
                         <a href="{{ route('profile.edit') }}" class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100">
                             <i class="fas fa-user w-4 mr-3 text-gray-400 text-center"></i> My Profile
                         </a>
+                        <a href="{{ route('welcome-video.show') }}" class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100">
+                            <i class="fas fa-play-circle w-4 mr-3 text-gray-400 text-center"></i> How-to Video
+                        </a>
                         <a href="{{ route('finance.settings.index') }}" class="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100">
                             <i class="fas fa-cog w-4 mr-3 text-gray-400 text-center"></i> Settings
                         </a>
