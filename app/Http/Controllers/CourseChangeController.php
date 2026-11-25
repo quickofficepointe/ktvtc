@@ -131,7 +131,7 @@ class CourseChangeController extends Controller
 
         $courseChange->refresh();
         $message = $courseChange->status === CourseChangeRequest::APPROVED
-            ? "Approved. New registration number: {$courseChange->newEnrollment->student_number}. The student has been texted."
+            ? "Approved. New registration number: {$courseChange->newEnrollment->student_number}. The student sees it on their portal (and gets a text when SMS is working)."
             : 'Approved and passed to ' . CourseChangeRequest::STAGE_NAMES[$courseChange->status] . '.';
 
         return redirect()->route('course-changes.show', $courseChange)->with('success', $message);
@@ -147,7 +147,7 @@ class CourseChangeController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return redirect()->route('course-changes.show', $courseChange)->with('success', 'Request turned down. The student has been texted the reason.');
+        return redirect()->route('course-changes.show', $courseChange)->with('success', 'Request turned down. The student sees the reason on their portal (and gets a text when SMS is working).');
     }
 
     private function layout(): string
