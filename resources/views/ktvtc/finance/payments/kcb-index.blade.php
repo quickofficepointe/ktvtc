@@ -14,6 +14,7 @@
     $tabs = [
         'attention'   => ['Needs attention', 'fa-exclamation-circle', 'text-red-600'],
         'credited'    => ['Credited', 'fa-check-circle', 'text-green-600'],
+        'held'        => ['Deposits', 'fa-piggy-bank', 'text-indigo-600'],
         'linked'      => ['Linked to sales', 'fa-link', 'text-blue-600'],
         'duplicate'   => ['Already recorded', 'fa-clone', 'text-gray-600'],
         'ignored'     => ['Set aside', 'fa-ban', 'text-gray-600'],
@@ -28,6 +29,7 @@
     };
     $badge = [
         'credited'    => 'bg-green-100 text-green-800',
+        'held'        => 'bg-indigo-100 text-indigo-800',
         'linked'      => 'bg-blue-100 text-blue-800',
         'unallocated' => 'bg-yellow-100 text-yellow-800',
         'quarantined' => 'bg-red-100 text-red-800',
@@ -112,7 +114,7 @@
                             <td class="py-3 px-3 text-right font-semibold whitespace-nowrap">KES {{ number_format($p->transaction_amount, 2) }}</td>
                             <td class="py-3 px-3">
                                 <span class="px-2 py-0.5 rounded-full text-xs font-semibold {{ $badge[$p->status] ?? 'bg-gray-100' }}">
-                                    {{ ucfirst($p->status) }}
+                                    {{ $p->status === 'held' ? 'Deposit' : ucfirst($p->status) }}
                                 </span>
                                 @if($p->is_historical)
                                     <span class="px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800">Recovered</span>

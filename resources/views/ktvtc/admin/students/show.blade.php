@@ -287,6 +287,8 @@
 </div>
 @endif
 
+@include('ktvtc.admin.students._fee-prompt')
+
 {{-- ═══════════ MAIN GRID ═══════════ --}}
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     {{-- LEFT COLUMN --}}

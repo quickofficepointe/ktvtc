@@ -63,7 +63,13 @@
     </div>
 
     <div class="lg:col-span-2 space-y-6">
-    @if($ipn->needsAttention())
+    @if($ipn->status === \App\Models\KcbIpn::STATUS_HELD)
+        <div class="finance-card p-4 bg-indigo-50 border-indigo-200 text-sm text-indigo-900">
+            <i class="fas fa-piggy-bank mr-1"></i> Deposit for a registered student who is not enrolled yet. It goes to their fees automatically when they are enrolled.
+            If it belongs to someone else, apply it below; if they will not join and you refund it, set it aside with the reason.
+        </div>
+    @endif
+    @if($ipn->isOpen())
 
         {{-- Suggestions --}}
         <div class="finance-card p-5">

@@ -120,7 +120,7 @@ class KcbIpnRouter
             }
             $fees = $ipn->till_number === config('kcb.tills.school_fees');
             $unmatched = in_array($ipn->status, [KcbIpn::STATUS_UNALLOCATED, KcbIpn::STATUS_QUARANTINED], true);
-            $feesPaid = $fees && $ipn->status === KcbIpn::STATUS_CREDITED;
+            $feesPaid = $fees && in_array($ipn->status, [KcbIpn::STATUS_CREDITED, KcbIpn::STATUS_HELD], true);
             if (!$unmatched && !$feesPaid) {
                 return;
             }
@@ -129,7 +129,7 @@ class KcbIpnRouter
             $phone = $ipn->debit_msisdn && preg_match('/^\+?\d{9,13}$/', $ipn->debit_msisdn) ? " ({$ipn->debit_msisdn})" : '';
             $till = $fees ? 'School fees' : ($ipn->till_number === config('kcb.tills.cafeteria') ? 'Cafeteria' : 'Till ' . $ipn->till_number);
             $lines = [
-                $feesPaid ? 'KTVTC FEES RECEIVED' : 'KTVTC PAYMENT NOT MATCHED',
+                $ipn->status === KcbIpn::STATUS_HELD ? 'KTVTC DEPOSIT RECEIVED (not yet enrolled)' : ($feesPaid ? 'KTVTC FEES RECEIVED' : 'KTVTC PAYMENT NOT MATCHED'),
                 $till . ': KES ' . number_format((float) $ipn->transaction_amount, 2),
                 'From: ' . $payer . $phone,
                 'Receipt: ' . $ipn->transaction_id,
@@ -215,7 +215,7 @@ class KcbIpnRouter
         $account = $ipn->account_reference === null ? 'no account number was entered' : "nothing matches \"{$ipn->account_reference}\"";
 
         if ($ipn->till_number === config('kcb.tills.school_fees')) {
-            $students = $this->studentsByReference($ipn->account_reference);
+            $students = $this->studentsByReference($ipn->account_reference, true);
             return $students->count() === 1
                 ? ['credit', "credit school fees of {$students->first()->student_number}"]
                 : ['none', $students->count() > 1 ? 'the account number matches more than one student' : $account];
@@ -346,9 +346,12 @@ class KcbIpnRouter
     {
         return DB::transaction(function () use ($ipn, $student, $userId) {
             $ipn = $this->lockForResolution($ipn);
-            $payments = $this->feeAllocator->allocate($student, $ipn, $userId);
             $ipn->route = KcbIpn::ROUTE_SCHOOL_FEES;
             $this->resolve($ipn, $userId);
+            if (!$this->hasFeeEnrollment($student)) {
+                return $this->hold($ipn, $student, $userId);
+            }
+            $payments = $this->feeAllocator->allocate($student, $ipn, $userId);
             $ipn->markOutcome(KcbIpn::STATUS_CREDITED, "Assigned to {$student->student_number} by finance", FeePayment::class, $payments->first()->id);
             return $ipn;
         });
@@ -438,10 +441,13 @@ class KcbIpnRouter
             return $ipn;
         }
 
-        $students = $this->studentsByReference($ipn->account_reference);
+        $students = $this->studentsByReference($ipn->account_reference, true);
 
         if ($students->count() === 1) {
             $student = $students->first();
+            if (!$this->hasFeeEnrollment($student)) {
+                return $this->hold($ipn, $student);
+            }
             try {
                 $payments = $this->feeAllocator->allocate($student, $ipn, null, $this->enrollmentByReference($ipn->account_reference));
             } catch (\DomainException $e) {
@@ -550,7 +556,7 @@ class KcbIpnRouter
      * is the account typed. Old legacy codes from imports are not used here: some point at a
      * different person, so they are only offered to finance as suggestions.
      */
-    private function studentsByReference(?string $reference)
+    private function studentsByReference(?string $reference, bool $feesTill = false)
     {
         if (!$reference) {
             return collect();
@@ -567,7 +573,22 @@ class KcbIpnRouter
             $students = $students->merge(Student::whereNull('merged_into_id')->whereIn('id', $viaEnrollment)->get())->unique('id')->values();
         }
 
+        // The bare number reserved at registration ("1209") still finds the student after
+        // enrollment turned it into "COS/1209/2026": running numbers are unique college-wide
+        if ($feesTill && $students->isEmpty() && $running = $this->runningNumber($reference)) {
+            $ids = Enrollment::where('student_number', 'like', "%/{$running}/%")->pluck('student_id')
+                ->merge(Student::whereNull('merged_into_id')->where('student_number', 'like', "%/{$running}/%")->pluck('id'))->unique();
+            $students = Student::whereNull('merged_into_id')->whereIn('id', $ids)->limit(3)->get();
+        }
+
         return $students;
+    }
+
+    /** "1209" or "#1209" typed as the account: the running number reserved at registration */
+    private function runningNumber(?string $reference): ?int
+    {
+        $ref = trim((string) $reference, " #	");
+        return preg_match('/^\d{3,6}$/', $ref) ? (int) $ref : null;
     }
 
     /** The course enrollment whose own number is the account typed, if exactly one. */
@@ -575,6 +596,12 @@ class KcbIpnRouter
     {
         if (!$reference) {
             return null;
+        }
+        if ($running = $this->runningNumber($reference)) {
+            $matches = Enrollment::where('student_number', 'like', "%/{$running}/%")->limit(2)->get();
+            if ($matches->count() === 1) {
+                return $matches->first();
+            }
         }
         $alnum = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $reference));
         $matches = Enrollment::where(fn ($q) => $q->where('student_number', $reference)
@@ -598,7 +625,7 @@ class KcbIpnRouter
     {
         $out = [];
 
-        foreach ($this->studentsByReference($ipn->account_reference) as $s) {
+        foreach ($this->studentsByReference($ipn->account_reference, $ipn->till_number === config('kcb.tills.school_fees')) as $s) {
             $out[] = $this->studentSuggestion($s, 'Account number matches');
         }
         foreach ($this->studentsByLegacyCode($ipn->account_reference) as $s) {
@@ -693,10 +720,63 @@ class KcbIpnRouter
         return null;
     }
 
+    // ------------------------------------------------------------------
+    // Deposits: paid before the student is enrolled (reserved number), applied at enrollment
+    // ------------------------------------------------------------------
+
+    private function hasFeeEnrollment(Student $student): bool
+    {
+        return Enrollment::where('student_id', $student->id)->whereNotIn('status', ['dropped', 'transferred'])->exists();
+    }
+
+    private function hold(KcbIpn $ipn, Student $student, ?int $userId = null): KcbIpn
+    {
+        $ipn->suggestions = null;
+        $ipn->markOutcome(KcbIpn::STATUS_HELD, "Deposit for {$student->student_number} ({$student->full_name}); goes to their fees when they are enrolled"
+            . ($userId ? ' (assigned by finance)' : ''), Student::class, $student->id);
+
+        DB::afterCommit(fn () => rescue(function () use ($ipn, $student) {
+            $text = "Dear {$student->full_name}, we have received KES " . number_format((float) $ipn->transaction_amount, 2)
+                . " for school fees. Ref {$ipn->transaction_id}. It will be applied to your fees when your enrollment is complete. KTVTC";
+            $sms = app(\App\Services\SmsService::class);
+            $phones = collect([$student->phone, $ipn->debit_msisdn])->filter()
+                ->unique(fn ($p) => substr(preg_replace('/\D/', '', (string) $p), -9));
+            foreach ($phones as $phone) {
+                $sms->sendSingleSms($phone, $text);
+            }
+        }, null, false));
+
+        return $ipn;
+    }
+
+    /** Deposits held for this student: total and the payments */
+    public function heldFor(Student $student)
+    {
+        return KcbIpn::where('status', KcbIpn::STATUS_HELD)->where('matched_record_type', Student::class)
+            ->where('matched_record_id', $student->id)->orderBy('id')->get();
+    }
+
+    /**
+     * Apply the student's held deposits to their fees (called once they have an enrollment).
+     * Must run inside a DB transaction. Returns how much was applied.
+     */
+    public function releaseDeposits(Student $student, ?int $userId = null): float
+    {
+        $applied = 0.0;
+        foreach (KcbIpn::where('status', KcbIpn::STATUS_HELD)->where('matched_record_type', Student::class)
+                     ->where('matched_record_id', $student->id)->lockForUpdate()->orderBy('id')->get() as $ipn) {
+            $payments = $this->feeAllocator->allocate($student, $ipn, $userId);
+            $ipn->markOutcome(KcbIpn::STATUS_CREDITED, "Deposit applied to {$payments->first()->enrollment->student_number} at enrollment",
+                FeePayment::class, $payments->first()->id);
+            $applied += (float) $ipn->transaction_amount;
+        }
+        return $applied;
+    }
+
     private function lockForResolution(KcbIpn $ipn): KcbIpn
     {
         $ipn = KcbIpn::whereKey($ipn->id)->lockForUpdate()->firstOrFail();
-        if (!$ipn->needsAttention()) {
+        if (!$ipn->isOpen()) {
             throw new \DomainException('This payment has already been resolved.');
         }
         return $ipn;

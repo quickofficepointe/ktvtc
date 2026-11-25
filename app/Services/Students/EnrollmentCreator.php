@@ -86,6 +86,13 @@ class EnrollmentCreator
 
             Log::info('Enrollment created', ['enrollment_id' => $enrollment->id, 'student_id' => $student->id, 'number' => $number, 'by' => $userId]);
 
+            // Deposits paid before enrollment (prompt from admissions, or the reserved number) now go to the fees
+            $deposits = app(\App\Services\Payments\KcbIpnRouter::class)->releaseDeposits($student, $userId);
+            if ($deposits > 0) {
+                Log::info('Deposits applied at enrollment', ['enrollment_id' => $enrollment->id, 'amount' => $deposits]);
+                $enrollment->refresh();
+            }
+
             // The student can sign in from now on; their login details are texted once
             app(StudentAccountService::class)->afterEnrollment($student);
 

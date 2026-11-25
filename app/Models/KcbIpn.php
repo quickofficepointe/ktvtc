@@ -28,7 +28,8 @@ class KcbIpn extends Model
     public const STATUS_UNALLOCATED = 'unallocated';  // waiting for finance to assign
     public const STATUS_QUARANTINED = 'quarantined';  // failed source check; finance must review
     public const STATUS_IGNORED     = 'ignored';      // finance decided not to apply it
-    public const STATUS_DUPLICATE   = 'duplicate';    // already applied by the old system
+    public const STATUS_DUPLICATE   = 'duplicate';
+    public const STATUS_HELD        = 'held';         // deposit for a registered student not yet enrolled; applied at enrollment    // already applied by the old system
 
     protected $fillable = [
         'message_id',
@@ -93,6 +94,12 @@ class KcbIpn extends Model
     public function needsAttention(): bool
     {
         return in_array($this->status, [self::STATUS_UNALLOCATED, self::STATUS_QUARANTINED], true);
+    }
+
+    /** Finance may still apply it elsewhere or set it aside: waiting payments and held deposits */
+    public function isOpen(): bool
+    {
+        return $this->needsAttention() || $this->status === self::STATUS_HELD;
     }
 
     public function getPayerNameAttribute(): string

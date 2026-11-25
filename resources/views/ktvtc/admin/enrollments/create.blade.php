@@ -103,7 +103,7 @@
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('student_id') border-red-500 @enderror">
                             <option value="">-- Search for a student --</option>
                             @foreach($students as $student)
-                                <option value="{{ $student->id }}" {{ old('student_id') == $student->id ? 'selected' : '' }}>
+                                <option value="{{ $student->id }}" {{ old('student_id', request('student_id')) == $student->id ? 'selected' : '' }}>
                                     {{ $student->full_name }} ({{ $student->student_number ?? 'No ID' }})
                                 </option>
                             @endforeach

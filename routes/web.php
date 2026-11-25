@@ -576,6 +576,10 @@ Route::prefix('academic-terms')->name('academic-terms.')->group(function () {
         Route::post('/bulk/delete', [StudentController::class, 'bulkDelete'])->name('bulk.delete');
         Route::post('/bulk/send-logins', [StudentPortalAccessController::class, 'bulkSend'])->name('bulk.send-logins');
         Route::post('/{student}/send-login', [StudentPortalAccessController::class, 'send'])->name('send-login');
+        // Collect school fees by M-Pesa from the student's page (held as a deposit until enrolled)
+        Route::post('/{student}/fee-prompt', [App\Http\Controllers\AdminFeePromptController::class, 'send'])->name('fee-prompt');
+        Route::get('/{student}/fee-prompt/{transaction}', [App\Http\Controllers\AdminFeePromptController::class, 'status'])->whereNumber('transaction')->name('fee-prompt.status');
+        Route::post('/{student}/fee-details', [App\Http\Controllers\AdminFeePromptController::class, 'textDetails'])->name('fee-details');
         Route::get('/export', [StudentController::class, 'export'])->name('export');
         Route::get('/import', [StudentController::class, 'importView'])->name('import.view');
         Route::post('/import', [StudentController::class, 'importProcess'])->name('import.process');

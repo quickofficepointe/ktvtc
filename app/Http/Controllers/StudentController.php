@@ -371,8 +371,10 @@ class StudentController extends Controller
 
         Log::info('=== STUDENT STORE COMPLETED ===');
 
-        return redirect()->route('admin.students.index')
-            ->with('success', "Student created successfully. Student Number: {$studentNumber}");
+        // Straight to the student's page: admissions can collect fees by M-Pesa there (kept as a deposit until enrolled)
+        return redirect()->route('admin.students.show', $student)
+            ->with('success', "Student registered. Reserved number {$studentNumber}: fees can be paid now to Paybill " . config('kcb.paybill')
+                . ", account " . config('kcb.tills.school_fees') . "#{$studentNumber}. Enroll them to give them their course number.");
     }
 
     public function show($id)
