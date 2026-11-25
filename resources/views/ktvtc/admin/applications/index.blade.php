@@ -42,8 +42,8 @@
         </div>
         <div class="mt-4">
             <div class="flex items-center text-sm text-gray-500">
-                <i class="fas fa-arrow-up text-success mr-1"></i>
-                <span>+8% from last month</span>
+                <i class="fas fa-calendar-alt text-gray-400 mr-1"></i>
+                <span>{{ $thisMonth ?? 0 }} this month</span>
             </div>
         </div>
     </div>
@@ -210,7 +210,7 @@
             </thead>
             <tbody class="divide-y divide-gray-200">
                 @forelse($applications as $application)
-                <tr class="hover:bg-gray-50 transition-colors cursor-pointer" onclick="viewApplication('{{ $application->id }}')">
+                <tr class="hover:bg-gray-50 transition-colors cursor-pointer" onclick="window.location='{{ route('admin.applications.show', $application->id) }}'">
                     <td class="py-3 px-6">
                         <div class="flex items-center">
                             <div class="w-8 h-8 rounded-lg bg-primary-light flex items-center justify-center mr-3">
@@ -269,11 +269,11 @@
                     </td>
                     <td class="py-3 px-6" onclick="event.stopPropagation()">
                         <div class="flex items-center space-x-2">
-                            <button onclick="viewApplication('{{ $application->id }}')"
-                                    class="p-2 text-gray-600 hover:text-primary hover:bg-gray-100 rounded-lg transition-colors"
-                                    data-tooltip="View Details">
+                            <a href="{{ route('admin.applications.show', $application->id) }}"
+                               class="p-2 text-gray-600 hover:text-primary hover:bg-gray-100 rounded-lg transition-colors"
+                               data-tooltip="View Details" title="Open application">
                                 <i class="fas fa-eye"></i>
-                            </button>
+                            </a>
                             <div class="relative">
                                 <button onclick="toggleActionMenu('{{ $application->id }}')"
                                         class="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors">

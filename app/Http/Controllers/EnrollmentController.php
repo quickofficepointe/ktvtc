@@ -140,7 +140,7 @@ class EnrollmentController extends Controller
             ->get();
 
         // ✅ FIX: Use 'fees_breakdown' (plural) - matches the database column
-        $courses = Course::select('id', 'name', 'code', 'fees_breakdown')
+        $courses = Course::select('id', 'name', 'code', 'fees_breakdown', 'term_count', 'term_length', 'term_length_unit')
             ->orderBy('name')
             ->get();
 

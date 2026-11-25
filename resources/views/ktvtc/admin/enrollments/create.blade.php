@@ -131,11 +131,13 @@
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent @error('course_id') border-red-500 @enderror">
                             <option value="">-- Search for a course --</option>
                             @foreach($courses as $course)
+                                @php $perTerm = $course->hasTermSetup(); @endphp
+                                {{-- Courses split into terms are billed a term at a time: the enrollment starts at 0 --}}
                                 <option value="{{ $course->id }}"
-                                        data-fee-breakdown='@json($course->fee_breakdown ?? [])'
-                                        data-total-fee="{{ $course->total_fee ?? 0 }}"
+                                        data-fee-breakdown='@json($perTerm ? [] : ($course->fee_breakdown ?? []))'
+                                        data-total-fee="{{ $perTerm ? 0 : ($course->total_fee ?? 0) }}"
                                         {{ old('course_id') == $course->id ? 'selected' : '' }}>
-                                    {{ $course->name }} ({{ $course->code ?? 'N/A' }}) - KES {{ number_format($course->total_fee ?? 0, 2) }}
+                                    {{ $course->name }} ({{ $course->code ?? 'N/A' }}) - {{ $perTerm ? "billed per term ({$course->term_count} terms)" : 'KES ' . number_format($course->total_fee ?? 0, 2) }}
                                 </option>
                             @endforeach
                         </select>
@@ -189,7 +191,7 @@
                     @enderror
                     <p class="mt-1 text-xs text-gray-500">
                         <i class="fas fa-info-circle mr-1"></i>
-                        Fees will be auto-filled when you select a course. You can manually adjust if needed.
+                        Fees are filled in when you select a course. Courses billed per term start at 0: register Term 1 after saving and its fee is billed.
                     </p>
                 </div>
 

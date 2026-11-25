@@ -105,6 +105,7 @@ class ApplicationAdmissionController extends Controller
             'campus_id'         => $campusId ?? $a->campus_id,
             'status'            => 'active',
             'registration_date' => now(),
+            'registration_type' => 'online_application',
             'student_category'  => 'regular',
             'application_id'    => $a->id,
             'id_type'           => $a->id_type,

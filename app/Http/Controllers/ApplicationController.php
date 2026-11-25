@@ -385,39 +385,34 @@ private function generateApplicantConfirmationMessage(Application $application, 
             $query->where('status', 'completed');
         }])->latest();
 
-        // Filter by campus
-        if ($request->has('campus_id')) {
-            $query->where('campus_id', $request->campus_id);
+        // Empty dropdowns ("All ...") mean no filter
+        $query->when($request->filled('campus_id'), fn ($q) => $q->where('campus_id', $request->campus_id))
+            ->when($request->filled('course_id'), fn ($q) => $q->where('course_id', $request->course_id))
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
+            ->when($request->filled('date_from'), fn ($q) => $q->whereDate('created_at', '>=', $request->date_from))
+            ->when($request->filled('date_to'), fn ($q) => $q->whereDate('created_at', '<=', $request->date_to));
+
+        // Filter by payment status (KES 500 application fee)
+        if ($request->payment_status === 'paid') {
+            $query->whereHas('payments', fn ($q) => $q->where('status', 'completed'));
+        } elseif ($request->payment_status === 'pending') {
+            $query->whereDoesntHave('payments', fn ($q) => $q->where('status', 'completed'));
         }
 
-        // Filter by course
-        if ($request->has('course_id')) {
-            $query->where('course_id', $request->course_id);
-        }
+        // Summary cards (all applications, whatever the filters)
+        $byStatus = Application::selectRaw('status, COUNT(*) n')->groupBy('status')->pluck('n', 'status');
+        $totalApplications = $byStatus->sum();
+        $pendingApplications = ($byStatus['pending'] ?? 0) + ($byStatus['under_review'] ?? 0);
+        $acceptedApplications = $byStatus['accepted'] ?? 0;
+        $waitingListApplications = $byStatus['waiting_list'] ?? 0;
+        $thisMonth = Application::where('created_at', '>=', now()->startOfMonth())->count();
 
-        // Filter by status
-        if ($request->has('status')) {
-            $query->where('status', $request->status);
-        }
-
-        // Filter by payment status
-        if ($request->has('payment_status')) {
-            if ($request->payment_status === 'paid') {
-                $query->whereHas('payments', function($q) {
-                    $q->where('status', 'completed');
-                });
-            } elseif ($request->payment_status === 'pending') {
-                $query->whereDoesntHave('payments', function($q) {
-                    $q->where('status', 'completed');
-                });
-            }
-        }
-
-        $applications = $query->paginate(20);
+        $applications = $query->paginate(20)->withQueryString();
         $courses = Course::active()->orderBy('name', 'asc')->get();
         $campuses = Campus::active()->orderBy('name', 'asc')->get();
 
-        return view('ktvtc.admin.applications.index', compact('courses', 'campuses', 'applications'));
+        return view('ktvtc.admin.applications.index', compact('courses', 'campuses', 'applications',
+            'totalApplications', 'pendingApplications', 'acceptedApplications', 'waitingListApplications', 'thisMonth'));
     }
 
     /**

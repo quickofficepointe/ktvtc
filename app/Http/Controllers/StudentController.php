@@ -264,6 +264,7 @@ class StudentController extends Controller
                     'campus_id' => $request->campus_id,
                     'status' => $request->status ?? 'active',
                     'registration_date' => now(),
+                    'registration_type' => $request->application_id ? 'online_application' : 'manual_entry', // was left at the 'excel_import' default
                     'student_category' => $request->student_category ?? 'regular',
                     'application_id' => $request->application_id,
                     'id_number' => $request->id_number,

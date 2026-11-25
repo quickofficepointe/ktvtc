@@ -15,6 +15,7 @@ class WelcomeVideo
         User::ROLE_TRAINERS => ['file' => 'videos/trainer-portal.mp4', 'title' => 'Trainer portal: how to', 'minutes' => 2],
         11                  => ['file' => 'videos/academics-office.mp4', 'title' => 'Academics office: how to', 'minutes' => 4],
         User::ROLE_FINANCE  => ['file' => 'videos/finance-office.mp4', 'title' => 'Finance office: how to', 'minutes' => 11],
+        User::ROLE_ADMIN    => ['file' => 'videos/admissions-admin.mp4', 'title' => 'Admissions & admin: how to', 'minutes' => 6],
     ];
 
     public static function for(User $user): ?array

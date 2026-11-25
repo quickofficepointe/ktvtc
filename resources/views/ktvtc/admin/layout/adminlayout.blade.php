@@ -289,6 +289,7 @@
     </style>
 
     @yield('styles')
+    @stack('styles')
 </head>
 <body class="min-h-screen bg-gray-50">
     <!-- Mobile Overlay -->
@@ -568,6 +569,12 @@
                    class="admin-nav-link flex items-center px-4 py-3 rounded-xl {{ request()->routeIs('admin.enrollments.*') ? 'active' : '' }}">
                     <i class="fas fa-book-open mr-3 text-lg"></i>
                     <span class="nav-text">Enrollments</span>
+                </a>
+
+                <!-- How-to video for admissions & admin -->
+                <a href="{{ route('welcome-video.show') }}" class="admin-nav-link flex items-center px-4 py-3 rounded-xl">
+                    <i class="fas fa-play-circle mr-3 text-lg"></i>
+                    <span class="nav-text">How-to Video</span>
                 </a>
 
                 <!-- Portal quiz scores and how-to video -->
@@ -1145,5 +1152,6 @@
     </script>
 
     @yield('scripts')
+    @stack('scripts') {{-- pages that @push('scripts') (enrollment form, academic terms) --}}
 </body>
 </html>

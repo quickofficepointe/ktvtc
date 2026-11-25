@@ -1,7 +1,7 @@
 @extends('ktvtc.admin.layout.adminlayout')
 
 @section('title', 'Enrollment Details')
-@section('subtitle', $enrollment->enrollment_number ?? 'Enrollment Details')
+@section('subtitle', ($enrollment->enrollment_number ?: $enrollment->student_number) ?? 'Enrollment Details')
 
 @section('breadcrumb')
 <li>
@@ -13,7 +13,7 @@
 <li aria-current="page">
     <div class="flex items-center">
         <i class="fas fa-angle-right text-gray-400"></i>
-        <span class="ml-1 text-sm font-medium text-gray-800 md:ml-2">{{ $enrollment->enrollment_number ?? 'Details' }}</span>
+        <span class="ml-1 text-sm font-medium text-gray-800 md:ml-2">{{ ($enrollment->enrollment_number ?: $enrollment->student_number) ?? 'Details' }}</span>
     </div>
 </li>
 @endsection
@@ -49,7 +49,7 @@
                 </div>
                 <div>
                     <div class="flex items-center space-x-2">
-                        <h2 class="text-2xl font-bold text-gray-800">{{ $enrollment->enrollment_number ?? 'N/A' }}</h2>
+                        <h2 class="text-2xl font-bold text-gray-800">{{ ($enrollment->enrollment_number ?: $enrollment->student_number) ?? 'N/A' }}</h2>
                         @if($enrollment->legacy_code)
                             <span class="px-3 py-1 bg-gray-100 rounded-lg text-xs font-mono text-gray-600">
                                 Legacy: {{ $enrollment->legacy_code }}
@@ -200,7 +200,7 @@
                     <dl class="grid grid-cols-1 gap-4">
                         <div class="flex justify-between">
                             <dt class="text-sm text-gray-600">Enrollment Number</dt>
-                            <dd class="text-sm font-mono font-medium text-gray-900">{{ $enrollment->enrollment_number ?? 'N/A' }}</dd>
+                            <dd class="text-sm font-mono font-medium text-gray-900">{{ ($enrollment->enrollment_number ?: $enrollment->student_number) ?? 'N/A' }}</dd>
                         </div>
                         @if($enrollment->legacy_code)
                         <div class="flex justify-between">
