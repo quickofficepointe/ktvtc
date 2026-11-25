@@ -218,6 +218,14 @@
                 </li>
 
                 <li>
+                    <a href="{{ route('student.quiz.index') }}"
+                       class="flex items-center px-3 py-3 text-sm rounded-lg nav-link {{ request()->routeIs('student.quiz.*') ? 'active' : '' }}">
+                        <i class="fas fa-question-circle w-5 mr-3"></i>
+                        <span>Portal Quiz</span>
+                    </a>
+                </li>
+
+                <li>
                     <a href="{{ route('profile.edit') }}"
                        class="flex items-center px-3 py-3 text-sm rounded-lg nav-link {{ request()->routeIs('profile.edit') ? 'active' : '' }}">
                         <i class="fas fa-user-edit w-5 mr-3"></i>

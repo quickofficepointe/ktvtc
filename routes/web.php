@@ -822,6 +822,11 @@ Route::prefix('attachment')->name('attachment.')->group(function () {
         Route::get('/transcript', [StudentResultsController::class, 'transcript'])->name('transcript');
     });
 
+    // Portal quiz: paying fees, evaluating trainers, the dashboard; every attempt is kept
+    Route::get('/quiz', [App\Http\Controllers\StudentQuizController::class, 'index'])->name('quiz.index');
+    Route::post('/quiz', [App\Http\Controllers\StudentQuizController::class, 'store'])->name('quiz.store');
+    Route::get('/quiz/{attempt}', [App\Http\Controllers\StudentQuizController::class, 'show'])->whereNumber('attempt')->name('quiz.show');
+
     Route::prefix('evaluations')->name('evaluations.')->group(function () {
         Route::get('/{registration}', [StudentEvaluationController::class, 'show'])->name('show');
         Route::post('/{registration}/{unit}', [StudentEvaluationController::class, 'store'])->name('store');

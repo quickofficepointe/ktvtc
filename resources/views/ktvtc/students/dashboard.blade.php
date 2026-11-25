@@ -19,6 +19,23 @@
         </x-slot>
     </x-dash.header>
 
+    @php $quiz = rescue(fn () => \App\Models\PortalQuizAttempt::where('user_id', auth()->id())->selectRaw('MAX(score) best, MAX(total) total, COUNT(*) n')->first(), null, false); @endphp
+    @if($quiz)
+        <a href="{{ route('student.quiz.index') }}" class="flex items-center gap-3 mb-6 p-4 rounded-xl border {{ $quiz->n ? 'bg-white border-gray-200' : 'bg-amber-50 border-amber-200' }} hover:shadow-sm">
+            <i class="fas fa-question-circle text-2xl {{ $quiz->n ? 'text-green-600' : 'text-amber-500' }}"></i>
+            <span class="flex-1 min-w-0 text-sm">
+                @if($quiz->n)
+                    <b class="text-gray-800">Portal quiz: your best score is {{ $quiz->best }}/{{ $quiz->total }}</b>
+                    <span class="block text-gray-500">Taken {{ $quiz->n }} {{ Str::plural('time', $quiz->n) }}. Try again any time.</span>
+                @else
+                    <b class="text-gray-800">Take the 2-minute portal quiz</b>
+                    <span class="block text-gray-600">10 questions on paying fees, evaluating trainers and your dashboard. See your score at once.</span>
+                @endif
+            </span>
+            <i class="fas fa-chevron-right text-gray-400"></i>
+        </a>
+    @endif
+
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <x-dash.kpi label="Fee balance" :value="'KES ' . number_format($balance)" icon="fa-wallet" :tone="$balance > 0 ? 'amber' : 'green'"
             :hint="$balance > 0 ? 'M-Pesa Paybill ' . config('kcb.paybill') . ', account ' . config('kcb.tills.school_fees') . '#' . $student->student_number : 'All fees paid'" :href="route('student.fees.index')" />
