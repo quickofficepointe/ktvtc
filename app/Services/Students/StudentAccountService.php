@@ -117,7 +117,10 @@ class StudentAccountService
         $result = rescue(fn () => $this->sms->sendSingleSms($student->phone, $message), ['success' => false, 'message' => 'SMS error'], false);
         if (!($result['success'] ?? false)) {
             Log::warning('Login details SMS failed', ['student_id' => $student->id, 'error' => $result['message'] ?? null]);
-            return ['ok' => false, 'message' => "The SMS to {$student->phone} failed: " . ($result['message'] ?? 'unknown error') . '. The account is ready; try again later.'];
+            // No SMS (e.g. no credit): staff hand the details over instead
+            return ['ok' => false, 'message' => "The SMS to {$student->phone} could not be sent. The account is ready: give {$student->first_name} these details yourself. "
+                . "Sign in at " . url('/login') . " with student number {$student->student_number} and password {$password}. "
+                . 'They choose their own password at the first sign-in.'];
         }
 
         $user->forceFill(['login_details_sent_at' => now()])->save();
