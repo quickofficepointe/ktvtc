@@ -111,7 +111,7 @@
     </div>
     <div class="p-6">
         <form id="filterForm">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 <!-- Status Filter -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
@@ -122,6 +122,16 @@
                         <option value="accepted">Accepted</option>
                         <option value="rejected">Rejected</option>
                         <option value="waiting_list">Waiting List</option>
+                    </select>
+                </div>
+
+                <!-- KES 500 application fee -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">KES 500 fee</label>
+                    <select name="payment_status" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <option value="">Paid or not</option>
+                        <option value="paid" @selected(request('payment_status') === 'paid')>Paid</option>
+                        <option value="pending" @selected(request('payment_status') === 'pending')>Not paid</option>
                     </select>
                 </div>
 
@@ -204,6 +214,7 @@
                     <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Campus</th>
                     <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Intake</th>
                     <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">KES 500</th>
                     <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
                     <th class="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
@@ -260,6 +271,15 @@
                         </span>
                     </td>
                     <td class="py-3 px-6">
+                        @php $fee = $application->payments->firstWhere('status', 'completed'); @endphp
+                        @if($fee)
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"><i class="fas fa-check mr-1"></i>Paid</span>
+                            <div class="text-xs text-gray-400 mt-0.5">{{ $fee->mpesa_receipt_number }}</div>
+                        @else
+                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">Not paid</span>
+                        @endif
+                    </td>
+                    <td class="py-3 px-6">
                         <div class="text-sm text-gray-600">
                             {{ $application->submitted_at->format('M j, Y') }}
                         </div>
@@ -309,7 +329,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="8" class="py-8 px-6 text-center">
+                    <td colspan="9" class="py-8 px-6 text-center">
                         <div class="flex flex-col items-center justify-center">
                             <i class="fas fa-inbox text-gray-300 text-4xl mb-4"></i>
                             <p class="text-gray-500 text-lg font-medium">No applications found</p>

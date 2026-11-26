@@ -73,7 +73,7 @@
                 <div class="flex items-center justify-between relative">
                     {{-- Progress Line --}}
                     <div class="absolute top-5 left-0 right-0 h-1 bg-gray-200 -z-10">
-                        <div id="progressBar" class="h-1 bg-[#B91C1C] transition-all duration-500" style="width: {{ $course ? '16.66%' : '0%' }}"></div>
+                        <div id="progressBar" class="h-1 bg-[#B91C1C] transition-all duration-500" style="width: 0%"></div>
                     </div>
 
                     {{-- Step Indicators --}}
@@ -84,7 +84,8 @@
                             3 => ['label' => 'Personal', 'sub' => 'Your details'],
                             4 => ['label' => 'Education', 'sub' => 'Background'],
                             5 => ['label' => 'Documents', 'sub' => 'Upload files'],
-                            6 => ['label' => 'Review', 'sub' => 'Final check']
+                            6 => ['label' => 'Review', 'sub' => 'Final check'],
+                            7 => ['label' => 'Pay KES 500', 'sub' => 'Sends it'],
                         ];
                     @endphp
 
@@ -294,13 +295,12 @@
                         </div>
                     @endif
 
+                    {{-- Shown whether the course came from the course page or was picked from the list above --}}
                     <div class="flex justify-end mt-8">
-                        @if($course)
-                            <button type="button" id="continueToStep2"
-                                    class="bg-[#B91C1C] text-white px-8 py-3 rounded-lg hover:bg-[#991B1B] transition-colors duration-200 font-semibold shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
-                                Continue to Campus →
-                            </button>
-                        @endif
+                        <button type="button" id="continueToStep2"
+                                class="bg-[#B91C1C] text-white px-8 py-3 rounded-lg hover:bg-[#991B1B] transition-colors duration-200 font-semibold shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
+                            Continue to Campus →
+                        </button>
                     </div>
                 </div>
 
@@ -762,6 +762,11 @@
                         </div>
                     </div>
 
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 mt-4 text-sm text-green-900">
+                        <p class="font-semibold mb-1">Last step: the KES 500 registration fee</p>
+                        <p>Next you pay KES 500 by M-Pesa: a PIN prompt comes to your phone. Your application is sent to the admissions office as soon as it is paid.</p>
+                    </div>
+
                     <div class="flex items-center mt-6 mb-6">
                         <input type="checkbox" id="confirmAccuracy" class="w-4 h-4 text-[#B91C1C] border-gray-300 rounded focus:ring-[#B91C1C]">
                         <label for="confirmAccuracy" class="ml-2 text-sm text-gray-700">
@@ -776,7 +781,7 @@
                         </button>
                         <button type="submit" id="submitButton" disabled
                                 class="bg-gray-400 text-gray-700 px-8 py-3 rounded-lg font-semibold cursor-not-allowed transition-colors duration-200">
-                            Submit Application
+                            Continue to payment (KES 500) →
                         </button>
                     </div>
                 </div>
@@ -808,7 +813,7 @@
 <script>
     // Make functions available globally
     let currentStep = 1;
-    const totalSteps = 6;
+    const totalSteps = 7; // 6 form steps + paying the KES 500 (shown on the next page)
     let selectedCampusId = null;
     let selectedCourse = @json($course ?? null);
 

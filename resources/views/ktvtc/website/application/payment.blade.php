@@ -10,8 +10,9 @@
 <section class="bg-gradient-to-r from-[#B91C1C] to-[#BF1F30] py-16 text-white">
     <div class="container mx-auto px-4">
         <div class="text-center">
-            <h1 class="text-4xl md:text-5xl font-bold mb-4">Application Fee Payment</h1>
-            <p class="text-xl opacity-90 max-w-2xl mx-auto">Pay KES 500 registration fee to complete your application</p>
+            <p class="text-sm font-semibold uppercase tracking-wider opacity-80 mb-2">Step 7 of 7 · Last step</p>
+            <h1 class="text-4xl md:text-5xl font-bold mb-4">Pay KES 500 to send your application</h1>
+            <p class="text-xl opacity-90 max-w-2xl mx-auto">Your details are saved. Pay the KES 500 registration fee by M-Pesa and your application goes to the admissions office.</p>
         </div>
     </div>
 </section>
