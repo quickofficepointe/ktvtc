@@ -620,6 +620,8 @@ Route::prefix('academic-terms')->name('academic-terms.')->group(function () {
         Route::post('/{enrollment}/suspend', [EnrollmentController::class, 'suspend'])->name('suspend');
         Route::post('/bulk/complete', [EnrollmentController::class, 'bulkComplete'])->name('bulk.complete');
         Route::post('/{enrollment}/complete', [EnrollmentController::class, 'complete'])->name('complete');
+        // Put an enrollment placed on the wrong course by mistake on the right one
+        Route::post('/{enrollment}/correct-course', [App\Http\Controllers\EnrollmentCourseCorrectionController::class, 'store'])->name('correct-course');
         Route::post('/{enrollment}/defer', [EnrollmentController::class, 'defer'])->name('defer');
         Route::post('/{enrollment}/register-exam', [EnrollmentController::class, 'registerExam'])->name('register-exam');
         Route::post('/bulk/delete', [EnrollmentController::class, 'bulkDelete'])->name('bulk.delete');

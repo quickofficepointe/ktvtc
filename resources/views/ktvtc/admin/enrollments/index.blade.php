@@ -34,6 +34,18 @@
 @endsection
 
 @section('content')
+@php $mismatched = \App\Models\Enrollment::whereRaw(\App\Http\Controllers\EnrollmentController::MISMATCH_SQL)->count(); @endphp
+@if(request()->boolean('mismatch'))
+    <div class="mb-6 p-4 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-900 flex flex-wrap items-center justify-between gap-3">
+        <span><b>{{ number_format($mismatched) }} enrollments</b> have a number whose course code is not their course's code. Many are just old codes (e.g. HDBT for Hairdressing); open the others and use <b>Wrong course? Correct it</b>.</span>
+        <a href="{{ route('admin.enrollments.index') }}" class="font-semibold underline">Show all enrollments</a>
+    </div>
+@elseif($mismatched)
+    <div class="mb-6 p-4 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 flex flex-wrap items-center justify-between gap-3">
+        <span><i class="fas fa-random text-primary mr-1"></i>{{ number_format($mismatched) }} enrollments have a number that does not match their course.</span>
+        <a href="{{ route('admin.enrollments.index', ['mismatch' => 1]) }}" class="font-semibold text-primary hover:underline">Check them</a>
+    </div>
+@endif
 <!-- Statistics Cards -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
     <div class="bg-white rounded-xl border border-gray-200 p-6 card-hover">

@@ -17,6 +17,11 @@ use App\Services\Students\EnrollmentCreator;
 
 class EnrollmentController extends Controller
 {
+    /** The prefix of the enrollment number is not the course's code (old STU numbers left out) */
+    public const MISMATCH_SQL = "UPPER(SUBSTRING_INDEX(enrollments.student_number, '/', 1)) <> 'STU'
+        AND UPPER(SUBSTRING_INDEX(enrollments.student_number, '/', 1)) <> (SELECT UPPER(TRIM(BOTH '/' FROM c.code)) FROM courses c
+            WHERE c.id = enrollments.course_id AND c.code IS NOT NULL AND TRIM(BOTH '/' FROM c.code) <> '')";
+
     protected $smsService;
 
     public function __construct(SmsService $smsService)
@@ -80,11 +85,16 @@ class EnrollmentController extends Controller
         }
 
         // 🔒 Fee lock filter
+        // Number's course code differs from the course (e.g. PA/930/2026 on Solar & Hybrid): to check and correct
+        if ($request->boolean('mismatch')) {
+            $query->whereRaw(self::MISMATCH_SQL);
+        }
+
         if ($request->filled('fee_locked')) {
             $query->where('fee_locked', $request->fee_locked === 'yes');
         }
 
-        $enrollments = $query->orderBy('created_at', 'desc')->paginate(15);
+        $enrollments = $query->orderBy('created_at', 'desc')->paginate(15)->withQueryString();
 
         // Stats
         $totalEnrollments = Enrollment::count();

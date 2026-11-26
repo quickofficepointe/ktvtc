@@ -622,6 +622,50 @@
     </div>
 </div>
 
+<!-- Correct a course chosen by mistake (not a student's course change) -->
+<details class="mb-6 bg-white rounded-xl border border-gray-200 overflow-hidden" id="correct-course" @if($errors->has('course_id') || $errors->has('reason') || old('reason')) open @endif>
+    <summary class="px-6 py-4 cursor-pointer bg-gray-50 flex items-center justify-between gap-3">
+        <span class="font-semibold text-gray-800"><i class="fas fa-random text-primary mr-2"></i>Wrong course? Correct it</span>
+        <span class="text-xs text-gray-500">For mistakes only. A student who wants to switch courses uses Course Changes.</span>
+    </summary>
+    <form method="POST" action="{{ route('admin.enrollments.correct-course', $enrollment) }}" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm"
+          onsubmit="return confirm('Move this enrollment to the selected course? The number keeps its running number with the new course code.')">
+        @csrf
+        <div class="md:col-span-2 text-gray-700">
+            Now: <b>{{ $enrollment->course_name }}</b> · number <b class="font-mono">{{ $enrollment->student_number }}</b>.
+            Payments and receipts stay; the number becomes the new course code with the same running number, and payments to the old number still reach the student.
+        </div>
+        <label class="block">
+            <span class="text-gray-600">Correct course *</span>
+            <select name="course_id" required class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2">
+                <option value="">Choose the right course</option>
+                @foreach(\App\Models\Course::where('is_active', true)->where('id', '!=', $enrollment->course_id)->orderBy('name')->get(['id', 'name', 'code']) as $c)
+                    <option value="{{ $c->id }}" @selected(old('course_id') == $c->id)>{{ $c->name }}{{ $c->code ? ' (' . trim($c->code, '/') . ')' : '' }}</option>
+                @endforeach
+            </select>
+        </label>
+        @if($enrollment->billing_mode !== 'term')
+            <label class="block">
+                <span class="text-gray-600">Whole-course fee for the right course (KES)</span>
+                <input type="number" name="total_fees" min="0" step="0.01" value="{{ old('total_fees') }}" placeholder="Leave empty to keep KES {{ number_format($enrollment->total_fees) }}"
+                       class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2">
+            </label>
+        @else
+            <p class="text-xs text-gray-500 self-end">Billed per term: the registered terms keep their fees. Finance can adjust a term fee if it differs.</p>
+        @endif
+        <label class="block md:col-span-2">
+            <span class="text-gray-600">Reason *</span>
+            <input type="text" name="reason" required minlength="10" maxlength="300" value="{{ old('reason') }}"
+                   placeholder="e.g. Imported on Solar & Hybrid by mistake; the student is in Pastry"
+                   class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2">
+        </label>
+        <div class="md:col-span-2">
+            <button class="bg-primary hover:bg-red-800 text-white px-5 py-2 rounded-lg font-semibold"><i class="fas fa-check mr-1"></i>Correct the course</button>
+            <span class="text-xs text-gray-500 ml-2">Recorded under Remarks with your name, the old course and number, and the reason.</span>
+        </div>
+    </form>
+</details>
+
 <!-- Quick Actions (No Fee Actions) -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
     @if($enrollment->requires_external_exam)

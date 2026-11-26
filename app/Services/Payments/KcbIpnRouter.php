@@ -581,7 +581,25 @@ class KcbIpnRouter
             $students = Student::whereNull('merged_into_id')->whereIn('id', $ids)->limit(3)->get();
         }
 
+        // A number from before a course correction ("SHEP/930/2026" -> PA/930/2026): only the exact
+        // old number recorded by the correction counts, so a mistyped code never reaches someone else
+        if ($feesTill && $students->isEmpty() && ($old = $this->correctedEnrollment($reference))) {
+            $students = Student::whereNull('merged_into_id')->whereKey($old->student_id)->get();
+        }
+
         return $students;
+    }
+
+    /** The enrollment whose course correction replaced this exact number (see CourseCorrection) */
+    private function correctedEnrollment(?string $reference): ?Enrollment
+    {
+        $ref = strtoupper(trim((string) $reference));
+        if (!preg_match('#^[A-Z]+\d*/\d+/\d{4}$#', $ref)) {
+            return null;
+        }
+        $matches = Enrollment::where('remarks', 'like', '%course corrected from % (' . $ref . ') to %')->limit(2)->get();
+
+        return $matches->count() === 1 ? $matches->first() : null;
     }
 
     /** "1209" or "#1209" typed as the account: the running number reserved at registration */
@@ -602,6 +620,9 @@ class KcbIpnRouter
             if ($matches->count() === 1) {
                 return $matches->first();
             }
+        }
+        if ($old = $this->correctedEnrollment($reference)) {
+            return $old;
         }
         $alnum = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $reference));
         $matches = Enrollment::where(fn ($q) => $q->where('student_number', $reference)
